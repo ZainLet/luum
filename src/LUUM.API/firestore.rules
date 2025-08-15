@@ -1,0 +1,45 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Regra para a coleção 'users'
+    // Permite que um usuário crie seu próprio documento.
+    // Permite que um usuário autenticado leia ou atualize seu próprio documento.
+    match /users/{userId} {
+      allow create: if request.auth != null;
+      allow read, update: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Regra para a coleção 'sessions'
+    // Permite que um usuário autenticado crie uma sessão se o 'UserId' da sessão for o seu próprio UID.
+    // Permite que um usuário autenticado leia ou atualize uma sessão se ele for o dono dela.
+    match /sessions/{sessionId} {
+      allow create, read, update: if request.auth != null && request.resource.data.UserId == request.auth.uid;
+    }
+
+    // File: src/LUUM.API/firestore.rules
+
+// ... (regras para users e sessions acima)
+
+    // Regra para a coleção 'activityLogs'
+    // Permite que um usuário crie um log de atividade se o 'UserId' for o seu próprio UID.
+    match /activityLogs/{activityId} {
+      allow create: if request.auth != null && request.resource.data.UserId == request.auth.uid;
+      allow read: if request.auth != null && resource.data.UserId == request.auth.uid;
+    }
+    
+    // Regra para a coleção 'categoryCache'
+    // Permite que qualquer usuário autenticado leia ou escreva nesta coleção.
+    // O cache é compartilhado entre todos os usuários.
+    match /categoryCache/{cacheId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Regra de fallback: nega todas as outras leituras/escritas por padrão.
+    // Esta linha não é estritamente necessária, pois o padrão é negar, mas é bom ser explícito.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

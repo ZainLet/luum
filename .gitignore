@@ -1,0 +1,35 @@
+# Dependencies
+## Ignore all node_modules directories
+**/node_modules
+
+# Visual Studio Code
+.vscode/
+
+# Build results
+[Bb]in/
+[Oo]bj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Secrets that should not be in the repo
+appsettings.Development.json
+secrets.json
+*.env
+/secrets/
+
+# Firebase
+.firebase/
+firebase.json
+database.rules.json
+storage.rules
+*.log
+
+# Rider
+.idea/
+
+# Mac
+.DS_Store

@@ -1,0 +1,42 @@
+@page "/sessions"
+@using LUUM.Client.Services
+@using LUUM.API.Models
+@inject SessionService SessionService
+
+<h3>Sessões de Trabalho</h3>
+
+@if (sessions == null)
+{
+    <p><em>Carregando sessões...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Categoria</th>
+                <th>Projeto</th>
+                <th>Duração</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var session in sessions)
+            {
+                <tr>
+                    <td>@session.Category</td>
+                    <td>@session.AssociatedProject</td>
+                    <td>@(session.EndTime.HasValue ? (session.EndTime.Value.ToDateTimeOffset() - session.StartTime.ToDateTimeOffset()).TotalMinutes.ToString("F2") + " min" : "Em andamento")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Session>? sessions;
+
+    protected override async Task OnInitializedAsync()
+    {
+        sessions = await SessionService.GetSessionsAsync();
+    }
+}

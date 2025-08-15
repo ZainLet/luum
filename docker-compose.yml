@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: luum-api
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080;https://+:8081
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/firebase-key.json
+      - Firestore__ProjectId=FIREBASE_PROJECT_ID
+      - Firestore__EmulatorHost=firestore-emulator
+      - Firestore__EmulatorPort=8082
+      - Gemini__ApiKey=GEMINI_API_KEY
+    volumes:
+      - ./path/to/your/firebase-key.json:/app/secrets/firebase-key.json:ro
+    depends_on:
+      - firestore-emulator
+    networks:
+      - luum-net
+
+  firestore-emulator:
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:latest
+    container_name: luum-firestore-emulator
+    command: gcloud beta emulators firestore start --host-port="0.0.0.0:8082"
+    ports:
+      - "8082:8082"
+    networks:
+      - luum-net
+
+networks:
+  luum-net:
+    driver: bridge
