@@ -1,0 +1,49 @@
+import Foundation
+
+struct ActivityPersistence {
+    private let fileManager: FileManager
+    private let directoryName = "luum"
+    private let fileName = "activity-log.json"
+    private let retentionDays = 30
+
+    init(fileManager: FileManager = .default) {
+        self.fileManager = fileManager
+    }
+
+    func load() -> [ActivitySample] {
+        guard
+            let data = try? Data(contentsOf: fileURL),
+            let samples = try? JSONDecoder().decode([ActivitySample].self, from: data)
+        else {
+            return []
+        }
+
+        return trim(samples: samples)
+    }
+
+    func save(samples: [ActivitySample]) throws {
+        let cleanedSamples = trim(samples: samples)
+
+        try fileManager.createDirectory(
+            at: directoryURL,
+            withIntermediateDirectories: true
+        )
+
+        let data = try JSONEncoder().encode(cleanedSamples)
+        try data.write(to: fileURL, options: .atomic)
+    }
+
+    func trim(samples: [ActivitySample]) -> [ActivitySample] {
+        let cutoff = Calendar.autoupdatingCurrent.date(byAdding: .day, value: -retentionDays, to: Date()) ?? .distantPast
+        return samples.filter { $0.endDate >= cutoff }
+    }
+
+    private var directoryURL: URL {
+        fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(directoryName, isDirectory: true)
+    }
+
+    private var fileURL: URL {
+        directoryURL.appendingPathComponent(fileName)
+    }
+}

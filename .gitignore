@@ -33,3 +33,6 @@ storage.rules
 
 # Mac
 .DS_Store
+dist/
+.build/
+src/LUUM.Mac/.build/
