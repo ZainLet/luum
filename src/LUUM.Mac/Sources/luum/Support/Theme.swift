@@ -23,19 +23,23 @@ enum LuumTheme {
 
 extension ActivityCategory {
     var tint: Color {
-        switch self {
-        case .work:
+        switch colorToken {
+        case .sky:
             Color(red: 0.48, green: 0.78, blue: 1.0)
-        case .entertainment:
+        case .magenta:
             Color(red: 0.92, green: 0.38, blue: 0.82)
-        case .communication:
+        case .mint:
             Color(red: 0.56, green: 0.87, blue: 0.78)
-        case .learning:
+        case .amber:
             Color(red: 1.0, green: 0.79, blue: 0.38)
-        case .utilities:
+        case .silver:
             Color(red: 0.74, green: 0.74, blue: 0.88)
-        case .uncategorized:
+        case .violet:
             LuumTheme.secondaryAccent
+        case .coral:
+            Color(red: 1.0, green: 0.48, blue: 0.43)
+        case .teal:
+            Color(red: 0.28, green: 0.83, blue: 0.79)
         }
     }
 

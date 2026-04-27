@@ -43,7 +43,7 @@ struct DashboardView: View {
                         agendaCard
                         liveSignalsCard
                     }
-                    .frame(width: 350)
+                    .frame(width: 360)
                 }
             }
             .padding(28)
@@ -56,15 +56,15 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 16) {
                 LuumSectionHeader(
                     eyebrow: "Luum Command Center",
-                    title: "Seu dia em camadas",
-                    subtitle: "O luum cruza app em foco, URLs e agenda para montar uma leitura mais precisa do que foi trabalho, reuniao, estudo ou entretenimento."
+                    title: "Seu dia em contexto",
+                    subtitle: "O luum cruza app em foco, URLs, categorias personalizadas, bloqueios e agenda para transformar monitoramento bruto em leitura util."
                 )
 
                 HStack(spacing: 10) {
                     StatusPill(
                         title: store.isMonitoring ? "Captura ativa" : "Captura pausada",
                         detail: store.currentActivityTitle,
-                        tint: store.isMonitoring ? ActivityCategory.work.tint : ActivityCategory.utilities.tint
+                        tint: store.currentActivityCategory?.tint ?? ActivityCategory.utilities.tint
                     )
 
                     StatusPill(
@@ -87,8 +87,8 @@ struct DashboardView: View {
                 FloatingSignalCard(
                     eyebrow: "Agora",
                     title: store.currentActivityTitle,
-                    detail: store.currentSnapshot?.pageTitle ?? store.currentSnapshot?.category.title ?? "Aguardando atividade",
-                    tint: store.currentSnapshot?.category.glassTint ?? LuumTheme.accent.opacity(0.35)
+                    detail: store.currentActivityCategory?.title ?? "Aguardando atividade",
+                    tint: store.currentActivityCategory?.glassTint ?? LuumTheme.accent.opacity(0.35)
                 )
 
                 FloatingSignalCard(
@@ -108,11 +108,11 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Timeline do dia")
+                    Text("Timeline limpa")
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Apps e compromissos ficam lado a lado para voce entender o que foi planejado e o que de fato aconteceu.")
+                    Text("Sem blocos sobrepostos. Cada acao fica listada com hora exata, contexto e categoria para voce entender o que realmente aconteceu.")
                         .foregroundStyle(LuumTheme.textSecondary)
                 }
 
@@ -124,22 +124,8 @@ struct DashboardView: View {
                 }
             }
 
-            if summary.timelineActivities.isEmpty && agenda.events.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Ainda nao ha blocos para este dia.")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-
-                    Text("Abra apps, navegue normalmente e conecte sua agenda para o painel ganhar profundidade.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                }
-                .frame(maxWidth: .infinity, minHeight: 520, alignment: .leading)
-                .padding(28)
-                .luumGlassCard(tint: LuumTheme.accent.opacity(0.12))
-            } else {
-                TimelineScene(day: selectedDay, activities: summary.timelineActivities, agendaItems: agenda.events)
-                    .frame(height: 720)
-            }
+            TimelineScene(activities: summary.timelineActivities, agendaItems: agenda.events)
+                .frame(height: 720)
         }
         .padding(24)
         .luumGlassCard(tint: LuumTheme.accent.opacity(0.12), cornerRadius: 34)
@@ -174,7 +160,7 @@ struct DashboardView: View {
                 .frame(height: 210)
 
                 VStack(spacing: 10) {
-                    ForEach(summary.categoryBreakdown.prefix(4)) { bucket in
+                    ForEach(summary.categoryBreakdown.prefix(5)) { bucket in
                         HStack {
                             Circle()
                                 .fill(bucket.category.tint)
@@ -305,7 +291,7 @@ struct DashboardView: View {
                 )
             }
 
-            if let message = store.googleCalendarStatusMessage {
+            if let message = store.lastReminderStatusMessage {
                 Text(message)
                     .font(.caption)
                     .foregroundStyle(LuumTheme.textSecondary)
@@ -327,7 +313,7 @@ struct DashboardView: View {
                     .foregroundStyle(LuumTheme.textSecondary)
             } else {
                 VStack(spacing: 10) {
-                    ForEach(summary.recentActivities.prefix(6)) { activity in
+                    ForEach(summary.recentActivities.prefix(8)) { activity in
                         HStack(alignment: .top, spacing: 12) {
                             Image(systemName: activity.category.systemImage)
                                 .foregroundStyle(activity.category.tint)
@@ -462,208 +448,213 @@ struct BreakdownListView: View {
     }
 }
 
-struct CategoryListView: View {
-    let summary: DailySummary
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                LuumSectionHeader(
-                    eyebrow: "Categorias",
-                    title: "Leitura contextual",
-                    subtitle: "O luum cruza nome do app, bundle e dominio para transformar uso bruto em contexto."
-                )
-
-                if summary.categoryBreakdown.isEmpty {
-                    Text("Ainda nao existem categorias consolidadas para este dia.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .padding(20)
-                        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.14))
-                } else {
-                    VStack(spacing: 12) {
-                        ForEach(summary.categoryBreakdown) { bucket in
-                            HStack {
-                                Label(bucket.category.title, systemImage: bucket.category.systemImage)
-                                    .foregroundStyle(.white)
-
-                                Spacer()
-
-                                Text(LuumFormatters.duration(bucket.duration))
-                                    .foregroundStyle(bucket.category.tint)
-                                    .font(.headline)
-                            }
-                            .padding(18)
-                            .luumGlassCard(tint: bucket.category.glassTint)
-                        }
-                    }
-                }
-            }
-            .padding(28)
-        }
-        .scrollIndicators(.hidden)
-    }
-}
-
 private struct TimelineScene: View {
-    let day: Date
-    let activities: [ActivitySample]
+    let activities: [ResolvedActivitySample]
     let agendaItems: [CalendarAgendaItem]
 
-    private let hours = Array(0 ... 23)
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("Apps")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.62))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, 66)
+        HStack(alignment: .top, spacing: 18) {
+            TimelineColumnCard(title: "Atividade real", icon: "waveform.path.ecg.rectangle.fill", tint: LuumTheme.accent) {
+                if activities.isEmpty {
+                    TimelineEmptyState(text: "Nenhuma atividade capturada neste dia.")
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(activitySections, id: \.title) { section in
+                                TimelineSectionHeader(title: section.title)
 
-                Text("Agenda")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.62))
-                    .frame(width: 160, alignment: .leading)
+                                ForEach(section.activities) { activity in
+                                    ActivityTimelineRow(activity: activity)
+                                }
+                            }
+                        }
+                    }
+                    .scrollIndicators(.hidden)
+                }
             }
 
-            GeometryReader { proxy in
-                let totalHeight = proxy.size.height
-                let labelWidth: CGFloat = 56
-                let columnSpacing: CGFloat = 18
-                let columnWidth = max(140, (proxy.size.width - labelWidth - columnSpacing) / 2)
-                let startOfDay = Calendar.autoupdatingCurrent.startOfDay(for: day)
+            TimelineColumnCard(title: "Agenda", icon: "calendar.badge.clock", tint: LuumTheme.electricBlue) {
+                if agendaItems.isEmpty {
+                    TimelineEmptyState(text: "Nenhum compromisso do Google Calendar para este dia.")
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(agendaSections, id: \.title) { section in
+                                TimelineSectionHeader(title: section.title)
 
-                ZStack(alignment: .topLeading) {
-                    ForEach(hours, id: \.self) { hour in
-                        let yPosition = totalHeight * CGFloat(hour) / 24
-
-                        Path { path in
-                            path.move(to: CGPoint(x: labelWidth, y: yPosition))
-                            path.addLine(to: CGPoint(x: proxy.size.width, y: yPosition))
+                                ForEach(section.events) { event in
+                                    AgendaTimelineRow(event: event)
+                                }
+                            }
                         }
-                        .stroke(.white.opacity(hour.isMultiple(of: 2) ? 0.09 : 0.04), style: StrokeStyle(lineWidth: 1, dash: [4, 6]))
-
-                        Text(String(format: "%02d:00", hour))
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.45))
-                            .frame(width: labelWidth - 10, alignment: .trailing)
-                            .offset(x: 0, y: max(0, yPosition - 8))
                     }
-
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(.white.opacity(0.03))
-                        .frame(width: columnWidth, height: totalHeight)
-                        .offset(x: labelWidth, y: 0)
-
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(.white.opacity(0.02))
-                        .frame(width: columnWidth, height: totalHeight)
-                        .offset(x: labelWidth + columnWidth + columnSpacing, y: 0)
-
-                    ForEach(activities) { activity in
-                        TimelineActivityBlock(activity: activity)
-                            .frame(width: columnWidth - 12, height: blockHeight(from: activity.startDate, to: activity.endDate, totalHeight: totalHeight))
-                            .offset(
-                                x: labelWidth + 6,
-                                y: yOffset(for: activity.startDate, startOfDay: startOfDay, totalHeight: totalHeight)
-                            )
-                    }
-
-                    ForEach(agendaItems) { event in
-                        TimelineAgendaBlock(event: event)
-                            .frame(width: columnWidth - 12, height: blockHeight(from: event.startDate, to: event.endDate, totalHeight: totalHeight))
-                            .offset(
-                                x: labelWidth + columnWidth + columnSpacing + 6,
-                                y: yOffset(for: event.startDate, startOfDay: startOfDay, totalHeight: totalHeight)
-                            )
-                    }
+                    .scrollIndicators(.hidden)
                 }
             }
         }
     }
 
-    private func yOffset(for date: Date, startOfDay: Date, totalHeight: CGFloat) -> CGFloat {
-        let elapsed = max(0, min(86_400, date.timeIntervalSince(startOfDay)))
-        return CGFloat(elapsed / 86_400) * totalHeight
+    private var activitySections: [ActivityTimelineSection] {
+        Dictionary(grouping: activities) { activity in
+            activity.startDate.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)))
+        }
+        .map { key, value in
+            ActivityTimelineSection(title: "\(key):00", activities: value.sorted { $0.startDate < $1.startDate })
+        }
+        .sorted { $0.activities.first?.startDate ?? .distantPast < $1.activities.first?.startDate ?? .distantPast }
     }
 
-    private func blockHeight(from start: Date, to end: Date, totalHeight: CGFloat) -> CGFloat {
-        let duration = max(900, end.timeIntervalSince(start))
-        return max(34, CGFloat(duration / 86_400) * totalHeight)
+    private var agendaSections: [AgendaTimelineSection] {
+        Dictionary(grouping: agendaItems) { event in
+            event.startDate.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)))
+        }
+        .map { key, value in
+            AgendaTimelineSection(title: "\(key):00", events: value.sorted { $0.startDate < $1.startDate })
+        }
+        .sorted { $0.events.first?.startDate ?? .distantPast < $1.events.first?.startDate ?? .distantPast }
     }
 }
 
-private struct TimelineActivityBlock: View {
-    let activity: ActivitySample
+private struct ActivityTimelineSection {
+    let title: String
+    let activities: [ResolvedActivitySample]
+}
+
+private struct AgendaTimelineSection {
+    let title: String
+    let events: [CalendarAgendaItem]
+}
+
+private struct TimelineColumnCard<Content: View>: View {
+    let title: String
+    let icon: String
+    let tint: Color
+    @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(activity.pageTitle ?? activity.applicationName)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white)
-                .lineLimit(1)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label(title, systemImage: icon)
+                    .font(.headline)
+                    .foregroundStyle(.white)
 
-            Text(activity.webDomain ?? activity.applicationName)
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.7))
-                .lineLimit(1)
+                Spacer()
+            }
 
-            Spacer(minLength: 0)
-
-            Text(LuumFormatters.timeRange(start: activity.startDate, end: activity.endDate))
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.6))
+            content
         }
-        .padding(10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(18)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(activity.category.tint.opacity(0.88).gradient)
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(.white.opacity(0.03))
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(.white.opacity(0.12))
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .stroke(tint.opacity(0.16))
         }
     }
 }
 
-private struct TimelineAgendaBlock: View {
+private struct TimelineSectionHeader: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.white.opacity(0.58))
+            .padding(.top, 8)
+    }
+}
+
+private struct TimelineEmptyState: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .foregroundStyle(LuumTheme.textSecondary)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.top, 8)
+    }
+}
+
+private struct ActivityTimelineRow: View {
+    let activity: ResolvedActivitySample
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(LuumFormatters.timeRange(start: activity.startDate, end: activity.endDate))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white)
+
+                Text(LuumFormatters.duration(activity.duration))
+                    .font(.caption2)
+                    .foregroundStyle(LuumTheme.textSecondary)
+            }
+            .frame(width: 108, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(activity.pageTitle ?? activity.applicationName)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+
+                Text(activity.webDomain ?? activity.applicationName)
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textSecondary)
+                    .lineLimit(1)
+
+                Label(activity.category.title, systemImage: activity.category.systemImage)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(activity.category.tint)
+            }
+
+            Spacer()
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(activity.category.tint.opacity(0.16))
+        )
+    }
+}
+
+private struct AgendaTimelineRow: View {
     let event: CalendarAgendaItem
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(event.title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white)
-                .lineLimit(2)
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(event.isAllDay ? "Dia inteiro" : LuumFormatters.timeRange(start: event.startDate, end: event.endDate))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white)
 
-            if let location = event.location {
-                Text(location)
+                Text(LuumFormatters.duration(event.duration))
                     .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.72))
-                    .lineLimit(1)
+                    .foregroundStyle(LuumTheme.textSecondary)
+            }
+            .frame(width: 108, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(event.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+
+                if let location = event.location {
+                    Text(location)
+                        .font(.caption)
+                        .foregroundStyle(LuumTheme.textSecondary)
+                }
             }
 
-            Spacer(minLength: 0)
-
-            Text(event.isAllDay ? "Dia inteiro" : LuumFormatters.timeRange(start: event.startDate, end: event.endDate))
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.62))
+            Spacer()
         }
-        .padding(10)
+        .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [LuumTheme.electricBlue.opacity(0.95), LuumTheme.accent.opacity(0.92)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(LuumTheme.electricBlue.opacity(0.14))
         )
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(.white.opacity(0.12))
-        }
     }
 }
 

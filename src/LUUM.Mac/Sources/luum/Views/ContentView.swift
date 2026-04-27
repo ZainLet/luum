@@ -7,6 +7,7 @@ private enum LUUMSection: String, CaseIterable, Identifiable {
     case apps
     case websites
     case categories
+    case reminders
 
     var id: String { rawValue }
 
@@ -22,6 +23,8 @@ private enum LUUMSection: String, CaseIterable, Identifiable {
             "Sites"
         case .categories:
             "Categorias"
+        case .reminders:
+            "Lembretes"
         }
     }
 
@@ -37,6 +40,8 @@ private enum LUUMSection: String, CaseIterable, Identifiable {
             "globe"
         case .categories:
             "square.grid.2x2.fill"
+        case .reminders:
+            "bell.badge.fill"
         }
     }
 }
@@ -86,7 +91,9 @@ struct ContentView: View {
                         items: summary.websiteBreakdown
                     )
                 case .categories:
-                    CategoryListView(summary: summary)
+                    CategoryCustomizationView(store: store, summary: summary)
+                case .reminders:
+                    RemindersView(store: store)
                 }
             }
         }
@@ -150,6 +157,7 @@ struct ContentView: View {
             SidebarMonitoringCard(
                 isMonitoring: store.isMonitoring,
                 currentActivity: store.currentActivityTitle,
+                category: store.currentActivityCategory,
                 totalTrackedTime: summary.totalTrackedTime,
                 plannedTime: agenda.plannedTime
             )
@@ -251,6 +259,7 @@ private struct SidebarButtonRow: View {
 private struct SidebarMonitoringCard: View {
     let isMonitoring: Bool
     let currentActivity: String
+    let category: ActivityCategory?
     let totalTrackedTime: TimeInterval
     let plannedTime: TimeInterval
 
@@ -268,6 +277,12 @@ private struct SidebarMonitoringCard: View {
                 .foregroundStyle(LuumTheme.textSecondary)
                 .font(.caption)
                 .lineLimit(2)
+
+            if let category {
+                Label(category.title, systemImage: category.systemImage)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(category.tint)
+            }
 
             Divider()
                 .overlay(.white.opacity(0.06))
