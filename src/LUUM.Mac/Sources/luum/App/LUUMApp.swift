@@ -39,13 +39,6 @@ struct LUUMApp: App {
                     store.toggleMonitoring()
                 }
                 .keyboardShortcut("m", modifiers: [.command, .shift])
-
-                Divider()
-
-                Button("Abrir Preferencias") {
-                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                }
-                .keyboardShortcut(",", modifiers: .command)
             }
         }
 

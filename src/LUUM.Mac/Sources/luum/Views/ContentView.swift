@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 private enum LUUMSection: String, CaseIterable, Identifiable {
@@ -49,6 +48,7 @@ private enum LUUMSection: String, CaseIterable, Identifiable {
 struct ContentView: View {
     let store: ActivityStore
 
+    @Environment(\.openSettings) private var openSettings
     @State private var selection: LUUMSection = .overview
     @State private var selectedDay = Date()
 
@@ -77,16 +77,20 @@ struct ContentView: View {
                 case .agenda:
                     AgendaView(store: store, selectedDay: selectedDay, agenda: agenda)
                 case .apps:
-                    BreakdownListView(
+                    QuickClassificationView(
+                        store: store,
+                        kind: .applications,
                         title: "Tempo por aplicativo",
-                        subtitle: "Os apps mais presentes do dia ficam organizados em um painel mais limpo e util para revisar horas investidas.",
+                        subtitle: "Revise os apps do dia com busca, troca de categoria e bloqueio rapido, sem depender de uma lista enorme de regras.",
                         emptyState: "Nenhum aplicativo rastreado neste dia.",
                         items: summary.appBreakdown
                     )
                 case .websites:
-                    BreakdownListView(
+                    QuickClassificationView(
+                        store: store,
+                        kind: .websites,
                         title: "Tempo por site",
-                        subtitle: "As URLs do navegador ajudam o luum a separar trabalho de entretenimento com muito mais contexto.",
+                        subtitle: "Os dominios ficam organizados de forma compacta para voce classificar ou ignorar cada site sem bagunca.",
                         emptyState: "Nenhum site rastreado neste dia. Abra um navegador suportado e permita Automacao.",
                         items: summary.websiteBreakdown
                     )
@@ -128,7 +132,7 @@ struct ContentView: View {
                 .buttonStyle(.glassProminent)
 
                 Button {
-                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                    openSettings()
                 } label: {
                     Label("Preferencias", systemImage: "slider.horizontal.3")
                 }
@@ -165,7 +169,7 @@ struct ContentView: View {
             Spacer()
 
             Button {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                openSettings()
             } label: {
                 Label("Abrir Preferencias", systemImage: "gearshape")
                     .font(.subheadline.weight(.medium))
@@ -206,7 +210,7 @@ private struct SidebarHero: View {
                         .font(.title3.weight(.bold))
                         .foregroundStyle(.white)
 
-                    Text("Focus intelligence")
+                    Text("Painel de foco")
                         .font(.caption)
                         .foregroundStyle(LuumTheme.textSecondary)
                 }
@@ -247,11 +251,11 @@ private struct SidebarButtonRow: View {
         .padding(.vertical, 11)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(isSelected ? LuumTheme.accent.opacity(0.18) : .white.opacity(0.02))
+                .fill(isSelected ? LuumTheme.accent.opacity(0.14) : .white.opacity(0.015))
         )
         .overlay {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(isSelected ? .white.opacity(0.08) : .clear)
+                .stroke(isSelected ? .white.opacity(0.06) : .clear)
         }
     }
 }

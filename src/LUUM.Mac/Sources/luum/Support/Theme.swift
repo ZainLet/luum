@@ -12,8 +12,8 @@ enum LuumTheme {
         colors: [
             Color.black,
             Color(red: 0.03, green: 0.01, blue: 0.08),
-            Color(red: 0.09, green: 0.02, blue: 0.18),
-            Color(red: 0.19, green: 0.06, blue: 0.28),
+            Color(red: 0.08, green: 0.02, blue: 0.16),
+            Color(red: 0.12, green: 0.03, blue: 0.22),
             Color.black,
         ],
         startPoint: .topLeading,

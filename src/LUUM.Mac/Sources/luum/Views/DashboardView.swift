@@ -55,9 +55,9 @@ struct DashboardView: View {
         HStack(alignment: .top, spacing: 22) {
             VStack(alignment: .leading, spacing: 16) {
                 LuumSectionHeader(
-                    eyebrow: "Luum Command Center",
-                    title: "Seu dia em contexto",
-                    subtitle: "O luum cruza app em foco, URLs, categorias personalizadas, bloqueios e agenda para transformar monitoramento bruto em leitura util."
+                    eyebrow: "Resumo do dia",
+                    title: "Seu dia, sem ruido",
+                    subtitle: "O luum cruza apps, URLs, categorias e agenda para transformar captura bruta em uma leitura objetiva do que aconteceu."
                 )
 
                 HStack(spacing: 10) {
@@ -112,7 +112,7 @@ struct DashboardView: View {
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Sem blocos sobrepostos. Cada acao fica listada com hora exata, contexto e categoria para voce entender o que realmente aconteceu.")
+                    Text("Cada acao fica listada com hora, contexto e categoria para voce revisar o dia sem blocos sobrepostos.")
                         .foregroundStyle(LuumTheme.textSecondary)
                 }
 
@@ -381,70 +381,6 @@ struct DashboardView: View {
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
         .luumGlassCard(tint: LuumTheme.accent.opacity(0.12))
-    }
-}
-
-struct BreakdownListView: View {
-    let title: String
-    let subtitle: String
-    let emptyState: String
-    let items: [UsageBreakdownItem]
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                LuumSectionHeader(eyebrow: "Detalhe", title: title, subtitle: subtitle)
-
-                if items.isEmpty {
-                    Text(emptyState)
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(24)
-                        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.14))
-                } else {
-                    VStack(spacing: 12) {
-                        ForEach(items) { item in
-                            HStack(spacing: 14) {
-                                Image(systemName: item.systemImage)
-                                    .foregroundStyle(item.category?.tint ?? LuumTheme.accent)
-                                    .frame(width: 18)
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(item.label)
-                                        .font(.headline)
-                                        .foregroundStyle(.white)
-
-                                    if let secondaryLabel = item.secondaryLabel {
-                                        Text(secondaryLabel)
-                                            .font(.subheadline)
-                                            .foregroundStyle(LuumTheme.textSecondary)
-                                            .lineLimit(1)
-                                    }
-                                }
-
-                                Spacer()
-
-                                VStack(alignment: .trailing, spacing: 4) {
-                                    Text(LuumFormatters.duration(item.duration))
-                                        .font(.headline)
-                                        .foregroundStyle(.white)
-
-                                    if let category = item.category {
-                                        Text(category.title)
-                                            .font(.caption)
-                                            .foregroundStyle(category.tint)
-                                    }
-                                }
-                            }
-                            .padding(18)
-                            .luumGlassCard(tint: item.category?.glassTint ?? LuumTheme.accent.opacity(0.16))
-                        }
-                    }
-                }
-            }
-            .padding(28)
-        }
-        .scrollIndicators(.hidden)
     }
 }
 

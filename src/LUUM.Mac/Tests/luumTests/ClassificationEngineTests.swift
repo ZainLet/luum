@@ -27,6 +27,29 @@ func categorizesEntertainmentApplicationsWithoutURL() {
 
     #expect(category == .entertainment)
 }
+
+@Test
+func prioritizesManualRuleOverrides() {
+    let engine = ClassificationEngine()
+    var preferences = MonitoringPreferencesSnapshot.default
+    preferences.categoryRules.insert(
+        CategoryRule(
+            categoryID: ActivityCategory.work.id,
+            matchTarget: .domain,
+            pattern: "youtube.com"
+        ),
+        at: 0
+    )
+
+    let category = engine.classify(
+        applicationName: "Safari",
+        bundleIdentifier: "com.apple.Safari",
+        webURL: "https://www.youtube.com/watch?v=123",
+        preferences: preferences
+    )
+
+    #expect(category == .work)
+}
 #elseif canImport(XCTest)
 import XCTest
 @testable import luum
@@ -54,6 +77,28 @@ final class ClassificationEngineTests: XCTestCase {
         )
 
         XCTAssertEqual(category, .entertainment)
+    }
+
+    func testPrioritizesManualRuleOverrides() {
+        let engine = ClassificationEngine()
+        var preferences = MonitoringPreferencesSnapshot.default
+        preferences.categoryRules.insert(
+            CategoryRule(
+                categoryID: ActivityCategory.work.id,
+                matchTarget: .domain,
+                pattern: "youtube.com"
+            ),
+            at: 0
+        )
+
+        let category = engine.classify(
+            applicationName: "Safari",
+            bundleIdentifier: "com.apple.Safari",
+            webURL: "https://www.youtube.com/watch?v=123",
+            preferences: preferences
+        )
+
+        XCTAssertEqual(category, .work)
     }
 }
 #endif

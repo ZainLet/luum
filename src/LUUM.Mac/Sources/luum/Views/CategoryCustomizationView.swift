@@ -27,19 +27,20 @@ struct CategoryCustomizationView: View {
     @State private var newRulePattern = ""
     @State private var newIgnoredApplication = ""
     @State private var newIgnoredDomain = ""
+    @State private var showsAdvancedRules = false
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 18) {
                 LuumSectionHeader(
                     eyebrow: "Categorias",
                     title: "Personalize o motor do luum",
-                    subtitle: "Crie categorias novas, ajuste cor e icone, distribua apps e sites por regras e bloqueie o que nao deve contaminar a sua leitura."
+                    subtitle: "Use Apps e Sites para reclassificar o dia a dia rapidamente. Aqui ficam o editor de categorias, os bloqueios e as regras avancadas."
                 )
 
-                categoryBreakdownCard
+                todayOverviewCard
                 categoriesEditorCard
-                rulesCard
+                advancedRulesCard
                 blocklistCard
             }
             .padding(28)
@@ -47,39 +48,58 @@ struct CategoryCustomizationView: View {
         .scrollIndicators(.hidden)
     }
 
-    private var categoryBreakdownCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Categorias ativas hoje")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
+    private var todayOverviewCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Leitura do dia")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.white)
+
+                    Text("O ajuste rapido agora mora nas abas Apps e Sites. Nesta tela voce mantem o sistema organizado sem abrir um painel gigante de itens.")
+                        .foregroundStyle(LuumTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                CompactStatPill(
+                    title: "\(store.categories.count)",
+                    detail: "categorias"
+                )
+            }
 
             if summary.categoryBreakdown.isEmpty {
                 Text("Ainda nao existem categorias consolidadas para este dia.")
                     .foregroundStyle(LuumTheme.textSecondary)
             } else {
                 VStack(spacing: 10) {
-                    ForEach(summary.categoryBreakdown) { bucket in
-                        HStack {
-                            Label(bucket.category.title, systemImage: bucket.category.systemImage)
+                    ForEach(summary.categoryBreakdown.prefix(4)) { bucket in
+                        HStack(spacing: 12) {
+                            Image(systemName: bucket.category.systemImage)
+                                .foregroundStyle(bucket.category.tint)
+                                .frame(width: 18)
+
+                            Text(bucket.category.title)
                                 .foregroundStyle(.white)
 
                             Spacer()
 
                             Text(LuumFormatters.duration(bucket.duration))
                                 .foregroundStyle(bucket.category.tint)
-                                .font(.headline)
+                                .font(.subheadline.weight(.semibold))
                         }
                         .padding(14)
                         .background(
-                            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .fill(.white.opacity(0.03))
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                .fill(.white.opacity(0.02))
                         )
                     }
                 }
             }
         }
         .padding(22)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.14))
+        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.12), cornerRadius: 30, shadowOpacity: 0.1)
     }
 
     private var categoriesEditorCard: some View {
@@ -88,12 +108,17 @@ struct CategoryCustomizationView: View {
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.white)
 
-            ForEach(store.categories) { category in
-                EditableCategoryCard(store: store, category: category)
+            VStack(spacing: 12) {
+                ForEach(store.categories) { category in
+                    EditableCategoryCard(store: store, category: category)
+                }
             }
 
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Adicionar categoria")
+            Divider()
+                .overlay(.white.opacity(0.06))
+
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Nova categoria")
                     .font(.headline)
                     .foregroundStyle(.white)
 
@@ -115,109 +140,109 @@ struct CategoryCustomizationView: View {
                     }
                     .pickerStyle(.menu)
 
+                    Spacer()
+
                     Button("Adicionar") {
-                        store.addCategory(title: newCategoryTitle, systemImage: newCategorySymbol, colorToken: newCategoryColor)
+                        store.addCategory(
+                            title: newCategoryTitle,
+                            systemImage: newCategorySymbol,
+                            colorToken: newCategoryColor
+                        )
                         newCategoryTitle = ""
+                        newCategorySymbol = "tag.fill"
+                        newCategoryColor = .violet
                     }
                     .buttonStyle(.glassProminent)
                 }
             }
-            .padding(18)
-            .background(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(.white.opacity(0.03))
-            )
         }
         .padding(22)
-        .luumGlassCard(tint: LuumTheme.accent.opacity(0.12))
+        .luumGlassCard(tint: LuumTheme.accent.opacity(0.1), cornerRadius: 30, shadowOpacity: 0.1)
     }
 
-    private var rulesCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Regras de classificacao")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
+    private var advancedRulesCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Regras avancadas")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.white)
 
-            if store.categoryRules.isEmpty {
-                Text("Nenhuma regra configurada ainda.")
-                    .foregroundStyle(LuumTheme.textSecondary)
-            } else {
-                VStack(spacing: 10) {
-                    ForEach(store.categoryRules) { rule in
-                        HStack(alignment: .top, spacing: 12) {
-                            if let category = store.category(for: rule.categoryID) {
-                                Image(systemName: category.systemImage)
-                                    .foregroundStyle(category.tint)
-                                    .frame(width: 18)
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(category.title)
-                                        .foregroundStyle(.white)
-                                        .font(.headline)
-
-                                    Text("\(rule.matchTarget.title): \(rule.pattern)")
-                                        .foregroundStyle(LuumTheme.textSecondary)
-                                        .font(.caption)
-                                }
-                            }
-
-                            Spacer()
-
-                            Button(role: .destructive) {
-                                store.removeRule(id: rule.id)
-                            } label: {
-                                Image(systemName: "trash")
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.white.opacity(0.68))
-                        }
-                        .padding(14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .fill(.white.opacity(0.03))
-                        )
-                    }
+                    Text("Se voce quiser um mapeamento mais permanente, pode criar regras por app, bundle ou dominio. Novas regras entram no topo para sobrescrever classificacoes anteriores.")
+                        .foregroundStyle(LuumTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+
+                Spacer()
+
+                CompactStatPill(
+                    title: "\(store.categoryRules.count)",
+                    detail: "regras"
+                )
             }
 
-            Divider()
-                .overlay(.white.opacity(0.08))
+            DisclosureGroup(isExpanded: $showsAdvancedRules) {
+                VStack(alignment: .leading, spacing: 14) {
+                    if store.categoryRules.isEmpty {
+                        Text("Nenhuma regra salva.")
+                            .foregroundStyle(LuumTheme.textSecondary)
+                    } else {
+                        VStack(spacing: 10) {
+                            ForEach(store.categoryRules) { rule in
+                                RuleRow(store: store, rule: rule)
+                            }
+                        }
+                    }
 
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Nova regra")
-                    .font(.headline)
+                    Divider()
+                        .overlay(.white.opacity(0.06))
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Nova regra")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+
+                        HStack(spacing: 12) {
+                            Picker("Categoria", selection: $newRuleCategoryID) {
+                                ForEach(store.categories) { category in
+                                    Text(category.title).tag(category.id)
+                                }
+                            }
+                            .pickerStyle(.menu)
+
+                            Picker("Tipo", selection: $newRuleTarget) {
+                                ForEach(RuleMatchTarget.allCases) { target in
+                                    Text(target.title).tag(target)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                        }
+
+                        HStack(spacing: 12) {
+                            TextField("Ex.: figma.com, Cursor, com.apple.Safari", text: $newRulePattern)
+                                .textFieldStyle(.roundedBorder)
+
+                            Button("Salvar regra") {
+                                store.addRule(
+                                    categoryID: newRuleCategoryID,
+                                    matchTarget: newRuleTarget,
+                                    pattern: newRulePattern
+                                )
+                                newRulePattern = ""
+                            }
+                            .buttonStyle(.glassProminent)
+                        }
+                    }
+                }
+                .padding(.top, 14)
+            } label: {
+                Text("Mostrar regras salvas")
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white)
-
-                HStack(spacing: 12) {
-                    Picker("Categoria", selection: $newRuleCategoryID) {
-                        ForEach(store.categories) { category in
-                            Text(category.title).tag(category.id)
-                        }
-                    }
-                    .pickerStyle(.menu)
-
-                    Picker("Tipo", selection: $newRuleTarget) {
-                        ForEach(RuleMatchTarget.allCases) { target in
-                            Text(target.title).tag(target)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-
-                HStack(spacing: 12) {
-                    TextField("Ex.: figma.com, Cursor, com.apple.Safari", text: $newRulePattern)
-                        .textFieldStyle(.roundedBorder)
-
-                    Button("Adicionar") {
-                        store.addRule(categoryID: newRuleCategoryID, matchTarget: newRuleTarget, pattern: newRulePattern)
-                        newRulePattern = ""
-                    }
-                    .buttonStyle(.glassProminent)
-                }
             }
         }
         .padding(22)
-        .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.12))
+        .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.1), cornerRadius: 30, shadowOpacity: 0.1)
     }
 
     private var blocklistCard: some View {
@@ -226,16 +251,17 @@ struct CategoryCustomizationView: View {
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.white)
 
-            Text("Use bloqueios para impedir que alguns apps ou sites entrem nas metricas e atrapalhem a leitura real do seu dia.")
+            Text("Use bloqueios para tirar da leitura qualquer app ou site que esteja poluindo seu historico.")
                 .foregroundStyle(LuumTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 Text("Apps ignorados")
                     .font(.headline)
                     .foregroundStyle(.white)
 
                 HStack(spacing: 12) {
-                    TextField("Ex.: Adobe Premiere, Codex, company.thebrowser.Browser", text: $newIgnoredApplication)
+                    TextField("Ex.: Adobe Premiere, Codex", text: $newIgnoredApplication)
                         .textFieldStyle(.roundedBorder)
 
                     Button("Ignorar app") {
@@ -251,15 +277,15 @@ struct CategoryCustomizationView: View {
             }
 
             Divider()
-                .overlay(.white.opacity(0.08))
+                .overlay(.white.opacity(0.06))
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 Text("Sites ignorados")
                     .font(.headline)
                     .foregroundStyle(.white)
 
                 HStack(spacing: 12) {
-                    TextField("Ex.: youtube.com, google.com", text: $newIgnoredDomain)
+                    TextField("Ex.: youtube.com, reddit.com", text: $newIgnoredDomain)
                         .textFieldStyle(.roundedBorder)
 
                     Button("Ignorar site") {
@@ -275,7 +301,7 @@ struct CategoryCustomizationView: View {
             }
         }
         .padding(22)
-        .luumGlassCard(tint: ActivityCategory.utilities.glassTint)
+        .luumGlassCard(tint: LuumTheme.hotPink.opacity(0.08), cornerRadius: 30, shadowOpacity: 0.1)
     }
 }
 
@@ -284,28 +310,27 @@ private struct EditableCategoryCard: View {
     let category: ActivityCategory
 
     @State private var title: String
-    @State private var symbol: String
+    @State private var systemImage: String
     @State private var colorToken: CategoryColorToken
 
     init(store: ActivityStore, category: ActivityCategory) {
         self.store = store
         self.category = category
         _title = State(initialValue: category.title)
-        _symbol = State(initialValue: category.systemImage)
+        _systemImage = State(initialValue: category.systemImage)
         _colorToken = State(initialValue: category.colorToken)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
-                Image(systemName: category.systemImage)
+                Image(systemName: systemImage)
                     .foregroundStyle(category.tint)
-                    .font(.title3)
-                    .frame(width: 28)
+                    .frame(width: 18)
 
-                Text(category.isBuiltIn ? "Categoria base" : "Categoria customizada")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.64))
+                TextField("Nome", text: $title)
+                    .textFieldStyle(.roundedBorder)
+                    .disabled(category.isBuiltIn)
 
                 Spacer()
 
@@ -313,18 +338,15 @@ private struct EditableCategoryCard: View {
                     Button(role: .destructive) {
                         store.removeCategory(id: category.id)
                     } label: {
-                        Label("Remover", systemImage: "trash")
+                        Image(systemName: "trash")
+                            .frame(width: 30, height: 30)
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.white.opacity(0.72))
+                    .buttonStyle(.borderless)
                 }
             }
 
-            TextField("Nome", text: $title)
-                .textFieldStyle(.roundedBorder)
-
             HStack(spacing: 12) {
-                Picker("Icone", selection: $symbol) {
+                Picker("Icone", selection: $systemImage) {
                     ForEach(categorySymbolOptions, id: \.self) { symbol in
                         Label(symbol, systemImage: symbol).tag(symbol)
                     }
@@ -332,15 +354,17 @@ private struct EditableCategoryCard: View {
                 .pickerStyle(.menu)
 
                 Picker("Cor", selection: $colorToken) {
-                    ForEach(CategoryColorToken.allCases) { colorToken in
-                        Text(colorToken.title).tag(colorToken)
+                    ForEach(CategoryColorToken.allCases) { token in
+                        Text(token.title).tag(token)
                     }
                 }
                 .pickerStyle(.menu)
 
+                Spacer()
+
                 Button("Salvar") {
                     store.updateCategoryTitle(id: category.id, title: title)
-                    store.updateCategorySymbol(id: category.id, systemImage: symbol)
+                    store.updateCategorySymbol(id: category.id, systemImage: systemImage)
                     store.updateCategoryColor(id: category.id, colorToken: colorToken)
                 }
                 .buttonStyle(.glassProminent)
@@ -349,7 +373,53 @@ private struct EditableCategoryCard: View {
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(.white.opacity(0.03))
+                .fill(.white.opacity(0.02))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(.white.opacity(0.05))
+        }
+    }
+}
+
+private struct RuleRow: View {
+    @Bindable var store: ActivityStore
+    let rule: CategoryRule
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if let category = store.category(for: rule.categoryID) {
+                Image(systemName: category.systemImage)
+                    .foregroundStyle(category.tint)
+                    .frame(width: 18)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(category.title)
+                        .foregroundStyle(.white)
+                        .font(.headline)
+
+                    Text("\(rule.matchTarget.title): \(rule.pattern)")
+                        .foregroundStyle(LuumTheme.textSecondary)
+                        .font(.caption)
+                }
+            } else {
+                Text(rule.pattern)
+                    .foregroundStyle(.white)
+            }
+
+            Spacer()
+
+            Button(role: .destructive) {
+                store.removeRule(id: rule.id)
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(.white.opacity(0.02))
         )
     }
 }
@@ -361,24 +431,25 @@ private struct FlowTagList: View {
 
     var body: some View {
         if items.isEmpty {
-            Text("Nenhum item bloqueado ainda.")
+            Text("Nenhum item bloqueado.")
                 .foregroundStyle(LuumTheme.textSecondary)
-                .font(.caption)
         } else {
-            VStack(alignment: .leading, spacing: 8) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 10)], spacing: 10) {
                 ForEach(items, id: \.self) { item in
-                    HStack {
+                    HStack(spacing: 10) {
                         Text(item)
+                            .font(.caption.weight(.semibold))
                             .foregroundStyle(.white)
-                            .font(.caption.weight(.medium))
+                            .lineLimit(1)
 
-                        Spacer()
+                        Spacer(minLength: 8)
 
-                        Button(role: .destructive) {
+                        Button {
                             onRemove(item)
                         } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(.white.opacity(0.72))
+                            Image(systemName: "xmark")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white.opacity(0.78))
                         }
                         .buttonStyle(.plain)
                     }

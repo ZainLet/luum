@@ -280,24 +280,44 @@ final class ActivityStore {
         persistMonitoringPreferences()
     }
 
+    func assignCategory(toApplication applicationName: String, categoryID: String) {
+        upsertRule(
+            categoryID: categoryID,
+            matchTarget: .applicationName,
+            pattern: applicationName
+        )
+    }
+
+    func assignCategory(toDomain domain: String, categoryID: String) {
+        upsertRule(
+            categoryID: categoryID,
+            matchTarget: .domain,
+            pattern: domain
+        )
+    }
+
     func addRule(categoryID: String, matchTarget: RuleMatchTarget, pattern: String) {
-        let cleanedPattern = normalizePattern(pattern)
+        let cleanedPattern = normalizePattern(pattern, for: matchTarget)
         guard !cleanedPattern.isEmpty else { return }
         guard monitoringPreferences.category(for: categoryID) != nil else { return }
 
-        monitoringPreferences.categoryRules.append(
+        monitoringPreferences.categoryRules.insert(
             CategoryRule(
                 categoryID: categoryID,
                 matchTarget: matchTarget,
                 pattern: cleanedPattern
-            )
+            ),
+            at: 0
         )
         persistMonitoringPreferences()
     }
 
     func updateRule(_ rule: CategoryRule) {
         guard let index = monitoringPreferences.categoryRules.firstIndex(where: { $0.id == rule.id }) else { return }
-        monitoringPreferences.categoryRules[index] = rule
+        var updatedRule = rule
+        updatedRule.pattern = normalizePattern(rule.pattern, for: rule.matchTarget)
+        guard !updatedRule.pattern.isEmpty else { return }
+        monitoringPreferences.categoryRules[index] = updatedRule
         persistMonitoringPreferences()
     }
 
@@ -320,7 +340,7 @@ final class ActivityStore {
     }
 
     func addIgnoredDomain(_ pattern: String) {
-        let cleanedPattern = normalizePattern(pattern)
+        let cleanedPattern = normalizePattern(pattern, for: .domain)
         guard !cleanedPattern.isEmpty else { return }
         guard !monitoringPreferences.ignoredDomains.contains(cleanedPattern) else { return }
         monitoringPreferences.ignoredDomains.append(cleanedPattern)
@@ -662,6 +682,40 @@ final class ActivityStore {
 
     private func normalizePattern(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private func normalizePattern(_ value: String, for matchTarget: RuleMatchTarget) -> String {
+        switch matchTarget {
+        case .domain:
+            return classifier.domain(from: value) ?? normalizePattern(value)
+        case .applicationName, .bundleIdentifier:
+            return normalizePattern(value)
+        }
+    }
+
+    private func upsertRule(categoryID: String, matchTarget: RuleMatchTarget, pattern: String) {
+        let cleanedPattern = normalizePattern(pattern, for: matchTarget)
+        guard !cleanedPattern.isEmpty else { return }
+        guard monitoringPreferences.category(for: categoryID) != nil else { return }
+
+        if let index = monitoringPreferences.categoryRules.firstIndex(where: { rule in
+            rule.matchTarget == matchTarget && rule.pattern == cleanedPattern
+        }) {
+            monitoringPreferences.categoryRules[index].categoryID = categoryID
+            let updatedRule = monitoringPreferences.categoryRules.remove(at: index)
+            monitoringPreferences.categoryRules.insert(updatedRule, at: 0)
+        } else {
+            monitoringPreferences.categoryRules.insert(
+                CategoryRule(
+                    categoryID: categoryID,
+                    matchTarget: matchTarget,
+                    pattern: cleanedPattern
+                ),
+                at: 0
+            )
+        }
+
+        persistMonitoringPreferences()
     }
 
     private func slugify(_ value: String) -> String {
