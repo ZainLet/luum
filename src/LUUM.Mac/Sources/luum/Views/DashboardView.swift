@@ -69,7 +69,7 @@ struct DashboardView: View {
 
                     StatusPill(
                         title: agenda.isConnected ? "Agenda conectada" : "Agenda desconectada",
-                        detail: agenda.profile?.email ?? "Google Calendar",
+                        detail: agenda.isConnected ? "\(agenda.connectedAccountCount) conta(s) ativas" : "Google Calendar",
                         tint: agenda.isConnected ? LuumTheme.accent : LuumTheme.secondaryAccent
                     )
 
@@ -124,7 +124,7 @@ struct DashboardView: View {
                 }
             }
 
-            TimelineScene(activities: summary.timelineActivities, agendaItems: agenda.events)
+            TimelineScene(store: store, activities: summary.timelineActivities, agendaItems: agenda.events)
                 .frame(height: 720)
         }
         .padding(24)
@@ -221,6 +221,10 @@ struct DashboardView: View {
 
                         Text(nextEvent.isAllDay ? "Dia inteiro" : LuumFormatters.timeRange(start: nextEvent.startDate, end: nextEvent.endDate))
                             .foregroundStyle(LuumTheme.electricBlue)
+
+                        Text("\(nextEvent.accountLabel) • \(nextEvent.calendarTitle)")
+                            .font(.caption)
+                            .foregroundStyle(LuumTheme.textSecondary)
                     }
                     .padding(16)
                     .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.18), cornerRadius: 26, shadowOpacity: 0.18)
@@ -242,6 +246,10 @@ struct DashboardView: View {
                                 Text(event.isAllDay ? "Dia inteiro" : LuumFormatters.timeRange(start: event.startDate, end: event.endDate))
                                     .foregroundStyle(LuumTheme.textSecondary)
                                     .font(.caption)
+
+                                Text(event.calendarTitle)
+                                    .foregroundStyle(LuumTheme.textMuted)
+                                    .font(.caption2)
                             }
 
                             Spacer()
@@ -314,34 +322,7 @@ struct DashboardView: View {
             } else {
                 VStack(spacing: 10) {
                     ForEach(summary.recentActivities.prefix(8)) { activity in
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: activity.category.systemImage)
-                                .foregroundStyle(activity.category.tint)
-                                .frame(width: 18)
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(activity.pageTitle ?? activity.applicationName)
-                                    .foregroundStyle(.white)
-                                    .font(.subheadline.weight(.semibold))
-                                    .lineLimit(1)
-
-                                Text(activity.webDomain ?? activity.applicationName)
-                                    .foregroundStyle(LuumTheme.textSecondary)
-                                    .font(.caption)
-                                    .lineLimit(1)
-                            }
-
-                            Spacer()
-
-                            Text(LuumFormatters.duration(activity.duration))
-                                .foregroundStyle(.white.opacity(0.92))
-                                .font(.caption.weight(.semibold))
-                        }
-                        .padding(14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .fill(.white.opacity(0.025))
-                        )
+                        EditableActivityRow(store: store, activity: activity, compact: true)
                     }
                 }
             }
@@ -385,6 +366,7 @@ struct DashboardView: View {
 }
 
 private struct TimelineScene: View {
+    let store: ActivityStore
     let activities: [ResolvedActivitySample]
     let agendaItems: [CalendarAgendaItem]
 
@@ -400,7 +382,7 @@ private struct TimelineScene: View {
                                 TimelineSectionHeader(title: section.title)
 
                                 ForEach(section.activities) { activity in
-                                    ActivityTimelineRow(activity: activity)
+                                    EditableActivityRow(store: store, activity: activity, compact: false)
                                 }
                             }
                         }
@@ -514,8 +496,10 @@ private struct TimelineEmptyState: View {
     }
 }
 
-private struct ActivityTimelineRow: View {
+private struct EditableActivityRow: View {
+    @Bindable var store: ActivityStore
     let activity: ResolvedActivitySample
+    let compact: Bool
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -544,15 +528,67 @@ private struct ActivityTimelineRow: View {
                 Label(activity.category.title, systemImage: activity.category.systemImage)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(activity.category.tint)
+
+                if activity.isManuallyCategorized {
+                    Text("Ajuste manual")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
             }
 
             Spacer()
+
+            if compact {
+                Text(LuumFormatters.duration(activity.duration))
+                    .foregroundStyle(.white.opacity(0.92))
+                    .font(.caption.weight(.semibold))
+            }
         }
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(activity.category.tint.opacity(0.16))
         )
+        .contextMenu {
+            Menu("Reclassificar bloco") {
+                ForEach(store.categories) { category in
+                    Button {
+                        store.overrideActivityCategory(sampleID: activity.id, categoryID: category.id)
+                    } label: {
+                        Label(category.title, systemImage: category.systemImage)
+                    }
+                }
+            }
+
+            if let domain = activity.webDomain {
+                Menu("Aprender site") {
+                    ForEach(store.categories) { category in
+                        Button(category.title) {
+                            store.assignCategory(toDomain: domain, categoryID: category.id)
+                        }
+                    }
+                }
+            }
+
+            Menu("Aprender app") {
+                ForEach(store.categories) { category in
+                    Button(category.title) {
+                        store.assignCategory(toApplication: activity.applicationName, categoryID: category.id)
+                    }
+                }
+            }
+
+            Divider()
+
+            Button(activity.sample.isHidden ? "Voltar a mostrar bloco" : "Ocultar bloco") {
+                store.setActivityHidden(sampleID: activity.id, isHidden: !activity.sample.isHidden)
+            }
+
+            Button("Remover ajuste manual") {
+                store.resetActivityEdits(sampleID: activity.id)
+            }
+            .disabled(!activity.isManuallyCategorized && !activity.sample.isHidden)
+        }
     }
 }
 

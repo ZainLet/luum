@@ -17,24 +17,33 @@ final class ActivityStore {
 
     var googleCalendarClientID: String
     var googleCalendarClientSecret: String
-    private(set) var googleCalendarProfile: GoogleCalendarProfile?
-    private(set) var googleCalendarAgendaItems: [CalendarAgendaItem]
-    private(set) var googleCalendarAgendaDay: Date?
+    private(set) var googleCalendarConnections: [GoogleCalendarConnectionSnapshot]
     private(set) var googleCalendarStatusMessage: String?
-    private(set) var googleCalendarLastSyncAt: Date?
     private(set) var isConnectingGoogleCalendar = false
     private(set) var isSyncingGoogleCalendar = false
 
+    private(set) var cloudSyncStatusMessage: String?
+    private(set) var cloudSyncLastSyncAt: Date?
+    private(set) var isSyncingCloud = false
+
     let classifier = ClassificationEngine()
 
-    @ObservationIgnored private var googleCalendarTokens: GoogleCalendarTokens?
     @ObservationIgnored private let persistence: ActivityPersistence
     @ObservationIgnored private let monitor: ActivityMonitor
     @ObservationIgnored private let googleCalendarPersistence: GoogleCalendarPersistence
     @ObservationIgnored private let googleCalendarService: GoogleCalendarService
     @ObservationIgnored private let monitoringPreferencesPersistence: MonitoringPreferencesPersistence
     @ObservationIgnored private let reminderEngine: ReminderEngine
+    @ObservationIgnored private let keychainService: KeychainService
+    @ObservationIgnored private let cloudSyncService: CloudSyncService
     @ObservationIgnored private let sessionGapTolerance: TimeInterval = 15
+    @ObservationIgnored private var calendarTokensByConnectionID: [String: GoogleCalendarTokens] = [:]
+    @ObservationIgnored private var summaryCache: [Date: DailySummary] = [:]
+    @ObservationIgnored private var persistTask: Task<Void, Never>?
+    @ObservationIgnored private var cloudSyncTask: Task<Void, Never>?
+    @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
+    @ObservationIgnored private let calendarRefreshInterval: TimeInterval = 900
+    @ObservationIgnored private let cloudSyncInterval: TimeInterval = 900
 
     init(
         persistence: ActivityPersistence = ActivityPersistence(),
@@ -42,26 +51,31 @@ final class ActivityStore {
         googleCalendarPersistence: GoogleCalendarPersistence = GoogleCalendarPersistence(),
         googleCalendarService: GoogleCalendarService = GoogleCalendarService(),
         monitoringPreferencesPersistence: MonitoringPreferencesPersistence = MonitoringPreferencesPersistence(),
-        reminderEngine: ReminderEngine = ReminderEngine()
+        reminderEngine: ReminderEngine = ReminderEngine(),
+        keychainService: KeychainService = KeychainService(),
+        cloudSyncService: CloudSyncService = CloudSyncService()
     ) {
-        let calendarSnapshot = googleCalendarPersistence.load()
-
         self.persistence = persistence
-        self.samples = persistence.load()
         self.monitor = monitor ?? ActivityMonitor()
         self.googleCalendarPersistence = googleCalendarPersistence
         self.googleCalendarService = googleCalendarService
         self.monitoringPreferencesPersistence = monitoringPreferencesPersistence
-        self.monitoringPreferences = monitoringPreferencesPersistence.load()
         self.reminderEngine = reminderEngine
+        self.keychainService = keychainService
+        self.cloudSyncService = cloudSyncService
+
+        let monitoringPreferences = monitoringPreferencesPersistence.load().normalized()
+        let calendarSnapshot = googleCalendarPersistence.load()
+
+        self.monitoringPreferences = monitoringPreferences
+        self.samples = persistence.load(retentionDays: monitoringPreferences.privacySettings.retentionDays)
         self.googleCalendarClientID = calendarSnapshot.clientID
-        self.googleCalendarClientSecret = calendarSnapshot.clientSecret
-        self.googleCalendarTokens = calendarSnapshot.tokens
-        self.googleCalendarProfile = calendarSnapshot.profile
-        self.googleCalendarAgendaItems = calendarSnapshot.agendaItems
-        self.googleCalendarAgendaDay = calendarSnapshot.agendaDay
-        self.googleCalendarLastSyncAt = calendarSnapshot.lastSyncAt
-        self.googleCalendarStatusMessage = calendarSnapshot.tokens == nil ? nil : "Google Agenda pronta para sincronizar."
+        self.googleCalendarClientSecret = keychainService.string(for: Self.googleCalendarClientSecretKey) ?? calendarSnapshot.clientSecret
+        self.googleCalendarConnections = calendarSnapshot.connections
+        self.googleCalendarStatusMessage = googleCalendarConnections.isEmpty ? nil : "Google Agenda pronta para sincronizar."
+        self.cloudSyncStatusMessage = nil
+
+        migrateCalendarSecretsIfNeeded(snapshot: calendarSnapshot)
 
         self.monitor.onSnapshot = { [weak self] snapshot in
             self?.ingest(snapshot)
@@ -105,16 +119,24 @@ final class ActivityStore {
         monitoringPreferences.reminderProfiles
     }
 
+    var privacySettings: PrivacySettings {
+        monitoringPreferences.privacySettings
+    }
+
+    var cloudSyncSettings: CloudSyncSettings {
+        monitoringPreferences.cloudSyncSettings
+    }
+
     var rulePreviews: [RulePreview] {
         classifier.previewRules(from: monitoringPreferences)
     }
 
     var trackedAppsCount: Int {
-        Set(samples.filter { !isIgnored(sample: $0) }.map(\.applicationName)).count
+        Set(samples.filter { !$0.isHidden && !isIgnored(sample: $0) }.map(\.applicationName)).count
     }
 
     var trackedSitesCount: Int {
-        Set(samples.filter { !isIgnored(sample: $0) }.compactMap(\.webDomain)).count
+        Set(samples.filter { !$0.isHidden && !isIgnored(sample: $0) }.compactMap(\.webDomain)).count
     }
 
     var currentActivityCategory: ActivityCategory? {
@@ -122,7 +144,7 @@ final class ActivityStore {
         return classifier.classify(
             applicationName: currentSnapshot.applicationName,
             bundleIdentifier: currentSnapshot.bundleIdentifier,
-            webURL: currentSnapshot.webURL,
+            webURL: sanitizedURL(from: currentSnapshot.webURL),
             preferences: monitoringPreferences
         )
     }
@@ -144,19 +166,34 @@ final class ActivityStore {
     }
 
     var isGoogleCalendarConnected: Bool {
-        googleCalendarTokens != nil
+        !googleCalendarConnections.isEmpty
     }
 
     var googleCalendarAccountLabel: String {
-        googleCalendarProfile?.name ?? "Google Agenda"
+        googleCalendarConnections.first?.profile.name ?? "Google Agenda"
     }
 
     var googleCalendarIdentityLine: String {
-        googleCalendarProfile?.email ?? "Conecte sua agenda para cruzar compromissos com o tempo capturado."
+        googleCalendarConnections.first?.profile.email ?? "Conecte sua agenda para cruzar compromissos com o tempo capturado."
+    }
+
+    var googleCalendarLastSyncAt: Date? {
+        googleCalendarConnections.compactMap(\.lastSyncAt).max()
+    }
+
+    var cloudSyncConfigured: Bool {
+        !cloudSyncSettings.endpointURL.isEmpty &&
+        !cloudSyncSettings.backupID.isEmpty &&
+        !(cloudBackupSecret?.isEmpty ?? true)
+    }
+
+    var hasCloudBackupSecret: Bool {
+        !(cloudBackupSecret?.isEmpty ?? true)
     }
 
     func bootstrap(selectedDay: Date = Date()) {
         startMonitoring()
+        startMaintenanceLoop()
 
         Task { [weak self] in
             await self?.ensureAgenda(for: selectedDay)
@@ -174,6 +211,7 @@ final class ActivityStore {
         guard isMonitoring else { return }
         closeCurrentSession(at: Date())
         monitor.stop()
+        flushPersistence()
         isMonitoring = false
     }
 
@@ -207,14 +245,58 @@ final class ActivityStore {
         }
     }
 
-    func disconnectGoogleCalendar() {
-        googleCalendarTokens = nil
-        googleCalendarProfile = nil
-        googleCalendarAgendaItems = []
-        googleCalendarAgendaDay = nil
-        googleCalendarLastSyncAt = nil
+    func disconnectGoogleCalendar(connectionID: String) {
+        googleCalendarConnections.removeAll { $0.id == connectionID }
+        calendarTokensByConnectionID.removeValue(forKey: connectionID)
+        keychainService.removeValue(for: Self.googleCalendarTokenKey(connectionID))
+        googleCalendarStatusMessage = googleCalendarConnections.isEmpty ? "Todas as contas Google foram desconectadas." : "Conta removida do luum."
+        persistGoogleCalendar()
+        scheduleCloudSyncIfNeeded(reason: "calendar-disconnect")
+    }
+
+    func setGoogleCalendarConnectionEnabled(_ connectionID: String, isEnabled: Bool) {
+        guard let index = googleCalendarConnections.firstIndex(where: { $0.id == connectionID }) else { return }
+        googleCalendarConnections[index].isEnabled = isEnabled
+        persistGoogleCalendar()
+        scheduleCloudSyncIfNeeded(reason: "calendar-toggle")
+
+        guard isEnabled else { return }
+        let syncDay = googleCalendarConnections[index].agendaDay ?? Date()
+        Task { [weak self] in
+            await self?.runCalendarSync(for: syncDay, force: true)
+        }
+    }
+
+    func setCalendarSelection(connectionID: String, calendarID: String, isSelected: Bool) {
+        guard let connectionIndex = googleCalendarConnections.firstIndex(where: { $0.id == connectionID }) else { return }
+        guard let calendarIndex = googleCalendarConnections[connectionIndex].calendars.firstIndex(where: { $0.id == calendarID }) else { return }
+        googleCalendarConnections[connectionIndex].calendars[calendarIndex].isSelected = isSelected
+        googleCalendarConnections[connectionIndex].agendaItems = googleCalendarConnections[connectionIndex].agendaItems.filter { item in
+            item.calendarID != calendarID || isSelected
+        }
+        persistGoogleCalendar()
+        scheduleCloudSyncIfNeeded(reason: "calendar-selection")
+
+        guard isSelected else { return }
+        let syncDay = googleCalendarConnections[connectionIndex].agendaDay ?? Date()
+        Task { [weak self] in
+            await self?.runCalendarSync(for: syncDay, force: true)
+        }
+    }
+
+    func disconnectAllGoogleCalendars() {
+        for connection in googleCalendarConnections {
+            keychainService.removeValue(for: Self.googleCalendarTokenKey(connection.id))
+        }
+        googleCalendarConnections = []
+        calendarTokensByConnectionID.removeAll()
         googleCalendarStatusMessage = "Google Agenda desconectada deste Mac."
         persistGoogleCalendar()
+        scheduleCloudSyncIfNeeded(reason: "calendar-disconnect-all")
+    }
+
+    func disconnectGoogleCalendar() {
+        disconnectAllGoogleCalendars()
     }
 
     func updateGoogleCalendarClientID(_ value: String) {
@@ -224,7 +306,100 @@ final class ActivityStore {
 
     func updateGoogleCalendarClientSecret(_ value: String) {
         googleCalendarClientSecret = value
+        do {
+            if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                keychainService.removeValue(for: Self.googleCalendarClientSecretKey)
+            } else {
+                try keychainService.setString(value, for: Self.googleCalendarClientSecretKey)
+            }
+        } catch {
+            googleCalendarStatusMessage = error.localizedDescription
+        }
         persistGoogleCalendar()
+    }
+
+    func updatePrivacyStorePageTitles(_ value: Bool) {
+        monitoringPreferences.privacySettings.storesPageTitles = value
+        persistMonitoringPreferences()
+    }
+
+    func updatePrivacyStoreFullURLs(_ value: Bool) {
+        monitoringPreferences.privacySettings.storesFullURLs = value
+        persistMonitoringPreferences()
+    }
+
+    func updatePrivacyRetentionDays(_ value: Int) {
+        monitoringPreferences.privacySettings.retentionDays = value
+        samples = persistence.trim(samples: samples, retentionDays: monitoringPreferences.privacySettings.retentionDays)
+        persistMonitoringPreferences()
+        schedulePersistence()
+    }
+
+    func updatePrivacySyncOnlyDomains(_ value: Bool) {
+        monitoringPreferences.privacySettings.syncOnlyDomains = value
+        persistMonitoringPreferences()
+    }
+
+    func updateCloudSyncEnabled(_ value: Bool) {
+        monitoringPreferences.cloudSyncSettings.isEnabled = value
+        persistMonitoringPreferences()
+        if value {
+            scheduleCloudSyncIfNeeded(reason: "cloud-enabled")
+        } else {
+            cloudSyncTask?.cancel()
+        }
+    }
+
+    func updateCloudSyncEndpointURL(_ value: String) {
+        monitoringPreferences.cloudSyncSettings.endpointURL = value
+        persistMonitoringPreferences()
+    }
+
+    func updateCloudSyncBackupID(_ value: String) {
+        monitoringPreferences.cloudSyncSettings.backupID = value
+        persistMonitoringPreferences()
+    }
+
+    func updateCloudSyncSyncRawActivities(_ value: Bool) {
+        monitoringPreferences.cloudSyncSettings.syncRawActivities = value
+        persistMonitoringPreferences()
+    }
+
+    func updateCloudSyncSyncDailySummaries(_ value: Bool) {
+        monitoringPreferences.cloudSyncSettings.syncDailySummaries = value
+        persistMonitoringPreferences()
+    }
+
+    func updateCloudSyncSyncCategories(_ value: Bool) {
+        monitoringPreferences.cloudSyncSettings.syncCategoriesAndRules = value
+        persistMonitoringPreferences()
+    }
+
+    func updateCloudBackupSecret(_ value: String) {
+        do {
+            if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                keychainService.removeValue(for: Self.cloudBackupSecretKey)
+            } else {
+                try keychainService.setString(value, for: Self.cloudBackupSecretKey)
+            }
+            cloudSyncStatusMessage = "Chave de backup atualizada neste Mac."
+        } catch {
+            cloudSyncStatusMessage = error.localizedDescription
+        }
+    }
+
+    func syncCloudBackupNow() {
+        guard !isSyncingCloud else { return }
+        Task { [weak self] in
+            await self?.runCloudSync()
+        }
+    }
+
+    func restoreCloudBackup() {
+        guard !isSyncingCloud else { return }
+        Task { [weak self] in
+            await self?.runCloudRestore()
+        }
     }
 
     func category(for id: String) -> ActivityCategory? {
@@ -277,7 +452,11 @@ final class ActivityStore {
         monitoringPreferences.categories.removeAll { $0.id == id }
         monitoringPreferences.categoryRules.removeAll { $0.categoryID == id }
         monitoringPreferences.reminderProfiles.removeAll { $0.categoryID == id }
+        for index in samples.indices where samples[index].manualCategoryID == id {
+            samples[index].manualCategoryID = nil
+        }
         persistMonitoringPreferences()
+        schedulePersistence()
     }
 
     func assignCategory(toApplication applicationName: String, categoryID: String) {
@@ -389,28 +568,75 @@ final class ActivityStore {
         persistMonitoringPreferences()
     }
 
+    func overrideActivityCategory(sampleID: UUID, categoryID: String?) {
+        guard let index = samples.firstIndex(where: { $0.id == sampleID }) else { return }
+        guard categoryID == nil || monitoringPreferences.category(for: categoryID!) != nil else { return }
+        samples[index].manualCategoryID = categoryID
+        invalidateSummaries()
+        schedulePersistence()
+        evaluateReminders()
+    }
+
+    func setActivityHidden(sampleID: UUID, isHidden: Bool) {
+        guard let index = samples.firstIndex(where: { $0.id == sampleID }) else { return }
+        samples[index].isHidden = isHidden
+        invalidateSummaries()
+        schedulePersistence()
+        evaluateReminders()
+    }
+
+    func resetActivityEdits(sampleID: UUID) {
+        guard let index = samples.firstIndex(where: { $0.id == sampleID }) else { return }
+        samples[index].manualCategoryID = nil
+        samples[index].isHidden = false
+        samples[index].note = nil
+        invalidateSummaries()
+        schedulePersistence()
+        evaluateReminders()
+    }
+
     func ensureAgenda(for day: Date) async {
         await runCalendarSync(for: day, force: false)
     }
 
     func agendaSummary(for day: Date) -> AgendaSummary {
         let normalizedDay = Calendar.autoupdatingCurrent.startOfDay(for: day)
-        let storedDay = googleCalendarAgendaDay.map { Calendar.autoupdatingCurrent.startOfDay(for: $0) }
-        let events = storedDay == normalizedDay ? googleCalendarAgendaItems.sorted { $0.startDate < $1.startDate } : []
+        let enabledConnections = googleCalendarConnections.filter(\.isEnabled)
+        let events: [CalendarAgendaItem] = enabledConnections.flatMap { connection in
+            let storedDay = connection.agendaDay.map { Calendar.autoupdatingCurrent.startOfDay(for: $0) }
+            guard storedDay == normalizedDay else { return [CalendarAgendaItem]() }
+            return connection.agendaItems
+        }
+        .sorted(by: { $0.startDate < $1.startDate })
+
+        let lastSyncAt = enabledConnections.compactMap(\.lastSyncAt).max()
 
         return AgendaSummary(
             day: day,
             events: events,
-            isConnected: isGoogleCalendarConnected,
+            isConnected: !enabledConnections.isEmpty,
             isConfigured: isGoogleCalendarConfigured,
-            lastSyncAt: googleCalendarLastSyncAt,
-            profile: googleCalendarProfile
+            lastSyncAt: lastSyncAt,
+            connections: enabledConnections.map {
+                GoogleCalendarConnectionSummary(
+                    id: $0.id,
+                    profile: $0.profile,
+                    calendars: $0.calendars,
+                    isEnabled: $0.isEnabled,
+                    lastSyncAt: $0.lastSyncAt
+                )
+            }
         )
     }
 
     func summary(for day: Date) -> DailySummary {
+        let normalizedDay = Calendar.autoupdatingCurrent.startOfDay(for: day)
+        if let cached = summaryCache[normalizedDay] {
+            return cached
+        }
+
         let calendar = Calendar.autoupdatingCurrent
-        let dayStart = calendar.startOfDay(for: day)
+        let dayStart = normalizedDay
         let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86_400)
 
         var categoryTotals: [ActivityCategory: TimeInterval] = [:]
@@ -419,6 +645,7 @@ final class ActivityStore {
         var resolvedActivities: [ResolvedActivitySample] = []
 
         for sample in samples {
+            guard !sample.isHidden else { continue }
             guard !isIgnored(sample: sample) else { continue }
             guard let clipped = clip(sample: sample, from: dayStart, to: dayEnd) else { continue }
 
@@ -465,12 +692,12 @@ final class ActivityStore {
 
         let recentActivities = resolvedActivities
             .sorted { $0.endDate > $1.endDate }
-            .prefix(16)
+            .prefix(20)
             .map { $0 }
 
         let totalTrackedTime = categoryTotals.values.reduce(0, +)
 
-        return DailySummary(
+        let summary = DailySummary(
             day: day,
             totalTrackedTime: totalTrackedTime,
             categoryBreakdown: categoryBreakdown,
@@ -479,6 +706,9 @@ final class ActivityStore {
             timelineActivities: timelineActivities,
             recentActivities: recentActivities
         )
+
+        summaryCache[normalizedDay] = summary
+        return summary
     }
 
     private func runCalendarConnect(for day: Date) async {
@@ -499,54 +729,270 @@ final class ActivityStore {
                 clientSecret: clientSecret,
                 day: day
             )
-            applyCalendar(result: result, for: day)
-            googleCalendarStatusMessage = "Google Agenda conectada com sucesso."
+
+            guard let profile = result.profile else {
+                googleCalendarStatusMessage = "Nao foi possivel identificar a conta Google conectada."
+                return
+            }
+
+            let connectionID = slugify(profile.email)
+            try storeCalendarTokens(result.tokens, connectionID: connectionID)
+
+            let connection = GoogleCalendarConnectionSnapshot(
+                id: connectionID,
+                profile: profile,
+                calendars: result.calendars,
+                agendaDay: Calendar.autoupdatingCurrent.startOfDay(for: day),
+                agendaItems: result.events,
+                lastSyncAt: result.syncedAt,
+                isEnabled: true
+            )
+
+            if let existingIndex = googleCalendarConnections.firstIndex(where: { $0.id == connectionID }) {
+                googleCalendarConnections[existingIndex] = connection
+            } else {
+                googleCalendarConnections.append(connection)
+                googleCalendarConnections.sort { $0.profile.email < $1.profile.email }
+            }
+
+            googleCalendarStatusMessage = "Conta \(profile.email) conectada com sucesso."
+            persistGoogleCalendar()
+            scheduleCloudSyncIfNeeded(reason: "calendar-connect")
         } catch {
             googleCalendarStatusMessage = error.localizedDescription
         }
     }
 
     private func runCalendarSync(for day: Date, force: Bool) async {
-        guard let tokens = googleCalendarTokens else {
+        let clientID = googleCalendarClientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let clientSecret = googleCalendarClientSecret.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !googleCalendarConnections.isEmpty else {
             if force, isGoogleCalendarConfigured {
-                googleCalendarStatusMessage = "Conecte sua conta Google para começar a sincronizar a agenda."
+                googleCalendarStatusMessage = "Conecte pelo menos uma conta Google para sincronizar a agenda."
             }
             return
         }
 
-        let normalizedDay = Calendar.autoupdatingCurrent.startOfDay(for: day)
-        let storedDay = googleCalendarAgendaDay.map { Calendar.autoupdatingCurrent.startOfDay(for: $0) }
-        let shouldReuseCurrentAgenda = !force && storedDay == normalizedDay && !googleCalendarAgendaItems.isEmpty && !tokens.needsRefresh
-
-        guard !shouldReuseCurrentAgenda else { return }
-
         isSyncingGoogleCalendar = true
         defer { isSyncingGoogleCalendar = false }
 
-        do {
-            let result = try await googleCalendarService.refresh(
-                day: day,
-                clientID: googleCalendarClientID.trimmingCharacters(in: .whitespacesAndNewlines),
-                clientSecret: googleCalendarClientSecret.trimmingCharacters(in: .whitespacesAndNewlines),
-                existingTokens: tokens
-            )
-            applyCalendar(result: result, for: day)
+        let normalizedDay = Calendar.autoupdatingCurrent.startOfDay(for: day)
+        var updatedConnections = googleCalendarConnections
+        var syncMessages: [String] = []
 
-            if force {
-                googleCalendarStatusMessage = "Agenda sincronizada."
+        await withTaskGroup(of: (String, Result<GoogleCalendarSyncResult, Error>).self) { group in
+            for connection in googleCalendarConnections where connection.isEnabled {
+                guard let tokens = loadCalendarTokens(connectionID: connection.id) else {
+                    syncMessages.append("A conta \(connection.profile.email) precisa ser conectada novamente.")
+                    continue
+                }
+
+                let storedDay = connection.agendaDay.map { Calendar.autoupdatingCurrent.startOfDay(for: $0) }
+                let isToday = normalizedDay == Calendar.autoupdatingCurrent.startOfDay(for: Date())
+                let lastSyncAge = connection.lastSyncAt.map { Date().timeIntervalSince($0) } ?? .infinity
+                let shouldReuseCurrentAgenda = !force &&
+                    storedDay == normalizedDay &&
+                    !connection.agendaItems.isEmpty &&
+                    (!isToday || lastSyncAge < calendarRefreshInterval) &&
+                    !tokens.needsRefresh
+
+                guard !shouldReuseCurrentAgenda else { continue }
+
+                group.addTask { [googleCalendarService] in
+                    do {
+                        let result = try await googleCalendarService.refresh(
+                            day: day,
+                            clientID: clientID,
+                            clientSecret: clientSecret,
+                            existingTokens: tokens,
+                            connectionID: connection.id,
+                            connectionProfile: connection.profile,
+                            existingCalendars: connection.calendars
+                        )
+                        return (connection.id, .success(result))
+                    } catch {
+                        return (connection.id, .failure(error))
+                    }
+                }
             }
-        } catch {
-            googleCalendarStatusMessage = error.localizedDescription
+
+            for await item in group {
+                let connectionID = item.0
+                let result = item.1
+
+                guard let index = updatedConnections.firstIndex(where: { $0.id == connectionID }) else { continue }
+
+                switch result {
+                case let .success(syncResult):
+                    updatedConnections[index].profile = syncResult.profile ?? updatedConnections[index].profile
+                    updatedConnections[index].calendars = syncResult.calendars
+                    updatedConnections[index].agendaItems = syncResult.events
+                    updatedConnections[index].agendaDay = normalizedDay
+                    updatedConnections[index].lastSyncAt = syncResult.syncedAt
+
+                    do {
+                        try storeCalendarTokens(syncResult.tokens, connectionID: connectionID)
+                    } catch {
+                        syncMessages.append(error.localizedDescription)
+                    }
+                case let .failure(error):
+                    syncMessages.append(error.localizedDescription)
+                }
+            }
+        }
+
+        googleCalendarConnections = updatedConnections
+        persistGoogleCalendar()
+        scheduleCloudSyncIfNeeded(reason: "calendar-sync")
+
+        if !syncMessages.isEmpty {
+            googleCalendarStatusMessage = syncMessages.joined(separator: "\n")
+        } else if force {
+            googleCalendarStatusMessage = "Agenda sincronizada em \(googleCalendarConnections.count) conta(s)."
         }
     }
 
-    private func applyCalendar(result: GoogleCalendarSyncResult, for day: Date) {
-        googleCalendarTokens = result.tokens
-        googleCalendarProfile = result.profile ?? googleCalendarProfile
-        googleCalendarAgendaItems = result.events.sorted { $0.startDate < $1.startDate }
-        googleCalendarAgendaDay = Calendar.autoupdatingCurrent.startOfDay(for: day)
-        googleCalendarLastSyncAt = result.syncedAt
-        persistGoogleCalendar()
+    private func runCloudSync() async {
+        guard monitoringPreferences.cloudSyncSettings.isEnabled else { return }
+        guard cloudSyncConfigured else {
+            cloudSyncStatusMessage = "Preencha endpoint, Backup ID e chave para ativar o sync."
+            return
+        }
+        guard let secret = cloudBackupSecret else {
+            cloudSyncStatusMessage = "A chave de backup nao foi encontrada neste Mac."
+            return
+        }
+
+        isSyncingCloud = true
+        defer { isSyncingCloud = false }
+
+        do {
+            let updatedAt = try await cloudSyncService.push(
+                baseURL: monitoringPreferences.cloudSyncSettings.endpointURL,
+                backupID: monitoringPreferences.cloudSyncSettings.backupID,
+                secret: secret,
+                payload: makeCloudBackupPayload()
+            )
+            cloudSyncLastSyncAt = updatedAt
+            cloudSyncStatusMessage = "Backup sincronizado com sucesso."
+        } catch {
+            cloudSyncStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func runCloudRestore() async {
+        guard cloudSyncConfigured else {
+            cloudSyncStatusMessage = "Configure o sync antes de restaurar."
+            return
+        }
+        guard let secret = cloudBackupSecret else {
+            cloudSyncStatusMessage = "A chave de backup nao foi encontrada neste Mac."
+            return
+        }
+
+        isSyncingCloud = true
+        defer { isSyncingCloud = false }
+
+        do {
+            guard let payload = try await cloudSyncService.pull(
+                baseURL: monitoringPreferences.cloudSyncSettings.endpointURL,
+                backupID: monitoringPreferences.cloudSyncSettings.backupID,
+                secret: secret
+            ) else {
+                cloudSyncStatusMessage = "Nenhum backup encontrado para esse identificador."
+                return
+            }
+
+            monitoringPreferences = mergeRestoredMonitoringPreferences(payload.monitoringPreferences)
+            googleCalendarClientID = payload.googleCalendarSnapshot.clientID
+            googleCalendarConnections = payload.googleCalendarSnapshot.connections
+            if let rawActivities = payload.rawActivities {
+                samples = rawActivities
+            }
+
+            if !googleCalendarConnections.isEmpty {
+                googleCalendarStatusMessage = "Estrutura da agenda restaurada. Se este Mac ainda nao tiver os tokens locais, reconecte as contas Google."
+            }
+
+            persistMonitoringPreferences()
+            persistGoogleCalendar()
+            schedulePersistence()
+            invalidateSummaries()
+            cloudSyncStatusMessage = "Backup restaurado com sucesso."
+        } catch {
+            cloudSyncStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func makeCloudBackupPayload() -> CloudBackupPayload {
+        let retentionDays = monitoringPreferences.privacySettings.retentionDays
+        let summaries: [CloudDailySummarySnapshot]
+
+        if monitoringPreferences.cloudSyncSettings.syncDailySummaries {
+            let calendar = Calendar.autoupdatingCurrent
+            summaries = (0 ..< retentionDays).compactMap { offset in
+                guard let day = calendar.date(byAdding: .day, value: -offset, to: Date()) else { return nil }
+                let summary = summary(for: day)
+                guard summary.totalTrackedTime > 0 else { return nil }
+
+                return CloudDailySummarySnapshot(
+                    day: calendar.startOfDay(for: day),
+                    totalTrackedTime: summary.totalTrackedTime,
+                    categoryDurations: Dictionary(uniqueKeysWithValues: summary.categoryBreakdown.map { ($0.category.id, $0.duration) })
+                )
+            }
+        } else {
+            summaries = []
+        }
+
+        let rawActivities: [ActivitySample]?
+        if monitoringPreferences.cloudSyncSettings.syncRawActivities {
+            rawActivities = samples.map(makeCloudSafeSample)
+        } else {
+            rawActivities = nil
+        }
+
+        return CloudBackupPayload(
+            schemaVersion: 1,
+            exportedAt: Date(),
+            deviceName: Host.current().localizedName ?? "Mac",
+            monitoringPreferences: monitoringPreferences,
+            googleCalendarSnapshot: GoogleCalendarSnapshot(
+                clientID: googleCalendarClientID,
+                clientSecret: "",
+                connections: googleCalendarConnections
+            ),
+            dailySummaries: summaries,
+            rawActivities: rawActivities
+        )
+    }
+
+    private func makeCloudSafeSample(_ sample: ActivitySample) -> ActivitySample {
+        guard monitoringPreferences.privacySettings.syncOnlyDomains else {
+            return sample
+        }
+
+        var sanitized = sample
+        sanitized.webURL = sample.webDomain.map { "https://\($0)" }
+        sanitized.pageTitle = nil
+        return sanitized
+    }
+
+    private func mergeRestoredMonitoringPreferences(_ restored: MonitoringPreferencesSnapshot) -> MonitoringPreferencesSnapshot {
+        var merged = restored
+
+        if !monitoringPreferences.cloudSyncSettings.syncCategoriesAndRules {
+            merged.categories = monitoringPreferences.categories
+            merged.categoryRules = monitoringPreferences.categoryRules
+            merged.ignoredApplications = monitoringPreferences.ignoredApplications
+            merged.ignoredDomains = monitoringPreferences.ignoredDomains
+            merged.reminderProfiles = monitoringPreferences.reminderProfiles
+        }
+
+        merged.privacySettings = monitoringPreferences.privacySettings
+        merged.cloudSyncSettings = monitoringPreferences.cloudSyncSettings
+        return merged.normalized()
     }
 
     private func persistGoogleCalendar() {
@@ -554,12 +1000,8 @@ final class ActivityStore {
             try googleCalendarPersistence.save(
                 snapshot: GoogleCalendarSnapshot(
                     clientID: googleCalendarClientID,
-                    clientSecret: googleCalendarClientSecret,
-                    tokens: googleCalendarTokens,
-                    profile: googleCalendarProfile,
-                    agendaDay: googleCalendarAgendaDay,
-                    agendaItems: googleCalendarAgendaItems,
-                    lastSyncAt: googleCalendarLastSyncAt
+                    clientSecret: "",
+                    connections: googleCalendarConnections
                 )
             )
         } catch {
@@ -569,6 +1011,7 @@ final class ActivityStore {
 
     private func persistMonitoringPreferences() {
         monitoringPreferences = monitoringPreferences.normalized()
+        invalidateSummaries()
 
         do {
             try monitoringPreferencesPersistence.save(snapshot: monitoringPreferences)
@@ -577,6 +1020,7 @@ final class ActivityStore {
         }
 
         reconcileCurrentSnapshotAfterPreferencesChange()
+        scheduleCloudSyncIfNeeded(reason: "preferences")
     }
 
     private func reconcileCurrentSnapshotAfterPreferencesChange() {
@@ -584,7 +1028,7 @@ final class ActivityStore {
         if classifier.isIgnored(
             applicationName: currentSnapshot.applicationName,
             bundleIdentifier: currentSnapshot.bundleIdentifier,
-            webURL: currentSnapshot.webURL,
+            webURL: sanitizedURL(from: currentSnapshot.webURL),
             preferences: monitoringPreferences
         ) {
             closeCurrentSession(at: Date())
@@ -593,11 +1037,13 @@ final class ActivityStore {
 
     private func ingest(_ snapshot: ActivitySnapshot) {
         let domain = classifier.domain(from: snapshot.webURL)
+        let sanitizedURL = sanitizedURL(from: snapshot.webURL)
+        let sanitizedTitle = sanitizedTitle(from: snapshot.pageTitle)
 
         if classifier.isIgnored(
             applicationName: snapshot.applicationName,
             bundleIdentifier: snapshot.bundleIdentifier,
-            webURL: snapshot.webURL,
+            webURL: sanitizedURL,
             preferences: monitoringPreferences
         ) {
             currentSnapshot = nil
@@ -607,20 +1053,22 @@ final class ActivityStore {
 
         currentSnapshot = snapshot
 
-        if let lastIndex = samples.indices.last, samples[lastIndex].canExtend(with: snapshot, maximumGap: sessionGapTolerance) {
+        if let lastIndex = samples.indices.last,
+           samples[lastIndex].canExtend(with: snapshot, maximumGap: sessionGapTolerance, sanitizedURL: sanitizedURL, sanitizedTitle: sanitizedTitle) {
             samples[lastIndex].endDate = snapshot.timestamp
-            samples[lastIndex].webURL = snapshot.webURL
+            samples[lastIndex].webURL = sanitizedURL
             samples[lastIndex].webDomain = domain
-            samples[lastIndex].pageTitle = snapshot.pageTitle
+            samples[lastIndex].pageTitle = sanitizedTitle
         } else {
             if let lastIndex = samples.indices.last, snapshot.timestamp.timeIntervalSince(samples[lastIndex].endDate) <= sessionGapTolerance {
                 samples[lastIndex].endDate = max(samples[lastIndex].endDate, snapshot.timestamp)
             }
 
-            samples.append(ActivitySample(snapshot: snapshot, domain: domain))
+            samples.append(ActivitySample(snapshot: snapshot, domain: domain, sanitizedURL: sanitizedURL, sanitizedTitle: sanitizedTitle))
         }
 
-        persist()
+        invalidateSummaries()
+        schedulePersistence()
         evaluateReminders()
     }
 
@@ -632,21 +1080,74 @@ final class ActivityStore {
         }
 
         currentSnapshot = nil
-        persist()
+        schedulePersistence()
     }
 
-    private func persist() {
-        samples = persistence.trim(samples: samples)
+    private func schedulePersistence() {
+        persistTask?.cancel()
+        persistTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            self?.flushPersistence()
+        }
+
+        scheduleCloudSyncIfNeeded(reason: "activity")
+    }
+
+    private func flushPersistence() {
+        samples = persistence.trim(samples: samples, retentionDays: monitoringPreferences.privacySettings.retentionDays)
 
         do {
-            try persistence.save(samples: samples)
+            try persistence.save(samples: samples, retentionDays: monitoringPreferences.privacySettings.retentionDays)
         } catch {
             automationStatusMessage = "Nao foi possivel salvar o historico local do luum."
         }
     }
 
+    private func scheduleCloudSyncIfNeeded(reason _: String) {
+        guard monitoringPreferences.cloudSyncSettings.isEnabled else { return }
+        guard cloudSyncConfigured else { return }
+
+        cloudSyncTask?.cancel()
+        cloudSyncTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            await self?.runCloudSync()
+        }
+    }
+
+    private func startMaintenanceLoop() {
+        guard maintenanceTask == nil else { return }
+
+        maintenanceTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(300))
+                await self?.performScheduledMaintenance()
+            }
+        }
+    }
+
+    private func performScheduledMaintenance() async {
+        await reminderEngine.refreshAuthorizationStatus()
+
+        if googleCalendarConnections.contains(where: \.isEnabled),
+           !isConnectingGoogleCalendar,
+           !isSyncingGoogleCalendar {
+            await runCalendarSync(for: Date(), force: false)
+        }
+
+        guard monitoringPreferences.cloudSyncSettings.isEnabled,
+              cloudSyncConfigured,
+              !isSyncingCloud
+        else {
+            return
+        }
+
+        let lastSyncAge = cloudSyncLastSyncAt.map { Date().timeIntervalSince($0) } ?? .infinity
+        guard lastSyncAge >= cloudSyncInterval else { return }
+        await runCloudSync()
+    }
+
     private func evaluateReminders() {
-        let filteredSamples = samples.filter { !isIgnored(sample: $0) }
+        let filteredSamples = samples.filter { !$0.isHidden && !isIgnored(sample: $0) }
         Task { [weak self] in
             guard let self else { return }
             await self.reminderEngine.evaluate(
@@ -678,6 +1179,14 @@ final class ActivityStore {
         clipped.startDate = clippedStart
         clipped.endDate = clippedEnd
         return clipped
+    }
+
+    private func invalidateSummaries() {
+        summaryCache.removeAll()
+    }
+
+    private func normalizedDay(_ day: Date) -> Date {
+        Calendar.autoupdatingCurrent.startOfDay(for: day)
     }
 
     private func normalizePattern(_ value: String) -> String {
@@ -718,6 +1227,22 @@ final class ActivityStore {
         persistMonitoringPreferences()
     }
 
+    private func sanitizedURL(from rawURL: String?) -> String? {
+        guard let domain = classifier.domain(from: rawURL) else {
+            return rawURL
+        }
+
+        if monitoringPreferences.privacySettings.storesFullURLs {
+            return rawURL
+        }
+
+        return "https://\(domain)"
+    }
+
+    private func sanitizedTitle(from rawTitle: String?) -> String? {
+        monitoringPreferences.privacySettings.storesPageTitles ? rawTitle : nil
+    }
+
     private func slugify(_ value: String) -> String {
         let folded = value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
         let characters = folded.unicodeScalars.map { scalar -> Character in
@@ -740,6 +1265,60 @@ final class ActivityStore {
         }
 
         return candidate
+    }
+
+    private func migrateCalendarSecretsIfNeeded(snapshot: GoogleCalendarSnapshot) {
+        if !snapshot.clientSecret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           keychainService.string(for: Self.googleCalendarClientSecretKey) == nil {
+            try? keychainService.setString(snapshot.clientSecret, for: Self.googleCalendarClientSecretKey)
+        }
+
+        for connection in googleCalendarConnections {
+            if let legacyTokens = connection.legacyTokens,
+               keychainService.codable(GoogleCalendarTokens.self, for: Self.googleCalendarTokenKey(connection.id)) == nil {
+                try? keychainService.setCodable(legacyTokens, for: Self.googleCalendarTokenKey(connection.id))
+            }
+
+            if let tokens = loadCalendarTokens(connectionID: connection.id) {
+                calendarTokensByConnectionID[connection.id] = tokens
+            }
+        }
+
+        if let connectionsNeedingCleanup = googleCalendarConnections.firstIndex(where: { $0.legacyTokens != nil }) {
+            for index in googleCalendarConnections.indices {
+                googleCalendarConnections[index].legacyTokens = nil
+            }
+            _ = connectionsNeedingCleanup
+            persistGoogleCalendar()
+        }
+    }
+
+    private func storeCalendarTokens(_ tokens: GoogleCalendarTokens, connectionID: String) throws {
+        calendarTokensByConnectionID[connectionID] = tokens
+        try keychainService.setCodable(tokens, for: Self.googleCalendarTokenKey(connectionID))
+    }
+
+    private func loadCalendarTokens(connectionID: String) -> GoogleCalendarTokens? {
+        if let cached = calendarTokensByConnectionID[connectionID] {
+            return cached
+        }
+
+        let stored = keychainService.codable(GoogleCalendarTokens.self, for: Self.googleCalendarTokenKey(connectionID))
+        if let stored {
+            calendarTokensByConnectionID[connectionID] = stored
+        }
+        return stored
+    }
+
+    private var cloudBackupSecret: String? {
+        keychainService.string(for: Self.cloudBackupSecretKey)
+    }
+
+    private static let googleCalendarClientSecretKey = "google-calendar-client-secret"
+    private static let cloudBackupSecretKey = "cloud-sync-backup-secret"
+
+    private static func googleCalendarTokenKey(_ connectionID: String) -> String {
+        "google-calendar-token-\(connectionID)"
     }
 }
 

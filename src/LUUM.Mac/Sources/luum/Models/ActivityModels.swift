@@ -171,6 +171,9 @@ struct ActivitySample: Identifiable, Codable, Hashable, Sendable {
     var webDomain: String?
     var pageTitle: String?
     var source: ActivitySource
+    var manualCategoryID: String?
+    var isHidden: Bool
+    var note: String?
 
     init(
         id: UUID = UUID(),
@@ -181,7 +184,10 @@ struct ActivitySample: Identifiable, Codable, Hashable, Sendable {
         webURL: String?,
         webDomain: String?,
         pageTitle: String?,
-        source: ActivitySource
+        source: ActivitySource,
+        manualCategoryID: String? = nil,
+        isHidden: Bool = false,
+        note: String? = nil
     ) {
         self.id = id
         self.startDate = startDate
@@ -192,17 +198,20 @@ struct ActivitySample: Identifiable, Codable, Hashable, Sendable {
         self.webDomain = webDomain
         self.pageTitle = pageTitle
         self.source = source
+        self.manualCategoryID = manualCategoryID
+        self.isHidden = isHidden
+        self.note = note
     }
 
-    init(snapshot: ActivitySnapshot, domain: String?) {
+    init(snapshot: ActivitySnapshot, domain: String?, sanitizedURL: String?, sanitizedTitle: String?) {
         self.init(
             startDate: snapshot.timestamp,
             endDate: snapshot.timestamp,
             applicationName: snapshot.applicationName,
             bundleIdentifier: snapshot.bundleIdentifier,
-            webURL: snapshot.webURL,
+            webURL: sanitizedURL,
             webDomain: domain,
-            pageTitle: snapshot.pageTitle,
+            pageTitle: sanitizedTitle,
             source: snapshot.webURL == nil ? .nativeApp : .browserURL
         )
     }
@@ -211,15 +220,16 @@ struct ActivitySample: Identifiable, Codable, Hashable, Sendable {
         max(0, endDate.timeIntervalSince(startDate))
     }
 
-    func canExtend(with snapshot: ActivitySnapshot, maximumGap: TimeInterval) -> Bool {
-        matchesIdentity(snapshot) && snapshot.timestamp.timeIntervalSince(endDate) <= maximumGap
+    func canExtend(with snapshot: ActivitySnapshot, maximumGap: TimeInterval, sanitizedURL: String?, sanitizedTitle: String?) -> Bool {
+        matchesIdentity(snapshot, sanitizedURL: sanitizedURL, sanitizedTitle: sanitizedTitle) &&
+        snapshot.timestamp.timeIntervalSince(endDate) <= maximumGap
     }
 
-    private func matchesIdentity(_ snapshot: ActivitySnapshot) -> Bool {
+    private func matchesIdentity(_ snapshot: ActivitySnapshot, sanitizedURL: String?, sanitizedTitle: String?) -> Bool {
         applicationName == snapshot.applicationName &&
         bundleIdentifier == snapshot.bundleIdentifier &&
-        webURL == snapshot.webURL &&
-        pageTitle == snapshot.pageTitle
+        webURL == sanitizedURL &&
+        pageTitle == sanitizedTitle
     }
 }
 
@@ -236,6 +246,8 @@ struct ResolvedActivitySample: Identifiable, Hashable {
     var webDomain: String? { sample.webDomain }
     var pageTitle: String? { sample.pageTitle }
     var duration: TimeInterval { sample.duration }
+    var isManuallyCategorized: Bool { sample.manualCategoryID != nil }
+    var note: String? { sample.note }
 }
 
 struct CategoryBreakdown: Identifiable, Hashable {

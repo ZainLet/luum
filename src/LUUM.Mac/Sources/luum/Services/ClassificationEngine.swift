@@ -99,7 +99,12 @@ struct ClassificationEngine {
     }
 
     func classify(sample: ActivitySample, preferences: MonitoringPreferencesSnapshot) -> ActivityCategory {
-        classify(
+        if let manualCategoryID = sample.manualCategoryID,
+           let manualCategory = preferences.category(for: manualCategoryID) {
+            return manualCategory
+        }
+
+        return classify(
             applicationName: sample.applicationName,
             bundleIdentifier: sample.bundleIdentifier,
             webURL: sample.webURL,

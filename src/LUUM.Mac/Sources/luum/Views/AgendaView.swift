@@ -11,10 +11,14 @@ struct AgendaView: View {
                 LuumSectionHeader(
                     eyebrow: "Agenda",
                     title: "Google Calendar em contexto",
-                    subtitle: "Traga sua agenda para o luum e compare o que estava planejado com o que realmente ocupou o seu dia."
+                    subtitle: "Agora o luum pode cruzar varias contas e varios calendarios para comparar melhor o que estava planejado com o que realmente tomou seu dia."
                 )
 
                 agendaStatusCard
+
+                if !agenda.connections.isEmpty {
+                    connectionsCard
+                }
 
                 if agenda.events.isEmpty {
                     emptyAgendaCard
@@ -37,11 +41,13 @@ struct AgendaView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(agenda.isConnected ? "Conta conectada" : "Setup da agenda")
+                    Text(agenda.isConnected ? "Contas conectadas" : "Setup da agenda")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text(agenda.profile?.email ?? "Conecte um Client ID do tipo Desktop app para liberar a sincronizacao do Google Calendar.")
+                    Text(agenda.isConnected
+                         ? "\(agenda.connectedAccountCount) conta(s) e \(agenda.selectedCalendarCount) calendario(s) ativos neste Mac."
+                         : "Conecte uma ou mais contas Google nas preferencias para liberar o sync multi-calendario.")
                         .foregroundStyle(LuumTheme.textSecondary)
                 }
 
@@ -70,6 +76,40 @@ struct AgendaView: View {
         }
         .padding(22)
         .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.12))
+    }
+
+    private var connectionsCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Fontes ativas")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.white)
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 12)], spacing: 12) {
+                ForEach(agenda.connections) { connection in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(connection.profile.name)
+                            .foregroundStyle(.white)
+                            .font(.headline)
+
+                        Text(connection.profile.email)
+                            .foregroundStyle(LuumTheme.textSecondary)
+                            .font(.caption)
+
+                        Text("\(connection.selectedCalendars.count) calendario(s) selecionado(s)")
+                            .foregroundStyle(LuumTheme.electricBlue)
+                            .font(.caption.weight(.semibold))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .fill(.white.opacity(0.02))
+                    )
+                }
+            }
+        }
+        .padding(22)
+        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.14), cornerRadius: 30)
     }
 
     private var emptyAgendaCard: some View {
@@ -104,10 +144,8 @@ struct AgendaView: View {
                     .foregroundStyle(LuumTheme.electricBlue)
                     .font(.headline)
 
-                if let location = nextEvent.location {
-                    Text(location)
-                        .foregroundStyle(LuumTheme.textSecondary)
-                }
+                Text("\(nextEvent.accountLabel) • \(nextEvent.calendarTitle)")
+                    .foregroundStyle(LuumTheme.textSecondary)
             }
         }
         .padding(24)
@@ -128,11 +166,11 @@ struct AgendaView: View {
 
     private var emptyStateDescription: String {
         if !agenda.isConfigured {
-            return "Nas preferencias do luum voce pode colar o Client ID do Google Cloud e ativar a conexao desktop com loopback local."
+            return "Nas preferencias do luum voce pode colar o Client ID do Google Cloud e ativar o sync desktop com multiplas contas."
         }
 
         if !agenda.isConnected {
-            return "Depois de conectar, o luum puxa sua agenda principal e mostra os blocos lado a lado com o uso real do computador."
+            return "Depois de conectar, o luum lista os calendarios de cada conta para voce decidir o que entra na timeline."
         }
 
         return "Troque a data no topo ou sincronize novamente para verificar outros dias."
@@ -147,12 +185,12 @@ private struct AgendaRow: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [LuumTheme.electricBlue, LuumTheme.accent],
+                        colors: [Color(hex: event.calendarColorHex) ?? LuumTheme.electricBlue, LuumTheme.accent],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                 )
-                .frame(width: 8, height: 54)
+                .frame(width: 8, height: 56)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(event.title)
@@ -162,6 +200,10 @@ private struct AgendaRow: View {
                 Text(event.isAllDay ? "Dia inteiro" : LuumFormatters.timeRange(start: event.startDate, end: event.endDate))
                     .foregroundStyle(LuumTheme.electricBlue)
                     .font(.caption.weight(.semibold))
+
+                Text("\(event.accountLabel) • \(event.calendarTitle)")
+                    .foregroundStyle(LuumTheme.textSecondary)
+                    .font(.caption)
 
                 if let location = event.location {
                     Text(location)
@@ -181,6 +223,19 @@ private struct AgendaRow: View {
             }
         }
         .padding(18)
-        .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.12), cornerRadius: 28, shadowOpacity: 0.16)
+        .luumGlassCard(tint: (Color(hex: event.calendarColorHex) ?? LuumTheme.electricBlue).opacity(0.12), cornerRadius: 28, shadowOpacity: 0.16)
+    }
+}
+
+private extension Color {
+    init?(hex: String?) {
+        guard let hex else { return nil }
+        let cleaned = hex.replacingOccurrences(of: "#", with: "")
+        guard cleaned.count == 6, let value = Int(cleaned, radix: 16) else { return nil }
+        self.init(
+            red: Double((value >> 16) & 0xFF) / 255,
+            green: Double((value >> 8) & 0xFF) / 255,
+            blue: Double(value & 0xFF) / 255
+        )
     }
 }

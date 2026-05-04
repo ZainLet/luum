@@ -1,74 +1,92 @@
-# LUUM - Seu Assistente de Produtividade
+# LUUM
 
-Este é o código-fonte do LUUM, um aplicativo de rastreamento de tempo e produtividade construído com .NET, Firebase e agora também com um cliente nativo macOS em SwiftUI e Liquid Glass.
+O `luum` e um app de monitoramento de tempo com cliente macOS em SwiftUI e backend opcional em ASP.NET Core + Firestore para backup e sincronizacao.
 
-## Como Executar
+## Estrutura
 
-1.  **Pré-requisitos:**
-    * [.NET 8 SDK](https://dotnet.microsoft.com/download)
-    * [Visual Studio Code](https://code.visualstudio.com/)
-    * [Firebase CLI](https://firebase.google.com/docs/cli)
+- `/src/LUUM.Mac`: app macOS com monitoramento de apps, URLs, agenda e lembretes.
+- `/src/LUUM.API`: API local para backup em Firestore e futuras automacoes.
+- `/src/LUUM.Client`: painel web legado em Blazor.
+- `/src/LUUM.DesktopHelper`: helper legado para Windows.
 
-2.  **Configuração:**
-    * Clone este repositório.
-    * Preencha os valores dos placeholders em `src/LUUM.API/appsettings.json`.
-    * Defina a variável de ambiente `GOOGLE_APPLICATION_CREDENTIALS` com o caminho completo para o seu arquivo de chave da conta de serviço do Firebase.
+## Cliente macOS
 
-3.  **Executando no VSCode:**
-    * Abra a pasta do projeto no VSCode.
-    * Instale a extensão C# Dev Kit da Microsoft.
-    * Pressione `F5` para iniciar a depuração da API. A interface do Swagger será aberta no seu navegador.
+O app monitora:
 
-## Estrutura do Projeto
-
-* `/src/LUUM.API`: O backend da aplicação (ASP.NET Core Web API).
-* `/src/LUUM.Client`: O painel web em Blazor para consultar sessões.
-* `/src/LUUM.DesktopHelper`: Um helper de console para monitorar atividade no Windows.
-* `/src/LUUM.Mac`: O novo app macOS do luum, feito em SwiftUI com visual Liquid Glass preto e roxo.
-
-## LUUM para macOS
-
-O app nativo macOS rastreia:
-
-* aplicativo em foco
-* domínio e URL da aba ativa em navegadores suportados
-* agenda do Google conectada via OAuth desktop com retorno local em `127.0.0.1`
-* categorias como Trabalho, Entretenimento, Comunicação, Aprendizado e Utilitários
-* resumos diários por categoria, aplicativo, site e compromissos
+- app em foco
+- dominio e URL da aba ativa nos navegadores suportados
+- categorias editaveis com regras por app, bundle e site
+- lembretes por categoria
+- timeline diaria com edicao manual
+- Google Agenda com varias contas e varios calendarios por conta
+- backup opcional em Firestore
 
 ### Navegadores suportados
 
 Safari, Google Chrome, Arc, Brave, Microsoft Edge, Chromium, Opera e Vivaldi.
 
-### Permissões
+### Permissoes
 
-Para ler a URL da aba ativa, o macOS vai solicitar permissão de Automação quando o luum tentar conversar com o navegador pela primeira vez.
-
-O app também já inclui o texto de uso para Automação no `Info.plist`, então o prompt do macOS fica pronto para aparecer normalmente.
-
-Se você quiser que o luum detecte quando ficou longe do teclado ou mouse, pode liberar também Monitoramento de Entrada nas Preferências do Sistema. Essa permissão é opcional.
+- `Automacao`: necessaria para ler a aba ativa dos navegadores.
+- `Monitoramento de Entrada`: opcional, melhora a deteccao de inatividade.
+- `Notificacoes`: usada pelos lembretes de foco e entretenimento.
 
 ### Google Agenda
 
-O luum agora já traz o fluxo completo de conexão com Google Agenda no app, mas o Google exige um `OAuth Client ID` seu para apps desktop. O setup é:
-
-1. Ative a Google Calendar API no seu projeto do Google Cloud.
+1. Ative a [Google Calendar API](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com).
 2. Crie um OAuth client do tipo `Desktop app`.
-3. Cole o `Client ID` em `Preferências > Google Agenda`.
-4. Clique em `Conectar Google Agenda`.
+3. Em `Preferencias > Google Agenda`, cole o `Client ID`.
+4. Opcionalmente, cole o `Client secret`.
+5. Clique em `Adicionar conta Google`.
+6. Escolha os calendarios que entram no `luum`.
 
-O app abre o navegador padrão, conclui o login via OAuth desktop e salva localmente a configuração para as próximas sincronizações.
+Os tokens OAuth ficam no Keychain deste Mac. O backup em nuvem salva apenas a configuracao das contas e dos calendarios, nao os tokens.
 
-### Como rodar o app macOS
+### Privacidade e backup
+
+Em `Preferencias` voce pode controlar:
+
+- se titulos de abas sao salvos
+- se URLs completas sao salvas
+- por quantos dias o historico fica no disco
+- se o backup envia apenas dominios
+- se atividades brutas entram ou nao no backup
+
+## Como rodar o app macOS
 
 ```bash
 ./script/build_and_run.sh
 ```
 
-O app macOS atual usa APIs modernas de Liquid Glass e foi preparado para macOS 26.
+Para validar sem abrir o debugger:
 
-Por padrão o bundle é assinado localmente com assinatura ad hoc. Se você quiser testar uma assinatura de desenvolvedor depois, pode rodar:
+```bash
+./script/build_and_run.sh --verify
+```
+
+Para assinar com uma identidade local de desenvolvedor:
 
 ```bash
 APPLE_CODESIGN_IDENTITY="Developer ID Application: Seu Nome" ./script/build_and_run.sh
 ```
+
+## API local e Firestore Emulator
+
+Pre-requisitos:
+
+- [.NET 8 SDK](https://dotnet.microsoft.com/download)
+- [Firebase CLI](https://firebase.google.com/docs/cli)
+
+Para subir a API local em `http://localhost:5000`:
+
+```bash
+./script/run_api.sh
+```
+
+Para subir API + Firestore Emulator em um comando so:
+
+```bash
+./script/run_local_sync_stack.sh
+```
+
+O `luum` usa esse endpoint local para o backup em Firestore quando voce ativa `Preferencias > Backup Firestore`.

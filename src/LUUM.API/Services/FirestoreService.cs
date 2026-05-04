@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 
 namespace LUUM.API.Services
 {
@@ -141,6 +142,97 @@ namespace LUUM.API.Services
             var query = _db.Collection("sessions").WhereEqualTo("UserId", userId);
             var snapshots = await query.GetSnapshotAsync();
             return snapshots.Documents.Select(doc => doc.ConvertTo<Session>()).ToList();
+        }
+
+        public async Task<DateTimeOffset> SaveCloudBackupAsync(string backupId, string backupSecret, string payloadJson)
+        {
+            var normalizedBackupId = NormalizeBackupId(backupId);
+            var now = DateTimeOffset.UtcNow;
+            var metadata = ExtractBackupMetadata(payloadJson, now);
+            var record = new CloudBackupRecord
+            {
+                Id = GetStableHash(normalizedBackupId),
+                BackupId = normalizedBackupId,
+                SecretHash = GetStableHash(NormalizeSecret(backupSecret)),
+                PayloadJson = payloadJson,
+                SchemaVersion = metadata.SchemaVersion,
+                DeviceName = metadata.DeviceName,
+                ExportedAt = Timestamp.FromDateTimeOffset(metadata.ExportedAt),
+                UpdatedAt = Timestamp.FromDateTimeOffset(now)
+            };
+
+            await _db.Collection("cloudBackups").Document(record.Id).SetAsync(record);
+            _logger.LogInformation("Saved cloud backup {BackupId} from {DeviceName}.", normalizedBackupId, metadata.DeviceName);
+            return now;
+        }
+
+        public async Task<CloudBackupRecord?> GetCloudBackupAsync(string backupId)
+        {
+            var normalizedBackupId = NormalizeBackupId(backupId);
+            var snapshot = await _db.Collection("cloudBackups").Document(GetStableHash(normalizedBackupId)).GetSnapshotAsync();
+
+            if (!snapshot.Exists)
+            {
+                _logger.LogInformation("Cloud backup {BackupId} was not found.", normalizedBackupId);
+                return null;
+            }
+
+            return snapshot.ConvertTo<CloudBackupRecord>();
+        }
+
+        public bool BackupSecretMatches(string backupSecret, string storedHash)
+        {
+            var normalizedSecret = NormalizeSecret(backupSecret);
+            if (string.IsNullOrWhiteSpace(normalizedSecret) || string.IsNullOrWhiteSpace(storedHash))
+            {
+                return false;
+            }
+
+            var incomingHashBytes = Encoding.UTF8.GetBytes(GetStableHash(normalizedSecret));
+            var storedHashBytes = Encoding.UTF8.GetBytes(storedHash.Trim().ToLowerInvariant());
+            return CryptographicOperations.FixedTimeEquals(incomingHashBytes, storedHashBytes);
+        }
+
+        private static string NormalizeBackupId(string backupId)
+        {
+            return backupId.Trim();
+        }
+
+        private static string NormalizeSecret(string backupSecret)
+        {
+            return backupSecret.Trim();
+        }
+
+        private static (int SchemaVersion, string DeviceName, DateTimeOffset ExportedAt) ExtractBackupMetadata(string payloadJson, DateTimeOffset fallbackTimestamp)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(payloadJson);
+                var root = document.RootElement;
+
+                var schemaVersion = root.TryGetProperty("schemaVersion", out var schemaVersionElement) &&
+                    schemaVersionElement.ValueKind == JsonValueKind.Number &&
+                    schemaVersionElement.TryGetInt32(out var parsedSchemaVersion)
+                    ? parsedSchemaVersion
+                    : 1;
+
+                var deviceName = root.TryGetProperty("deviceName", out var deviceNameElement) &&
+                    deviceNameElement.ValueKind == JsonValueKind.String
+                    ? deviceNameElement.GetString() ?? string.Empty
+                    : string.Empty;
+
+                var exportedAt = root.TryGetProperty("exportedAt", out var exportedAtElement) &&
+                    exportedAtElement.ValueKind == JsonValueKind.String &&
+                    DateTimeOffset.TryParse(exportedAtElement.GetString(), out var parsedExportedAt)
+                    ? parsedExportedAt
+                    : fallbackTimestamp;
+
+                return (schemaVersion, deviceName, exportedAt);
+            }
+            catch
+            {
+                return (1, string.Empty, fallbackTimestamp);
+            }
         }
     }
 }

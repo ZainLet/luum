@@ -4,13 +4,12 @@ struct ActivityPersistence {
     private let fileManager: FileManager
     private let directoryName = "luum"
     private let fileName = "activity-log.json"
-    private let retentionDays = 30
 
     init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
     }
 
-    func load() -> [ActivitySample] {
+    func load(retentionDays: Int = 30) -> [ActivitySample] {
         guard
             let data = try? Data(contentsOf: fileURL),
             let samples = try? JSONDecoder().decode([ActivitySample].self, from: data)
@@ -18,11 +17,11 @@ struct ActivityPersistence {
             return []
         }
 
-        return trim(samples: samples)
+        return trim(samples: samples, retentionDays: retentionDays)
     }
 
-    func save(samples: [ActivitySample]) throws {
-        let cleanedSamples = trim(samples: samples)
+    func save(samples: [ActivitySample], retentionDays: Int = 30) throws {
+        let cleanedSamples = trim(samples: samples, retentionDays: retentionDays)
 
         try fileManager.createDirectory(
             at: directoryURL,
@@ -33,7 +32,7 @@ struct ActivityPersistence {
         try data.write(to: fileURL, options: .atomic)
     }
 
-    func trim(samples: [ActivitySample]) -> [ActivitySample] {
+    func trim(samples: [ActivitySample], retentionDays: Int = 30) -> [ActivitySample] {
         let cutoff = Calendar.autoupdatingCurrent.date(byAdding: .day, value: -retentionDays, to: Date()) ?? .distantPast
         return samples.filter { $0.endDate >= cutoff }
     }

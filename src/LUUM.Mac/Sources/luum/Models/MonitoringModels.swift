@@ -85,12 +85,46 @@ struct ReminderProfile: Identifiable, Codable, Hashable, Sendable {
     ]
 }
 
+struct PrivacySettings: Codable, Hashable, Sendable {
+    var storesPageTitles: Bool
+    var storesFullURLs: Bool
+    var retentionDays: Int
+    var syncOnlyDomains: Bool
+
+    static let `default` = PrivacySettings(
+        storesPageTitles: true,
+        storesFullURLs: true,
+        retentionDays: 30,
+        syncOnlyDomains: true
+    )
+}
+
+struct CloudSyncSettings: Codable, Hashable, Sendable {
+    var isEnabled: Bool
+    var endpointURL: String
+    var backupID: String
+    var syncCategoriesAndRules: Bool
+    var syncDailySummaries: Bool
+    var syncRawActivities: Bool
+
+    static let `default` = CloudSyncSettings(
+        isEnabled: false,
+        endpointURL: "http://localhost:5000",
+        backupID: "",
+        syncCategoriesAndRules: true,
+        syncDailySummaries: true,
+        syncRawActivities: false
+    )
+}
+
 struct MonitoringPreferencesSnapshot: Codable, Sendable {
     var categories: [ActivityCategory]
     var categoryRules: [CategoryRule]
     var ignoredApplications: [String]
     var ignoredDomains: [String]
     var reminderProfiles: [ReminderProfile]
+    var privacySettings: PrivacySettings
+    var cloudSyncSettings: CloudSyncSettings
 
     static var `default`: MonitoringPreferencesSnapshot {
         MonitoringPreferencesSnapshot(
@@ -98,7 +132,9 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
             categoryRules: ClassificationEngine.defaultRules,
             ignoredApplications: [],
             ignoredDomains: [],
-            reminderProfiles: ReminderProfile.defaultProfiles
+            reminderProfiles: ReminderProfile.defaultProfiles,
+            privacySettings: .default,
+            cloudSyncSettings: .default
         )
     }
 
@@ -119,6 +155,13 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
 
         let validCategoryIDs = Set(orderedCategories.map(\.id))
 
+        var privacySettings = privacySettings
+        privacySettings.retentionDays = min(max(privacySettings.retentionDays, 7), 365)
+
+        var cloudSyncSettings = cloudSyncSettings
+        cloudSyncSettings.endpointURL = cloudSyncSettings.endpointURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        cloudSyncSettings.backupID = cloudSyncSettings.backupID.trimmingCharacters(in: .whitespacesAndNewlines)
+
         return MonitoringPreferencesSnapshot(
             categories: orderedCategories,
             categoryRules: categoryRules.filter { validCategoryIDs.contains($0.categoryID) && !$0.pattern.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
@@ -131,7 +174,9 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
                     reminder.weekdays = reminder.weekdays.filter { (1 ... 7).contains($0) }
                     reminder.thresholdMinutes = max(5, reminder.thresholdMinutes)
                     return reminder
-                }
+                },
+            privacySettings: privacySettings,
+            cloudSyncSettings: cloudSyncSettings
         )
     }
 
