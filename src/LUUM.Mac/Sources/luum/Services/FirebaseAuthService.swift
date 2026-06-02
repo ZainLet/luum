@@ -72,8 +72,12 @@ struct FirebaseAuthService {
 
         guard let token, !token.isEmpty else { throw FirebaseAuthServiceError.missingToken }
         let payload = try decodeFirebaseToken(token)
-        let resolvedUID = Self.nonBlank(uid) ?? Self.nonBlank(payload.userID)
-        guard let resolvedUID else { throw FirebaseAuthServiceError.invalidToken }
+        guard let resolvedUID = Self.nonBlank(payload.userID) else {
+            throw FirebaseAuthServiceError.invalidToken
+        }
+        if let callbackUID = Self.nonBlank(uid), callbackUID != resolvedUID {
+            throw FirebaseAuthServiceError.invalidToken
+        }
 
         let issuedAt = payload.issuedAt.map { Date(timeIntervalSince1970: $0) } ?? Date()
         let trialEndsAt = Calendar.current.date(byAdding: .day, value: 7, to: issuedAt)
@@ -131,7 +135,7 @@ struct FirebaseAuthService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        let encoded = refreshToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? refreshToken
+        let encoded = Self.formEncoded(refreshToken)
         request.httpBody = Data("grant_type=refresh_token&refresh_token=\(encoded)".utf8)
 
         let (data, response) = try await session.data(for: request)
@@ -164,6 +168,11 @@ struct FirebaseAuthService {
         guard let value else { return nil }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func formEncoded(_ value: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
+        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 
     private func decodeFirebaseToken(_ token: String) throws -> FirebaseIDTokenPayload {

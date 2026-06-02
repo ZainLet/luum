@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════
 //  Status da Assinatura — Luum
-//  Rota: GET /api/auth/status?uid={uid}
+//  Rota: GET /api/auth/status
 //  ════════════════════════════════════════════════════════
 //
 //  O app desktop chama este endpoint para saber se o
@@ -14,11 +14,7 @@
 //
 //  SEGURANÇA:
 //  Este endpoint NÃO deve ser público. Exija autenticação.
-//  Duas formas:
-//    A) Receber um token Firebase ID no header Authorization
-//    B) Usar API key secreta compartilhada entre backend e app
-//
-//  A forma (A) é a mais segura. O app desktop envia:
+//  O app desktop envia:
 //    Authorization: Bearer {firebase_id_token}
 //  Este endpoint verifica o token e extrai o uid.
 //
@@ -34,30 +30,17 @@ async function statusHandler(req, res) {
 
     try {
         const db = getFirestore();
-        // ─── Método A (recomendado): Token Firebase ───
-        const authHeader = req.headers.authorization;
-        let uid = null;
-
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            const token = authHeader.split('Bearer ')[1];
-            try {
-                const decoded = await admin.auth().verifyIdToken(token);
-                uid = decoded.uid;
-            } catch (err) {
-                return res.status(401).json({ error: 'Token inválido ou expirado' });
-            }
+        const authHeader = req.headers.authorization || '';
+        if (!authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'Login Firebase obrigatório' });
         }
 
-        // ─── Método B (fallback): UID na query ───
-        // Apenas usar se o app envia uma API key secreta
-        if (!uid) {
-            const queryUid = req.query.uid;
-            const apiKey = req.query.key || req.headers['x-api-key'];
-
-            if (!queryUid || !apiKey || apiKey !== process.env.API_KEY) {
-                return res.status(401).json({ error: 'Não autorizado' });
-            }
-            uid = queryUid;
+        let uid;
+        try {
+            const decoded = await admin.auth().verifyIdToken(authHeader.slice('Bearer '.length));
+            uid = decoded.uid;
+        } catch (err) {
+            return res.status(401).json({ error: 'Token inválido ou expirado' });
         }
 
         // ─── Consulta Firestore ─────────────────────────

@@ -133,7 +133,7 @@ const firestoreReady = Boolean(db);
 //  ─── FORMA B (via API) ───
 //  App desktop chama o endpoint /api/auth/status:
 //
-//     fetch('https://sua-api.com/api/auth/status?uid=' + uid, {
+//     fetch('https://sua-api.com/api/auth/status', {
 //       headers: { 'Authorization': 'Bearer ' + firebaseToken }
 //     })
 //     .then(r => r.json())
@@ -153,11 +153,11 @@ const firestoreReady = Boolean(db);
 //  [x] 5. firebaseConfig preenchido (firebase-config.js)
 //  [ ] 6. Stripe Dashboard → criar 4 produtos/preços
 //  [ ] 7. Vercel → configurar STRIPE_PRICE_* e STRIPE_* secrets
-//  [ ] 8. Vercel → configurar FIREBASE_SERVICE_ACCOUNT_JSON e ADMIN_EMAILS
-//  [ ] 9. Deploy api/checkout.js + api/webhook.js + api/auth/status.js + api/admin/users.js
+//  [x] 8. Vercel → configurar FIREBASE_SERVICE_ACCOUNT_JSON e admin inicial
+//  [x] 9. Deploy api/checkout.js + api/webhook.js + api/auth/status.js + api/admin/users.js
 //  [ ] 10. Stripe → configurar webhook → url do api/webhook.js
 //  [x] 11. Firebase SDK ativo nos HTMLs
 //  [x] 12. App desktop → checkSubscription via /api/auth/status
-//  [ ] 13. Acessar admin.html com email listado em ADMIN_EMAILS e promover usuários
+//  [x] 13. Acessar admin.html com admin inicial e promover usuários
 //
 //  ════════════════════════════════════════════════════════

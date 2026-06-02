@@ -306,11 +306,18 @@ final class ActivityStore {
                 }
             } catch {
                 await MainActor.run {
-                    let offline = authSession
-                    let message = offline.isLocked
-                        ? "Conecte-se a internet e valide seu plano para liberar o app."
-                        : "Sem conexao com a API. Usando sessao local validada por ate 24 horas."
-                    self.applyAuthSession(offline, message: message)
+                    if error is URLError {
+                        let offline = authSession
+                        let message = offline.isLocked
+                            ? "Conecte-se a internet e valide seu plano para liberar o app."
+                            : "Sem conexao com a API. Usando sessao local validada por ate 24 horas."
+                        self.applyAuthSession(offline, message: message)
+                    } else {
+                        var rejected = authSession
+                        rejected.lockedReason = "auth_validation_failed"
+                        rejected.lastVerifiedAt = nil
+                        self.applyAuthSession(rejected, message: "A sessao nao foi aceita pela API. Entre novamente para liberar o app.")
+                    }
                     self.isCheckingAuth = false
                 }
             }

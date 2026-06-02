@@ -4,10 +4,10 @@ Este arquivo lista o que depende de contas, chaves externas ou decisões que nã
 
 ## Firebase
 
-- Publicar `luum_website/firestore.rules` em produção. A política versionada permite ao usuário autenticado ler apenas o próprio perfil e bloqueia gravações diretas, backups e o cofre fora do backend Admin.
+- Regras `firestore.rules` publicadas em produção. A política versionada permite ao usuário autenticado ler apenas o próprio perfil e bloqueia gravações diretas, backups e o cofre fora do backend Admin.
 - Confirmar o projeto final (`luum-app`) e domínios autorizados do Firebase Auth.
-- Validar em produção o endpoint `POST /api/auth/upsert-user`, já implementado em `luum_website/api/auth/upsert-user.js`, para criar/atualizar `users/{uid}` via Admin SDK após login/cadastro.
-- Validar em produção o endpoint `GET /api/auth/status`, já implementado em `luum_website/api/auth/status.js`, recebendo `Authorization: Bearer {firebase_id_token}` e retornando `locked`, `plan`, `trial`, `expiresAt` e `reason`.
+- Endpoint `POST /api/auth/upsert-user` validado em produção para criar/atualizar `users/{uid}` via Admin SDK após login/cadastro.
+- Endpoint `GET /api/auth/status` validado em produção recebendo exclusivamente `Authorization: Bearer {firebase_id_token}` e retornando `locked`, `plan`, `trial`, `expiresAt` e `reason`.
 - Configurar `ADMIN_EMAILS` no backend com o primeiro email administrador, separado por vírgula se houver mais de um.
 - Usar `admin.html` para promover usuários e definir `plan`, `subscription.status`, validade, assentos e `role`.
 - Opcional: manter custom claims `luumAdmin` para admins; a fonte de verdade dos planos deve continuar sendo Firestore/Stripe.
@@ -25,7 +25,6 @@ Variáveis necessárias no deploy:
 - `STRIPE_MIN_SEATS_EQUIPES=2` e `STRIPE_MIN_SEATS_NEGOCIOS=5` se quiser sobrescrever os mínimos já protegidos no backend
 - `FIREBASE_SERVICE_ACCOUNT_JSON` com a credencial técnica restrita do Admin SDK
 - `ADMIN_EMAILS` com os emails autorizados a acessar `admin.html`
-- `API_KEY` apenas se mantiver fallback por chave compartilhada
 
 Domínio padrão usado pelo app desktop: `https://luum-app.vercel.app`. Se publicar com outro domínio, configure no Mac com `defaults write com.zainlet.luum LuumBackendBaseURL "https://seu-dominio.com"` ou lance o app com `LUUM_BACKEND_BASE_URL`.
 
@@ -48,8 +47,8 @@ Preços confirmados e unificados no site:
 
 ## App macOS
 
-- O app já recebe `luum://auth?token=...&refreshToken=...&uid=...`, renova token Firebase expirado, consulta `/api/auth/status`, aplica gates por plano e salva sessão local com fallback quando o Keychain falha.
-- Sessões locais só mantêm acesso offline por até 24 horas após uma validação real do servidor; falhas de rede não renovam essa tolerância.
+- O app já recebe `luum://auth?token=...&refreshToken=...&uid=...`, exige que o UID do callback confira com o token, renova token Firebase expirado, consulta `/api/auth/status`, aplica gates por plano e salva sessão local com fallback cifrado quando o Keychain falha.
+- Sessões locais só mantêm acesso offline por até 24 horas após uma validação real do servidor. Falhas de rede não renovam essa tolerância; rejeições explícitas da API bloqueiam a sessão e exigem novo login.
 - Sem Apple Developer, mantenha assinatura ad-hoc (`codesign --sign -`) para builds locais.
 - Para reduzir crack em distribuição real, mover validação final para servidor: expiração curta, refresh obrigatório, device id por instalação e checagem de assinatura no backend. Nenhum bloqueio local é 100% à prova de crack.
 

@@ -1,8 +1,10 @@
 import Foundation
+import CryptoKit
 import Security
 
 struct KeychainService {
     private let service = "com.zainlet.luum"
+    private let fallbackVersionPrefix = "v1:"
 
     func setString(_ value: String, for account: String) throws {
         try setData(Data(value.utf8), for: account)
@@ -86,12 +88,50 @@ struct KeychainService {
     }
 
     private func setFallbackData(_ data: Data, for account: String) {
-        UserDefaults.standard.set(data.base64EncodedString(), forKey: fallbackKey(for: account))
+        let accountData = Data(account.utf8)
+        guard
+            let sealed = try? AES.GCM.seal(data, using: fallbackEncryptionKey, authenticating: accountData),
+            let combined = sealed.combined
+        else {
+            UserDefaults.standard.removeObject(forKey: fallbackKey(for: account))
+            return
+        }
+
+        UserDefaults.standard.set(
+            fallbackVersionPrefix + combined.base64EncodedString(),
+            forKey: fallbackKey(for: account)
+        )
     }
 
     private func fallbackData(for account: String) -> Data? {
         guard let raw = UserDefaults.standard.string(forKey: fallbackKey(for: account)) else { return nil }
-        return Data(base64Encoded: raw)
+        if raw.hasPrefix(fallbackVersionPrefix) {
+            let encoded = String(raw.dropFirst(fallbackVersionPrefix.count))
+            guard
+                let combined = Data(base64Encoded: encoded),
+                let sealed = try? AES.GCM.SealedBox(combined: combined)
+            else {
+                return nil
+            }
+
+            return try? AES.GCM.open(
+                sealed,
+                using: fallbackEncryptionKey,
+                authenticating: Data(account.utf8)
+            )
+        }
+
+        // Migra o fallback Base64 usado por builds anteriores para armazenamento cifrado.
+        guard let legacyData = Data(base64Encoded: raw) else { return nil }
+        setFallbackData(legacyData, for: account)
+        return legacyData
+    }
+
+    private var fallbackEncryptionKey: SymmetricKey {
+        // Builds ad-hoc podem perder acesso ao Keychain. A chave derivada da conta local
+        // reduz exposição casual em disco, mas não substitui o Keychain em distribuição.
+        let material = "\(service)\u{0}\(NSUserName())\u{0}\(NSHomeDirectory())"
+        return SymmetricKey(data: SHA256.hash(data: Data(material.utf8)))
     }
 }
 
