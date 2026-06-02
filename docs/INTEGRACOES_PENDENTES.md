@@ -26,16 +26,16 @@ Variáveis necessárias no deploy:
 - `FIREBASE_SERVICE_ACCOUNT_JSON` com a credencial técnica restrita do Admin SDK
 - `ADMIN_EMAILS` com os emails autorizados a acessar `admin.html`
 
-Domínio padrão usado pelo app desktop: `https://luum-app.vercel.app`. Se publicar com outro domínio, configure no Mac com `defaults write com.zainlet.luum LuumBackendBaseURL "https://seu-dominio.com"` ou lance o app com `LUUM_BACKEND_BASE_URL`.
+Domínio oficial usado pelo app desktop: `https://luum-app.vercel.app`. Login, backup e ranking rejeitam endpoints alternativos para impedir que preferências locais redirecionem o Firebase ID token.
 
 ## Stripe
 
-Preços confirmados e unificados no site:
+Preços mensais confirmados e valores anuais ainda pendentes de confirmação final:
 
-- `essencial`: R$ 29,90/mês; anual exibido R$ 269,00/ano.
-- `profissional`: R$ 49,90/mês; anual exibido R$ 449,00/ano.
-- `equipes`: R$ 45,00/usuário/mês; anual exibido R$ 33,75/usuário/mês; mínimo 2 usuários.
-- `negocios`: R$ 65,00/usuário/mês; anual exibido R$ 48,75/usuário/mês; mínimo 5 usuários.
+- `essencial`: R$ 29,90/mês; confirmar valor anual antes de criar o Price ID anual.
+- `profissional`: R$ 49,90/mês; confirmar valor anual antes de criar o Price ID anual.
+- `equipes`: R$ 45,00/usuário/mês; mínimo 2 usuários; confirmar valor anual antes de criar o Price ID anual.
+- `negocios`: R$ 65,00/usuário/mês; mínimo 5 usuários; confirmar valor anual antes de criar o Price ID anual.
 
 - Criar produtos e preços no Stripe para `essencial`, `profissional`, `equipes` e `negocios`.
 - Revogar qualquer chave `sk_live_` ou `rk_live_` exposta em chat, log ou captura antes de uso. Salvar a substituta diretamente no cofre admin, nunca em arquivos versionados.
@@ -67,7 +67,7 @@ Preços confirmados e unificados no site:
 
 - API criada no site/backend: `luum_website/api/sync/[backupID].js`.
 - O app macOS envia backup com `Authorization: Bearer {firebase_id_token}` para `/api/sync/{backupID}`.
-- Por padrão, `backupID` vira o UID Firebase após login e o endpoint vira o domínio Vercel configurado.
+- `backupID` vira obrigatoriamente o UID Firebase após login e a API rejeita identificadores alternativos.
 - Atividades brutas continuam desligadas por privacidade e só são enviadas se o plano permitir `rawActivityBackup` (Negócios).
 - Antes do envio, o app remove tokens OAuth, client secret Google, URL privada do webhook Zapier e eventos temporários da agenda Google. O Firestore recebe estrutura de contas, configurações sanitizadas e resumos.
 - A API também valida assinatura e plano no Firestore antes de aceitar push ou restore. Essa checagem server-side impede que um binário desktop modificado libere backup ou atividades brutas apenas removendo gates locais.
