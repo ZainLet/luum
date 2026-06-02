@@ -533,12 +533,7 @@ final class ActivityStore {
     var cloudSyncConfigured: Bool {
         !cloudSyncSettings.endpointURL.isEmpty &&
         !cloudSyncSettings.backupID.isEmpty &&
-        (!(authSession?.idToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) ||
-         !(cloudBackupSecret?.isEmpty ?? true))
-    }
-
-    var hasCloudBackupSecret: Bool {
-        !(cloudBackupSecret?.isEmpty ?? true)
+        !(authSession?.idToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
     }
 
     func bootstrap(selectedDay: Date = Date()) {
@@ -1130,19 +1125,6 @@ final class ActivityStore {
     func updateCloudSyncSyncCategories(_ value: Bool) {
         monitoringPreferences.cloudSyncSettings.syncCategoriesAndRules = value
         persistMonitoringPreferences()
-    }
-
-    func updateCloudBackupSecret(_ value: String) {
-        do {
-            if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                keychainService.removeValue(for: Self.cloudBackupSecretKey)
-            } else {
-                try keychainService.setString(value, for: Self.cloudBackupSecretKey)
-            }
-            cloudSyncStatusMessage = "Chave de backup atualizada neste Mac."
-        } catch {
-            cloudSyncStatusMessage = error.localizedDescription
-        }
     }
 
     func syncCloudBackupNow() {
@@ -2704,7 +2686,6 @@ final class ActivityStore {
             let updatedAt = try await cloudSyncService.push(
                 baseURL: monitoringPreferences.cloudSyncSettings.endpointURL,
                 backupID: monitoringPreferences.cloudSyncSettings.backupID,
-                secret: cloudBackupSecret,
                 firebaseToken: authSession?.idToken,
                 payload: makeCloudBackupPayload()
             )
@@ -2732,7 +2713,6 @@ final class ActivityStore {
             guard let payload = try await cloudSyncService.pull(
                 baseURL: monitoringPreferences.cloudSyncSettings.endpointURL,
                 backupID: monitoringPreferences.cloudSyncSettings.backupID,
-                secret: cloudBackupSecret,
                 firebaseToken: authSession?.idToken
             ) else {
                 cloudSyncStatusMessage = "Nenhum backup encontrado para esse identificador."
@@ -3460,17 +3440,12 @@ final class ActivityStore {
         }
     }
 
-    private var cloudBackupSecret: String? {
-        keychainService.string(for: Self.cloudBackupSecretKey)
-    }
-
     private var workspaceSecret: String? {
         keychainService.string(for: Self.teamWorkspaceSecretKey)
     }
 
     private static let firebaseAuthSessionKey = "firebase-auth-session"
     private static let googleCalendarClientSecretKey = "google-calendar-client-secret"
-    private static let cloudBackupSecretKey = "cloud-sync-backup-secret"
     private static let notionCalendarTokenKey = "notion-calendar-token"
     private static let outlookCalendarTokenKey = "outlook-calendar-token"
     private static let clickUpTokenKey = "clickup-api-token"

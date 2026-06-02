@@ -3,7 +3,6 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var store: ActivityStore
 
-    @State private var backupSecretDraft = ""
     @State private var notionTokenDraft = ""
     @State private var notionDataSourceDraft = ""
     @State private var outlookTokenDraft = ""
@@ -982,17 +981,7 @@ struct SettingsView: View {
             ))
             .textFieldStyle(.roundedBorder)
 
-            SecureField(store.hasCloudBackupSecret ? "Chave salva neste Mac. Digite uma nova para trocar." : "Chave de backup", text: $backupSecretDraft)
-                .textFieldStyle(.roundedBorder)
-
             HStack(spacing: 10) {
-                Button("Salvar chave") {
-                    store.updateCloudBackupSecret(backupSecretDraft)
-                    backupSecretDraft = ""
-                }
-                .buttonStyle(.glassProminent)
-                .disabled(backupSecretDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
                 Button("Sincronizar agora") {
                     store.syncCloudBackupNow()
                 }
@@ -1031,7 +1020,7 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("O backup sincroniza configuracoes e resumos. Tokens do Google, Notion e a chave do backup continuam locais no Keychain.")
+            Text("O backup usa seu login Firebase e sincroniza configuracoes sanitizadas e resumos. Tokens das integracoes continuam locais neste Mac.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)

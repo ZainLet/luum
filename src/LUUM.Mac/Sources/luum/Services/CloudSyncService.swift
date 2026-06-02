@@ -22,13 +22,10 @@ struct CloudSyncSnapshotResponse: Codable, Sendable {
 }
 
 struct CloudSyncSaveRequest: Codable, Sendable {
-    let backupSecret: String?
     let payload: CloudBackupPayload
 }
 
-struct CloudSyncRestoreRequest: Codable, Sendable {
-    let backupSecret: String?
-}
+struct CloudSyncRestoreRequest: Codable, Sendable {}
 
 enum CloudSyncError: LocalizedError {
     case invalidBaseURL
@@ -41,7 +38,7 @@ enum CloudSyncError: LocalizedError {
         case .invalidBaseURL:
             "A URL do sync em nuvem nao e valida."
         case .unauthorized:
-            "O login Firebase ou a chave de backup nao autorizou o sync."
+            "O login Firebase nao autorizou o sync. Entre novamente na conta Luum."
         case .invalidResponse:
             "A resposta do sync em nuvem veio incompleta."
         case let .apiError(message):
@@ -81,7 +78,7 @@ struct CloudSyncService {
         )
     }
 
-    func push(baseURL: String, backupID: String, secret: String?, firebaseToken: String?, payload: CloudBackupPayload) async throws -> Date {
+    func push(baseURL: String, backupID: String, firebaseToken: String?, payload: CloudBackupPayload) async throws -> Date {
         let url = try makeURL(baseURL: baseURL, backupID: backupID)
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
@@ -89,7 +86,7 @@ struct CloudSyncService {
         if let firebaseToken = Self.nonBlank(firebaseToken) {
             request.setValue("Bearer \(firebaseToken)", forHTTPHeaderField: "Authorization")
         }
-        request.httpBody = try JSONEncoder().encode(CloudSyncSaveRequest(backupSecret: secret, payload: payload))
+        request.httpBody = try JSONEncoder().encode(CloudSyncSaveRequest(payload: payload))
 
         let response: CloudSyncSnapshotResponse = try await perform(request)
         guard let updatedAt = response.updatedAt else {
@@ -98,7 +95,7 @@ struct CloudSyncService {
         return updatedAt
     }
 
-    func pull(baseURL: String, backupID: String, secret: String?, firebaseToken: String?) async throws -> CloudBackupPayload? {
+    func pull(baseURL: String, backupID: String, firebaseToken: String?) async throws -> CloudBackupPayload? {
         let url = try makeURL(baseURL: baseURL, backupID: backupID)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -106,7 +103,7 @@ struct CloudSyncService {
         if let firebaseToken = Self.nonBlank(firebaseToken) {
             request.setValue("Bearer \(firebaseToken)", forHTTPHeaderField: "Authorization")
         }
-        request.httpBody = try JSONEncoder().encode(CloudSyncRestoreRequest(backupSecret: secret))
+        request.httpBody = try JSONEncoder().encode(CloudSyncRestoreRequest())
 
         let response: CloudSyncSnapshotResponse = try await perform(request)
         return response.payload
