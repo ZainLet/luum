@@ -13,7 +13,7 @@
 //
 
 const { admin, getAdminApp } = require('./_firebaseAdmin');
-const { getStripe, getPriceID, minimumQuantity } = require('./_stripe');
+const { getStripe, getPriceID, isStripePlan, minimumQuantity } = require('./_stripe');
 const { getSetting } = require('./_integrationSettings');
 const { checkoutEmail, checkoutSiteURL } = require('./_checkoutSecurity');
 
@@ -29,6 +29,9 @@ async function checkoutHandler(req, res) {
 
         if (!plan || !uid) {
             return res.status(400).json({ error: 'plan e uid são obrigatórios' });
+        }
+        if (!isStripePlan(plan)) {
+            return res.status(400).json({ error: 'Plano inválido' });
         }
 
         if (!['monthly', 'annually'].includes(billing)) {

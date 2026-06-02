@@ -1,7 +1,7 @@
 // Stripe Webhook -> Firestore — Luum
 
 const { admin, getFirestore } = require('./_firebaseAdmin');
-const { getStripe, requireSetting } = require('./_stripe');
+const { getStripe, isStripePlan, requireSetting } = require('./_stripe');
 
 function readRawBody(req) {
     return new Promise((resolve, reject) => {
@@ -29,6 +29,10 @@ function normalizeStripeStatus(status) {
 }
 
 async function writeSubscription(db, uid, plan, subscription) {
+    if (plan && !isStripePlan(plan)) {
+        throw new Error('Plano Stripe inválido');
+    }
+
     await db.collection('users').doc(uid).set({
         ...(plan ? { plan } : {}),
         subscription: {

@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { entitlementForUser, includesFeature, normalizedPlan } = require('../api/_entitlements');
 const { checkoutEmail, checkoutSiteURL } = require('../api/_checkoutSecurity');
 const { profileEmail, profileText } = require('../api/_profileSecurity');
+const { isStripePlan } = require('../api/_stripe');
 const { sameHash, secretHash, validID } = require('../api/_workspaceSecurity');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -67,6 +68,12 @@ test('uses only the official site URL for Stripe checkout redirects', () => {
     assert.equal(checkoutSiteURL('https://luum-app.web.app/'), 'https://luum-app.web.app');
     assert.equal(checkoutSiteURL('https://example.com'), null);
     assert.equal(checkoutSiteURL(''), 'https://luum-app.web.app');
+});
+
+test('accepts only known Stripe subscription plans', () => {
+    assert.equal(isStripePlan('essencial'), true);
+    assert.equal(isStripePlan('negocios'), true);
+    assert.equal(isStripePlan('enterprise-unlimited'), false);
 });
 
 test('uses only the Firebase verified email for the account profile', () => {

@@ -16,7 +16,13 @@ async function requireAdmin(req, res) {
         return null;
     }
 
-    const decoded = await admin.auth().verifyIdToken(authHeader.slice('Bearer '.length));
+    let decoded;
+    try {
+        decoded = await admin.auth().verifyIdToken(authHeader.slice('Bearer '.length));
+    } catch {
+        res.status(401).json({ error: 'Token Firebase inválido ou expirado' });
+        return null;
+    }
     const email = (decoded.email || '').toLowerCase();
     const isEnvAdmin = allowedAdminEmails().includes(email);
     const isClaimAdmin = decoded.luumAdmin === true || decoded.admin === true;

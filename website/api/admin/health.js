@@ -19,7 +19,12 @@ async function adminHealthHandler(req, res) {
             return res.status(401).json({ error: 'Login Firebase obrigatório' });
         }
 
-        const decoded = await admin.auth().verifyIdToken(authHeader.slice('Bearer '.length));
+        let decoded;
+        try {
+            decoded = await admin.auth().verifyIdToken(authHeader.slice('Bearer '.length));
+        } catch {
+            return res.status(401).json({ error: 'Token Firebase inválido ou expirado' });
+        }
         const email = (decoded.email || '').toLowerCase();
         const adminEmails = allowedAdminEmails();
         const isEnvAdmin = adminEmails.includes(email);

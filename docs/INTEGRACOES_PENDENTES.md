@@ -12,6 +12,12 @@ Este arquivo lista o que depende de contas, chaves externas ou decisões que nã
 - Usar `admin.html` para promover usuários e definir `plan`, `subscription.status`, validade, assentos e `role`.
 - Opcional: manter custom claims `luumAdmin` para admins; a fonte de verdade dos planos deve continuar sendo Firestore/Stripe.
 
+## Credenciais removidas do histórico ativo
+
+- Rotacionar a chave Gemini que estava em `src/LUUM.API/appsettings.json`; o backend `.NET` agora espera `Gemini__ApiKey` ou `GEMINI_API_KEY` fora do Git.
+- Rotacionar o Google OAuth client secret que estava em `src/LUUM.API/appsettings.json`; segredos OAuth devem ficar somente em configuração local ignorada ou em cofre externo.
+- O projeto Firestore padrão do backend `.NET` foi alinhado para `luum-app`. O desenvolvimento local continua usando o emulador.
+
 ## Backend escolhido
 
 Use Vercel para as rotas Node já existentes do site, porque `luum_website/api/*.js` já segue o formato serverless. Firebase Hosting deve continuar servindo o site estático e redirecionar ou chamar a API no domínio escolhido.

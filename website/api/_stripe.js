@@ -49,6 +49,10 @@ function minimumQuantity(plan) {
     return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function isStripePlan(plan) {
+    return Object.prototype.hasOwnProperty.call(PRICE_ENV_BY_PLAN, plan);
+}
+
 async function missingStripeEnvNames({ includeWebhook = false } = {}) {
     const names = ['STRIPE_SECRET_KEY'];
     if (includeWebhook) names.push('STRIPE_WEBHOOK_SECRET');
@@ -61,6 +65,7 @@ module.exports = {
     PRICE_ENV_BY_PLAN,
     getStripe,
     getPriceID,
+    isStripePlan,
     minimumQuantity,
     missingStripeEnvNames,
     requireSetting
