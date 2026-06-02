@@ -8,14 +8,18 @@ async function cancelSubscriptionHandler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
-        const db = getFirestore();
-        const stripe = await getStripe();
         const authHeader = req.headers.authorization || '';
         if (!authHeader.startsWith('Bearer ')) {
             return res.status(401).json({ error: 'Login Firebase obrigatório' });
         }
 
-        const decoded = await admin.auth().verifyIdToken(authHeader.slice('Bearer '.length));
+        const db = getFirestore();
+        let decoded;
+        try {
+            decoded = await admin.auth().verifyIdToken(authHeader.slice('Bearer '.length));
+        } catch {
+            return res.status(401).json({ error: 'Token Firebase inválido ou expirado' });
+        }
         const doc = await db.collection('users').doc(decoded.uid).get();
         const data = doc.exists ? doc.data() : null;
         const subscriptionId = data?.subscription?.stripeSubscriptionId;
@@ -24,6 +28,7 @@ async function cancelSubscriptionHandler(req, res) {
             return res.status(400).json({ error: 'Assinatura Stripe não encontrada' });
         }
 
+        const stripe = await getStripe();
         const subscription = await stripe.subscriptions.update(subscriptionId, {
             cancel_at_period_end: true
         });

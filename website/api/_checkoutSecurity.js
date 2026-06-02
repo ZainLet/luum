@@ -3,6 +3,13 @@ function checkoutEmail(decodedToken) {
     return email || undefined;
 }
 
+function checkoutSiteURL(candidate) {
+    const official = 'https://luum-app.web.app';
+    const normalized = String(candidate || official).trim().replace(/\/+$/, '');
+    return normalized === official ? official : null;
+}
+
 module.exports = {
-    checkoutEmail
+    checkoutEmail,
+    checkoutSiteURL
 };

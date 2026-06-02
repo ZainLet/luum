@@ -15,7 +15,7 @@
 const { admin, getAdminApp } = require('./_firebaseAdmin');
 const { getStripe, getPriceID, minimumQuantity } = require('./_stripe');
 const { getSetting } = require('./_integrationSettings');
-const { checkoutEmail } = require('./_checkoutSecurity');
+const { checkoutEmail, checkoutSiteURL } = require('./_checkoutSecurity');
 
 async function checkoutHandler(req, res) {
     // CORS
@@ -47,7 +47,12 @@ async function checkoutHandler(req, res) {
             return res.status(401).json({ error: 'Login Firebase obrigatório' });
         }
 
-        const decoded = await admin.auth().verifyIdToken(authHeader.slice('Bearer '.length));
+        let decoded;
+        try {
+            decoded = await admin.auth().verifyIdToken(authHeader.slice('Bearer '.length));
+        } catch {
+            return res.status(401).json({ error: 'Token Firebase inválido ou expirado' });
+        }
         if (decoded.uid !== uid) {
             return res.status(403).json({ error: 'Usuário do token não confere com checkout' });
         }
@@ -58,9 +63,9 @@ async function checkoutHandler(req, res) {
         }
 
         const stripe = await getStripe();
-        const origin = String(await getSetting('PUBLIC_SITE_URL') || req.headers.origin || '').replace(/\/+$/, '');
-        if (!origin || !/^https?:\/\//.test(origin)) {
-            return res.status(500).json({ error: 'PUBLIC_SITE_URL ou Origin obrigatório para checkout' });
+        const origin = checkoutSiteURL(await getSetting('PUBLIC_SITE_URL'));
+        if (!origin) {
+            return res.status(500).json({ error: 'PUBLIC_SITE_URL inválida para checkout' });
         }
 
         const session = await stripe.checkout.sessions.create({
@@ -92,7 +97,7 @@ async function checkoutHandler(req, res) {
 
     } catch (err) {
         console.error('[Checkout Error]', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Checkout indisponível agora' });
     }
 }
 

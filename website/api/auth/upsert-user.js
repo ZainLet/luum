@@ -25,7 +25,12 @@ async function upsertUserHandler(req, res) {
         }
 
         const db = getFirestore();
-        const decoded = await admin.auth().verifyIdToken(authHeader.slice('Bearer '.length));
+        let decoded;
+        try {
+            decoded = await admin.auth().verifyIdToken(authHeader.slice('Bearer '.length));
+        } catch {
+            return res.status(401).json({ error: 'Token Firebase inválido ou expirado' });
+        }
         const body = jsonBody(req);
         const ref = db.collection('users').doc(decoded.uid);
         const snap = await ref.get();
@@ -48,14 +53,10 @@ async function upsertUserHandler(req, res) {
                 subscription: {
                     status: 'trial',
                     trialEndsAt: admin.firestore.Timestamp.fromMillis(Date.now() + 7 * 24 * 60 * 60 * 1000)
-                },
-                onboarding: body.onboarding || {}
+                }
             }, { merge: true });
         } else {
-            await ref.set({
-                ...baseProfile,
-                ...(body.onboarding ? { onboarding: body.onboarding } : {})
-            }, { merge: true });
+            await ref.set(baseProfile, { merge: true });
         }
 
         const saved = await ref.get();
