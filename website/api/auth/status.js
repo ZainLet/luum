@@ -20,6 +20,7 @@
 //
 
 const { admin, getFirestore } = require('../_firebaseAdmin');
+const { entitlementForUser } = require('../_entitlements');
 
 async function statusHandler(req, res) {
     // CORS
@@ -50,50 +51,7 @@ async function statusHandler(req, res) {
             return res.json({ locked: true, reason: 'user_not_found' });
         }
 
-        const data = doc.data();
-        const sub = data.subscription || {};
-        const now = Date.now();
-
-        // ─── Trial (7 dias grátis) ──────────────────────
-        if (!sub.status || sub.status === 'trial') {
-            const createdAt = data.createdAt?.toMillis();
-            const trialEnd = sub.trialEndsAt?.toMillis() || (createdAt ? createdAt + 7 * 24 * 60 * 60 * 1000 : 0);
-            const isTrialExpired = !trialEnd || now >= trialEnd;
-
-            return res.json({
-                locked: isTrialExpired,
-                plan: data.plan || 'essencial',
-                trial: !isTrialExpired,
-                daysRemaining: isTrialExpired ? 0 : Math.ceil((trialEnd - now) / (24 * 60 * 60 * 1000)),
-                reason: isTrialExpired ? 'trial_expired' : null
-            });
-        }
-
-        // ─── Ativa / cancelando no fim do ciclo ─────────
-        if (sub.status === 'active' || sub.status === 'canceling') {
-            const end = sub.currentPeriodEnd?.toMillis() || 0;
-            const isExpired = !end || now >= end;
-
-            if (isExpired) {
-                return res.json({ locked: true, reason: 'expired' });
-            }
-
-            return res.json({
-                locked: false,
-                plan: data.plan || 'essencial',
-                trial: false,
-                expiresAt: end,
-                daysRemaining: Math.ceil((end - now) / (24 * 60 * 60 * 1000)),
-                canceling: sub.status === 'canceling'
-            });
-        }
-
-        // ─── Cancelada / vencida ────────────────────────
-        return res.json({
-            locked: true,
-            reason: sub.status, // 'canceled' | 'past_due'
-            plan: data.plan || 'essencial'
-        });
+        return res.json(entitlementForUser(doc.data()));
 
     } catch (err) {
         console.error('[Status Error]', err);

@@ -1,4 +1,5 @@
 const { admin, getFirestore } = require('../_firebaseAdmin');
+const { entitlementForUser, includesFeature } = require('../_entitlements');
 
 function addCors(res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -51,6 +52,16 @@ async function syncHandler(req, res) {
             return res.status(401).json({ message: 'Login Firebase obrigatório para backup' });
         }
 
+        const profile = await db.collection('users').doc(decoded.uid).get();
+        if (!profile.exists) {
+            return res.status(403).json({ message: 'Conta Firebase sem perfil Luum' });
+        }
+
+        const entitlement = entitlementForUser(profile.data());
+        if (!includesFeature(entitlement, 'cloudBackup')) {
+            return res.status(403).json({ message: 'Seu plano não permite backup Firebase' });
+        }
+
         const backupID = backupIDFromRequest(req).trim();
         if (!backupID) {
             return res.status(400).json({ message: 'backupID obrigatório' });
@@ -69,6 +80,9 @@ async function syncHandler(req, res) {
             }
             if (payloadSize(body.payload) > 1_000_000) {
                 return res.status(413).json({ message: 'Backup excede o limite de 1 MB' });
+            }
+            if (body.payload.rawActivities != null && !includesFeature(entitlement, 'rawActivityBackup')) {
+                return res.status(403).json({ message: 'Atividades brutas exigem o plano Negócios' });
             }
 
             await ref.set({

@@ -67,6 +67,7 @@ Preços confirmados e unificados no site:
 - Por padrão, `backupID` vira o UID Firebase após login e o endpoint vira o domínio Vercel configurado.
 - Atividades brutas continuam desligadas por privacidade e só são enviadas se o plano permitir `rawActivityBackup` (Negócios).
 - Antes do envio, o app remove tokens OAuth, client secret Google, URL privada do webhook Zapier e eventos temporários da agenda Google. O Firestore recebe estrutura de contas, configurações sanitizadas e resumos.
+- A API também valida assinatura e plano no Firestore antes de aceitar push ou restore. Essa checagem server-side impede que um binário desktop modificado libere backup ou atividades brutas apenas removendo gates locais.
 - Não salvar tokens OAuth de calendários no Firestore sem criptografia por usuário/dispositivo.
 
 
