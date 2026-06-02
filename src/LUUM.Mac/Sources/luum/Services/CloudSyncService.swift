@@ -57,6 +57,30 @@ struct CloudSyncService {
         self.session = session
     }
 
+    static func cloudSafePreferences(_ preferences: MonitoringPreferencesSnapshot) -> MonitoringPreferencesSnapshot {
+        var sanitized = preferences
+        sanitized.zapierSettings.webhookURL = ""
+        return sanitized
+    }
+
+    static func cloudSafeGoogleCalendarSnapshot(
+        clientID: String,
+        connections: [GoogleCalendarConnectionSnapshot]
+    ) -> GoogleCalendarSnapshot {
+        var sanitizedConnections = connections
+        for index in sanitizedConnections.indices {
+            sanitizedConnections[index].agendaDay = nil
+            sanitizedConnections[index].agendaItems = []
+            sanitizedConnections[index].legacyTokens = nil
+        }
+
+        return GoogleCalendarSnapshot(
+            clientID: clientID,
+            clientSecret: "",
+            connections: sanitizedConnections
+        )
+    }
+
     func push(baseURL: String, backupID: String, secret: String?, firebaseToken: String?, payload: CloudBackupPayload) async throws -> Date {
         let url = try makeURL(baseURL: baseURL, backupID: backupID)
         var request = URLRequest(url: url)

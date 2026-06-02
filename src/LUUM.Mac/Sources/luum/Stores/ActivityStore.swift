@@ -2219,6 +2219,11 @@ final class ActivityStore {
     }
 
     private func runCalendarConnect(for day: Date) async {
+        guard canUse(.agendaIntegrations) else {
+            googleCalendarStatusMessage = lockMessage(for: .agendaIntegrations)
+            return
+        }
+
         let clientID = googleCalendarClientID.trimmingCharacters(in: .whitespacesAndNewlines)
         let clientSecret = googleCalendarClientSecret.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -2271,6 +2276,13 @@ final class ActivityStore {
     }
 
     private func runCalendarSync(for day: Date, force: Bool) async {
+        guard canUse(.agendaIntegrations) else {
+            if force {
+                googleCalendarStatusMessage = lockMessage(for: .agendaIntegrations)
+            }
+            return
+        }
+
         let clientID = googleCalendarClientID.trimmingCharacters(in: .whitespacesAndNewlines)
         let clientSecret = googleCalendarClientSecret.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -2369,6 +2381,13 @@ final class ActivityStore {
     }
 
     private func runNotionCalendarSync(for day: Date, force: Bool) async {
+        guard canUse(.advancedIntegrations) else {
+            if force {
+                notionCalendarStatusMessage = lockMessage(for: .advancedIntegrations)
+            }
+            return
+        }
+
         let settings = notionCalendarSettings.normalized()
 
         guard settings.isEnabled else {
@@ -2425,6 +2444,13 @@ final class ActivityStore {
     }
 
     private func runOutlookCalendarSync(for day: Date, force: Bool) async {
+        guard canUse(.agendaIntegrations) else {
+            if force {
+                outlookCalendarStatusMessage = lockMessage(for: .agendaIntegrations)
+            }
+            return
+        }
+
         let settings = outlookCalendarSettings.normalized()
 
         guard settings.isEnabled else {
@@ -2481,6 +2507,13 @@ final class ActivityStore {
     }
 
     private func runClickUpSync(for day: Date, force: Bool) async {
+        guard canUse(.agendaIntegrations) else {
+            if force {
+                clickUpStatusMessage = lockMessage(for: .agendaIntegrations)
+            }
+            return
+        }
+
         let settings = clickUpSettings.normalized()
 
         guard settings.isEnabled else {
@@ -2535,6 +2568,13 @@ final class ActivityStore {
     }
 
     private func runLinearSync(for day: Date, force: Bool) async {
+        guard canUse(.agendaIntegrations) else {
+            if force {
+                linearStatusMessage = lockMessage(for: .agendaIntegrations)
+            }
+            return
+        }
+
         let settings = linearSettings.normalized()
 
         guard settings.isEnabled else {
@@ -2589,6 +2629,13 @@ final class ActivityStore {
     }
 
     private func runWorkspaceSync(for day: Date, force: Bool) async {
+        guard canUse(.teamWorkspace) else {
+            if force {
+                workspaceSyncStatusMessage = lockMessage(for: .teamWorkspace)
+            }
+            return
+        }
+
         guard teamSettings.sharesAnonymousMetrics else {
             if force {
                 workspaceSyncStatusMessage = "Ative o compartilhamento de metricas para usar o ranking corporativo."
@@ -2745,10 +2792,9 @@ final class ActivityStore {
             schemaVersion: 1,
             exportedAt: Date(),
             deviceName: Host.current().localizedName ?? "Mac",
-            monitoringPreferences: monitoringPreferences,
-            googleCalendarSnapshot: GoogleCalendarSnapshot(
+            monitoringPreferences: CloudSyncService.cloudSafePreferences(monitoringPreferences),
+            googleCalendarSnapshot: CloudSyncService.cloudSafeGoogleCalendarSnapshot(
                 clientID: googleCalendarClientID,
-                clientSecret: "",
                 connections: googleCalendarConnections
             ),
             dailySummaries: summaries,
@@ -3388,6 +3434,11 @@ final class ActivityStore {
     }
 
     private func sendZapierEvent(type: String, details: [String: String]) async {
+        guard canUse(.agendaIntegrations) else {
+            zapierStatusMessage = lockMessage(for: .agendaIntegrations)
+            return
+        }
+
         do {
             let payload = ZapierWebhookPayload(
                 eventType: type,

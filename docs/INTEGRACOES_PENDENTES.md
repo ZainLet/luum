@@ -66,6 +66,7 @@ Preços confirmados e unificados no site:
 - O app macOS envia backup com `Authorization: Bearer {firebase_id_token}` para `/api/sync/{backupID}`.
 - Por padrão, `backupID` vira o UID Firebase após login e o endpoint vira o domínio Vercel configurado.
 - Atividades brutas continuam desligadas por privacidade e só são enviadas se o plano permitir `rawActivityBackup` (Negócios).
+- Antes do envio, o app remove tokens OAuth, client secret Google, URL privada do webhook Zapier e eventos temporários da agenda Google. O Firestore recebe estrutura de contas, configurações sanitizadas e resumos.
 - Não salvar tokens OAuth de calendários no Firestore sem criptografia por usuário/dispositivo.
 
 
