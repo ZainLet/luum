@@ -38,10 +38,10 @@ window.luumApiUrl = function luumApiUrl(path) {
 // Inicializa Firebase
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
-const db = firebase.firestore();
+const db = typeof firebase.firestore === 'function' ? firebase.firestore() : null;
 
 // O backend protegido oferece o diagnóstico real em /api/admin/health.
-const firestoreReady = true;
+const firestoreReady = Boolean(db);
 
 // ════════════════════════════════════════════════════════
 //  REGRAS DE SEGURANÇA (Firestore)

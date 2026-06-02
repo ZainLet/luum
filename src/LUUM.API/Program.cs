@@ -1,10 +1,7 @@
 // File: src/LUUM.API/Program.cs
-using System.Net;
 using LUUM.API.Models;
 using LUUM.API.Services;
 using LUUM.API.Services.Hosted;
-using Polly;
-using Polly.Extensions.Http;
 using Google.Api.Gax;
 using Google.Cloud.Firestore;
 using Microsoft.Extensions.Options;
@@ -73,15 +70,3 @@ app.MapControllers();
 
 // Execução do App
 app.Run();
-
-// Define uma política de retentativa para requisições HTTP que falham
-static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
-{
-    return HttpPolicyExtensions
-        .HandleTransientHttpError()
-        .OrResult(msg => msg.StatusCode == HttpStatusCode.TooManyRequests)
-        .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), onRetry: (outcome, timespan, retryAttempt, context) =>
-        {
-            Console.WriteLine($"[Polly] Retrying request... attempt {retryAttempt}. Waited {timespan.TotalSeconds}s. Reason: {outcome.Result?.StatusCode}");
-        });
-}
