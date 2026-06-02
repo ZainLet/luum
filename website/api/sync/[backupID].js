@@ -22,7 +22,11 @@ function backupIDFromRequest(req) {
 async function requireFirebaseUser(req) {
     const authHeader = req.headers.authorization || '';
     if (!authHeader.startsWith('Bearer ')) return null;
-    return admin.auth().verifyIdToken(authHeader.slice('Bearer '.length));
+    try {
+        return await admin.auth().verifyIdToken(authHeader.slice('Bearer '.length));
+    } catch {
+        return null;
+    }
 }
 
 function swiftReferenceSeconds(date) {
