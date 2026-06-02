@@ -15,6 +15,7 @@
 const { admin, getAdminApp } = require('./_firebaseAdmin');
 const { getStripe, getPriceID, minimumQuantity } = require('./_stripe');
 const { getSetting } = require('./_integrationSettings');
+const { checkoutEmail } = require('./_checkoutSecurity');
 
 async function checkoutHandler(req, res) {
     // CORS
@@ -24,7 +25,7 @@ async function checkoutHandler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
-        const { plan, uid, email, billing = 'monthly', quantity = 1 } = req.body || {};
+        const { plan, uid, billing = 'monthly', quantity = 1 } = req.body || {};
 
         if (!plan || !uid) {
             return res.status(400).json({ error: 'plan e uid são obrigatórios' });
@@ -65,7 +66,7 @@ async function checkoutHandler(req, res) {
         const session = await stripe.checkout.sessions.create({
             mode: 'subscription',
             payment_method_types: ['card'],
-            customer_email: email || undefined,
+            customer_email: checkoutEmail(decoded),
             line_items: [{
                 price: priceId,
                 quantity: parsedQuantity

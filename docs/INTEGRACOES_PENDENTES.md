@@ -38,6 +38,8 @@ Preços confirmados e unificados no site:
 - `negocios`: R$ 65,00/usuário/mês; anual exibido R$ 48,75/usuário/mês; mínimo 5 usuários.
 
 - Criar produtos e preços no Stripe para `essencial`, `profissional`, `equipes` e `negocios`.
+- Revogar qualquer chave `sk_live_` ou `rk_live_` exposta em chat, log ou captura antes de uso. Salvar a substituta diretamente no cofre admin, nunca em arquivos versionados.
+- Para uma chave restrita, liberar somente o necessário ao backend: criação de Checkout Sessions, leitura/escrita de assinaturas e acesso exigido pelo Stripe para clientes. A assinatura do webhook usa uma credencial separada `whsec_`.
 - Preencher os valores Stripe pelo cofre criptografado em `admin.html` ou pelas variáveis `STRIPE_PRICE_*` do deploy para cada plano e ciclo mensal/anual.
 - Diagnóstico criado em `GET /api/admin/stripe-health`; a tela `admin.html` lista envs Stripe ausentes sem revelar valores secretos.
 - Checkout de Equipes e Negócios solicita quantidade de assentos e respeita os mínimos configurados.
