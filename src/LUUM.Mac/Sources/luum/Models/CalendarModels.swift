@@ -294,28 +294,77 @@ struct GoogleCalendarConnectionSummary: Identifiable, Hashable {
     }
 }
 
+struct NotionCalendarSourceSummary: Identifiable, Hashable {
+    let id: String
+    let workspaceLabel: String
+    let dataSourceIDs: [String]
+    let lastSyncAt: Date?
+
+    var dataSourceCount: Int {
+        dataSourceIDs.count
+    }
+}
+
+struct OutlookCalendarSourceSummary: Identifiable, Hashable {
+    let id: String
+    let workspaceLabel: String
+    let accountEmail: String
+    let calendars: [OutlookCalendarDescriptor]
+    let lastSyncAt: Date?
+
+    var selectedCalendars: [OutlookCalendarDescriptor] {
+        calendars.filter(\.isSelected)
+    }
+}
+
+struct WorkItemSourceSummary: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let configuredSourceIDs: [String]
+    let itemCount: Int
+    let lastSyncAt: Date?
+
+    var configuredSourceCount: Int {
+        configuredSourceIDs.count
+    }
+}
+
 struct AgendaSummary {
     let day: Date
     let events: [CalendarAgendaItem]
+    let focusedEvents: [CalendarAgendaItem]
     let isConnected: Bool
     let isConfigured: Bool
     let lastSyncAt: Date?
     let connections: [GoogleCalendarConnectionSummary]
+    let notionSources: [NotionCalendarSourceSummary]
+    let outlookSources: [OutlookCalendarSourceSummary]
+    let clickUpSources: [WorkItemSourceSummary]
+    let linearSources: [WorkItemSourceSummary]
 
     var plannedTime: TimeInterval {
-        events.reduce(0) { $0 + $1.duration }
+        focusedEvents.reduce(0) { $0 + $1.duration }
     }
 
     var nextEvent: CalendarAgendaItem? {
+        let source = focusedEvents.isEmpty ? events : focusedEvents
         let now = Date()
-        return events.first(where: { $0.endDate > now }) ?? events.first
+        return source.first(where: { $0.endDate > now }) ?? source.first
     }
 
     var connectedAccountCount: Int {
-        connections.count
+        connections.count + notionSources.count + outlookSources.count + clickUpSources.count + linearSources.count
     }
 
     var selectedCalendarCount: Int {
         connections.flatMap(\.selectedCalendars).count
+            + notionSources.reduce(0) { $0 + $1.dataSourceCount }
+            + outlookSources.reduce(0) { $0 + $1.selectedCalendars.count }
+            + clickUpSources.reduce(0) { $0 + $1.configuredSourceCount }
+            + linearSources.reduce(0) { $0 + $1.configuredSourceCount }
+    }
+
+    var hasEventsInFocusDay: Bool {
+        !focusedEvents.isEmpty
     }
 }

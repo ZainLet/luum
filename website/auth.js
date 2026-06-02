@@ -1,0 +1,233 @@
+(function () {
+    const STORAGE_USER_KEY = 'luum_user';
+    const DEFAULT_API_BASE = 'https://luum-app.vercel.app';
+
+    function apiUrl(path) {
+        if (window.luumApiUrl) return window.luumApiUrl(path);
+        const base = String(window.LUUM_API_BASE || DEFAULT_API_BASE).replace(/\/+$/, '');
+        const suffix = String(path || '').startsWith('/') ? String(path) : `/${path}`;
+        return `${base}${suffix}`;
+    }
+
+    function getFirebaseAuth() {
+        if (typeof firebase === 'undefined' || !firebase.auth) return null;
+        return firebase.auth();
+    }
+
+    function getStoredUser() {
+        try {
+            const raw = localStorage.getItem(STORAGE_USER_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch {
+            return null;
+        }
+    }
+
+    function rememberUser(user) {
+        if (!user) {
+            localStorage.removeItem(STORAGE_USER_KEY);
+            return;
+        }
+
+        localStorage.setItem(STORAGE_USER_KEY, JSON.stringify({
+            uid: user.uid || user.email,
+            email: user.email || '',
+            name: user.displayName || user.name || (user.email || 'Usuario').split('@')[0]
+        }));
+    }
+
+    function setAuthButtons(user) {
+        const loginBtns = document.querySelectorAll('.js-auth-login');
+        const signupBtns = document.querySelectorAll('.js-auth-signup');
+
+        loginBtns.forEach((el) => {
+            el.textContent = user ? 'Minha Conta' : 'Entrar';
+            el.href = user ? 'account.html' : 'login.html';
+            el.className = 'btn btn-secondary js-auth-login';
+        });
+
+        signupBtns.forEach((el) => {
+            el.textContent = user ? 'Sair' : 'Comecar Gratis';
+            el.href = user ? '#' : 'cadastro.html';
+            el.className = user ? 'btn btn-secondary js-auth-signup' : 'btn btn-primary js-auth-signup';
+            el.onclick = user ? signOut : null;
+        });
+    }
+
+    async function signOut(event) {
+        event.preventDefault();
+        const auth = getFirebaseAuth();
+        try {
+            if (auth) await auth.signOut();
+        } finally {
+            rememberUser(null);
+            window.location.href = 'index.html';
+        }
+    }
+
+    function appRedirectURL(user) {
+        const uid = encodeURIComponent(user.uid || user.email || '');
+        return `luum://auth?uid=${uid}`;
+    }
+
+    async function redirectToApp(user) {
+        const auth = getFirebaseAuth();
+        let redirectURL = appRedirectURL(user);
+
+        if (auth?.currentUser?.getIdToken) {
+            const token = await auth.currentUser.getIdToken(true);
+            redirectURL += `&token=${encodeURIComponent(token)}`;
+            redirectURL += `&refreshToken=${encodeURIComponent(auth.currentUser.refreshToken || '')}`;
+        }
+
+        const fallback = window.setTimeout(() => {
+            window.location.href = 'account.html';
+        }, 900);
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) window.clearTimeout(fallback);
+        }, { once: true });
+
+        window.location.href = redirectURL;
+    }
+
+    async function currentCheckoutUser() {
+        const auth = getFirebaseAuth();
+        if (auth?.currentUser) return auth.currentUser;
+
+        return getStoredUser();
+    }
+
+    function loginRedirect(plan) {
+        const currentPage = `${window.location.pathname.split('/').pop() || 'vendas.html'}${window.location.search}`;
+        return `login.html?redirect=${encodeURIComponent(currentPage)}&plan=${encodeURIComponent(plan)}`;
+    }
+
+    function attachCheckoutButtons() {
+        document.querySelectorAll('[data-checkout]').forEach((btn) => {
+            btn.addEventListener('click', async (event) => {
+                event.preventDefault();
+
+                const plan = btn.dataset.plan || btn.dataset.checkout;
+                const billingToggle = document.querySelector('.toggle-btn.active');
+                const billing = billingToggle?.dataset.billing || btn.dataset.billing || 'monthly';
+                const minimumSeats = Number.parseInt(btn.dataset.minSeats || '1', 10);
+                let quantity = Number.isInteger(minimumSeats) && minimumSeats > 0 ? minimumSeats : 1;
+                const user = await currentCheckoutUser();
+
+                if (!user || typeof user.getIdToken !== 'function') {
+                    window.location.href = loginRedirect(plan);
+                    return;
+                }
+
+                btn.disabled = true;
+                const originalText = btn.textContent;
+                btn.textContent = 'Abrindo checkout...';
+
+                try {
+                    if (quantity > 1) {
+                        const answer = window.prompt(`Quantos assentos deseja contratar? Mínimo: ${quantity}.`, String(quantity));
+                        if (answer === null) return;
+                        const parsed = Number.parseInt(answer, 10);
+                        if (!Number.isInteger(parsed) || parsed < quantity || parsed > 1000) {
+                            throw new Error(`Informe uma quantidade entre ${quantity} e 1000 assentos.`);
+                        }
+                        quantity = parsed;
+                    }
+
+                    const token = await user.getIdToken();
+                    const response = await fetch(apiUrl('/api/checkout'), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(token ? { Authorization: `Bearer ${token}` } : {})
+                        },
+                        body: JSON.stringify({
+                            plan,
+                            billing,
+                            quantity,
+                            uid: user.uid || user.email,
+                            email: user.email
+                        })
+                    });
+
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || !data.url) {
+                        throw new Error(data.error || 'Checkout indisponivel.');
+                    }
+
+                    window.location.href = data.url;
+                } catch (error) {
+                    console.error('[Luum Checkout]', error);
+                    alert('Checkout ainda nao esta configurado. Consulte INTEGRACOES_PENDENTES.md para finalizar Stripe e backend.');
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                }
+            });
+        });
+    }
+
+    function attachAuthForms() {
+        const loginForm = document.getElementById('loginForm');
+        const signupForm = document.getElementById('signupForm');
+        const googleBtn = document.getElementById('googleSignIn');
+
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const auth = getFirebaseAuth();
+                const email = document.getElementById('email')?.value.trim();
+                const password = document.getElementById('password')?.value;
+                if (!email || !password || !auth) return;
+
+                const credential = await auth.signInWithEmailAndPassword(email, password);
+                rememberUser(credential.user);
+                await redirectToApp(credential.user);
+            });
+        }
+
+        if (signupForm) {
+            signupForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const auth = getFirebaseAuth();
+                const name = document.getElementById('signupName')?.value.trim();
+                const email = document.getElementById('signupEmail')?.value.trim();
+                const password = document.getElementById('signupPassword')?.value;
+                if (!name || !email || !password || !auth) return;
+
+                const credential = await auth.createUserWithEmailAndPassword(email, password);
+                await credential.user.updateProfile({ displayName: name });
+                rememberUser(credential.user);
+                await redirectToApp(credential.user);
+            });
+        }
+
+        if (googleBtn) {
+            googleBtn.addEventListener('click', async () => {
+                const auth = getFirebaseAuth();
+                if (!auth || !firebase.GoogleAuthProvider) return;
+
+                const provider = new firebase.auth.GoogleAuthProvider();
+                const credential = await auth.signInWithPopup(provider);
+                rememberUser(credential.user);
+                await redirectToApp(credential.user);
+            });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const auth = getFirebaseAuth();
+        attachAuthForms();
+        attachCheckoutButtons();
+
+        if (auth) {
+            auth.onAuthStateChanged((user) => {
+                rememberUser(user);
+                setAuthButtons(user || getStoredUser());
+            });
+        } else {
+            setAuthButtons(getStoredUser());
+        }
+    });
+})();

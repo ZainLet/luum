@@ -17,7 +17,7 @@ private let categorySymbolOptions = [
 
 struct CategoryCustomizationView: View {
     @Bindable var store: ActivityStore
-    let summary: DailySummary
+    let selectedDay: Date
 
     @State private var newCategoryTitle = ""
     @State private var newCategorySymbol = "tag.fill"
@@ -29,6 +29,15 @@ struct CategoryCustomizationView: View {
     @State private var newIgnoredDomain = ""
     @State private var showsAdvancedRules = false
 
+    private var categoryIDs: [String] {
+        store.categories.map(\.id)
+    }
+
+    private var summary: DailySummary {
+        _ = store.summaryRevision
+        return store.summary(for: selectedDay)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
@@ -39,6 +48,7 @@ struct CategoryCustomizationView: View {
                 )
 
                 todayOverviewCard
+                suggestionsCard
                 categoriesEditorCard
                 advancedRulesCard
                 blocklistCard
@@ -46,6 +56,13 @@ struct CategoryCustomizationView: View {
             .padding(28)
         }
         .scrollIndicators(.hidden)
+        .onAppear(perform: syncSelections)
+        .onChange(of: categoryIDs) { _, _ in
+            syncSelections()
+        }
+        .onChange(of: selectedDay) { _, _ in
+            syncSelections()
+        }
     }
 
     private var todayOverviewCard: some View {
@@ -160,6 +177,69 @@ struct CategoryCustomizationView: View {
         .luumGlassCard(tint: LuumTheme.accent.opacity(0.1), cornerRadius: 30, shadowOpacity: 0.1)
     }
 
+    private var suggestionsCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Sugestoes inteligentes")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.white)
+
+                    Text("Quando voce corrige a mesma classificacao mais de uma vez, o luum sugere transformar isso em regra permanente.")
+                        .foregroundStyle(LuumTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                CompactStatPill(
+                    title: "\(store.classificationSuggestions.count)",
+                    detail: "sugestoes"
+                )
+            }
+
+            if store.classificationSuggestions.isEmpty {
+                Text("Ainda nao ha sugestoes. Assim que voce fizer algumas correcoes manuais repetidas, o luum vai sugerir as regras por voce.")
+                    .foregroundStyle(LuumTheme.textSecondary)
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(store.classificationSuggestions.prefix(6)) { suggestion in
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(suggestion.pattern)
+                                    .foregroundStyle(.white)
+                                    .font(.subheadline.weight(.semibold))
+
+                                Text("\(suggestion.reason) \(suggestion.sampleCount)x • \(LuumFormatters.duration(suggestion.totalDuration))")
+                                    .foregroundStyle(LuumTheme.textSecondary)
+                                    .font(.caption)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+
+                            Spacer()
+
+                            Label(suggestion.recommendedCategory.title, systemImage: suggestion.recommendedCategory.systemImage)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(suggestion.recommendedCategory.tint)
+
+                            Button("Aplicar") {
+                                store.applySuggestion(suggestion)
+                            }
+                            .buttonStyle(.glassProminent)
+                        }
+                        .padding(14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .fill(.white.opacity(0.03))
+                        )
+                    }
+                }
+            }
+        }
+        .padding(22)
+        .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.1), cornerRadius: 30, shadowOpacity: 0.1)
+    }
+
     private var advancedRulesCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -224,13 +304,14 @@ struct CategoryCustomizationView: View {
 
                             Button("Salvar regra") {
                                 store.addRule(
-                                    categoryID: newRuleCategoryID,
+                                    categoryID: resolvedRuleCategoryID,
                                     matchTarget: newRuleTarget,
                                     pattern: newRulePattern
                                 )
                                 newRulePattern = ""
                             }
                             .buttonStyle(.glassProminent)
+                            .disabled(newRulePattern.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
                     }
                 }
@@ -303,6 +384,16 @@ struct CategoryCustomizationView: View {
         .padding(22)
         .luumGlassCard(tint: LuumTheme.hotPink.opacity(0.08), cornerRadius: 30, shadowOpacity: 0.1)
     }
+
+    private var resolvedRuleCategoryID: String {
+        store.category(for: newRuleCategoryID) != nil ? newRuleCategoryID : store.defaultCategoryID
+    }
+
+    private func syncSelections() {
+        if store.category(for: newRuleCategoryID) == nil {
+            newRuleCategoryID = store.defaultCategoryID
+        }
+    }
 }
 
 private struct EditableCategoryCard: View {
@@ -321,11 +412,21 @@ private struct EditableCategoryCard: View {
         _colorToken = State(initialValue: category.colorToken)
     }
 
+    private var previewTint: Color {
+        ActivityCategory(
+            id: category.id,
+            title: category.title,
+            systemImage: systemImage,
+            colorToken: colorToken,
+            isBuiltIn: category.isBuiltIn
+        ).tint
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
                 Image(systemName: systemImage)
-                    .foregroundStyle(category.tint)
+                    .foregroundStyle(previewTint)
                     .frame(width: 18)
 
                 TextField("Nome", text: $title)
@@ -379,6 +480,22 @@ private struct EditableCategoryCard: View {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(.white.opacity(0.05))
         }
+        .onAppear(perform: syncDrafts)
+        .onChange(of: category.title) { _, _ in
+            syncDrafts()
+        }
+        .onChange(of: category.systemImage) { _, _ in
+            syncDrafts()
+        }
+        .onChange(of: category.colorToken) { _, _ in
+            syncDrafts()
+        }
+    }
+
+    private func syncDrafts() {
+        title = category.title
+        systemImage = category.systemImage
+        colorToken = category.colorToken
     }
 }
 

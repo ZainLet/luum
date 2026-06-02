@@ -1,6 +1,32 @@
 import Foundation
 
 struct ClassificationEngine {
+    private static let supportedBrowserNames: Set<String> = [
+        "safari",
+        "google chrome",
+        "arc",
+        "brave browser",
+        "microsoft edge",
+        "chromium",
+        "vivaldi",
+        "opera",
+    ]
+
+    private static let supportedBrowserBundleIDs: Set<String> = [
+        "com.apple.Safari",
+        "com.google.Chrome",
+        "company.thebrowser.Browser",
+        "com.brave.Browser",
+        "com.microsoft.edgemac",
+        "org.chromium.Chromium",
+        "com.vivaldi.Vivaldi",
+        "com.operasoftware.Opera",
+    ]
+    .map { $0.lowercased() }
+    .reduce(into: Set<String>()) { partialResult, item in
+        partialResult.insert(item)
+    }
+
     static let defaultRules: [CategoryRule] = [
         CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .domain, pattern: "github.com"),
         CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .domain, pattern: "gitlab.com"),
@@ -118,25 +144,65 @@ struct ClassificationEngine {
         webURL: String?,
         preferences: MonitoringPreferencesSnapshot
     ) -> Bool {
-        let appFingerprint = [applicationName, bundleIdentifier ?? ""]
-            .joined(separator: " ")
-            .lowercased()
-        let domain = domain(from: webURL)
-
-        if preferences.ignoredApplications.contains(where: { normalizedPattern in
-            appFingerprint.contains(normalizedPattern)
-        }) {
+        if isDomainIgnored(webURL: webURL, preferences: preferences) {
             return true
         }
 
-        if let domain,
-           preferences.ignoredDomains.contains(where: { normalizedPattern in
-               domain == normalizedPattern || domain.hasSuffix(".\(normalizedPattern)")
-           }) {
-            return true
+        if isApplicationIgnored(
+            applicationName: applicationName,
+            bundleIdentifier: bundleIdentifier,
+            preferences: preferences
+        ) {
+            let hasBrowserContext = isSupportedBrowser(
+                applicationName: applicationName,
+                bundleIdentifier: bundleIdentifier
+            ) && domain(from: webURL) != nil
+
+            return !hasBrowserContext
         }
 
         return false
+    }
+
+    func isApplicationIgnored(
+        applicationName: String,
+        bundleIdentifier: String?,
+        preferences: MonitoringPreferencesSnapshot
+    ) -> Bool {
+        let appFingerprint = [applicationName, bundleIdentifier ?? ""]
+            .joined(separator: " ")
+            .lowercased()
+
+        return preferences.ignoredApplications.contains(where: { normalizedPattern in
+            appFingerprint.contains(normalizedPattern)
+        })
+    }
+
+    func isDomainIgnored(
+        webURL: String?,
+        preferences: MonitoringPreferencesSnapshot
+    ) -> Bool {
+        guard let domain = domain(from: webURL) else {
+            return false
+        }
+
+        return preferences.ignoredDomains.contains(where: { normalizedPattern in
+            domain == normalizedPattern || domain.hasSuffix(".\(normalizedPattern)")
+        })
+    }
+
+    func isSupportedBrowser(
+        applicationName: String,
+        bundleIdentifier: String?
+    ) -> Bool {
+        let normalizedName = normalized(applicationName)
+        let normalizedBundleID = normalized(bundleIdentifier ?? "")
+
+        if Self.supportedBrowserNames.contains(normalizedName) {
+            return true
+        }
+
+        return Self.supportedBrowserBundleIDs.contains(normalizedBundleID)
     }
 
     func previewRules(from preferences: MonitoringPreferencesSnapshot) -> [RulePreview] {
@@ -162,6 +228,51 @@ struct ClassificationEngine {
         }
 
         return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+    }
+
+    func searchQuery(from webURL: String?) -> String? {
+        guard
+            let webURL,
+            let components = URLComponents(string: webURL)
+        else {
+            return nil
+        }
+
+        let host = (components.host ?? "").lowercased()
+        let queryItems = components.queryItems ?? []
+
+        let candidateKeys: [String]
+        switch host {
+        case let host where host.contains("google."):
+            candidateKeys = ["q"]
+        case let host where host.contains("bing.com"):
+            candidateKeys = ["q"]
+        case let host where host.contains("duckduckgo.com"):
+            candidateKeys = ["q"]
+        case let host where host.contains("youtube.com"):
+            candidateKeys = ["search_query"]
+        case let host where host.contains("x.com"), let host where host.contains("twitter.com"):
+            candidateKeys = ["q"]
+        case let host where host.contains("github.com"):
+            candidateKeys = ["q"]
+        default:
+            candidateKeys = ["q", "query", "search", "text", "wd", "p"]
+        }
+
+        for key in candidateKeys {
+            if let rawValue = queryItems.first(where: { $0.name.caseInsensitiveCompare(key) == .orderedSame })?.value {
+                let cleaned = rawValue
+                    .replacingOccurrences(of: "+", with: " ")
+                    .removingPercentEncoding?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+
+                if let cleaned, !cleaned.isEmpty {
+                    return cleaned
+                }
+            }
+        }
+
+        return nil
     }
 
     private func matches(

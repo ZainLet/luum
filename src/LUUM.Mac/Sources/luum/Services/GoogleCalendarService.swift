@@ -53,6 +53,7 @@ struct GoogleCalendarService: Sendable {
     private static let tokenEndpoint = URL(string: "https://oauth2.googleapis.com/token")!
     private static let calendarListEndpoint = URL(string: "https://www.googleapis.com/calendar/v3/users/me/calendarList")!
     fileprivate static let oauthCallbackPath = "/oauth2callback"
+    private static let agendaWindowDays = 3
 
     private let session: URLSession
 
@@ -308,7 +309,8 @@ struct GoogleCalendarService: Sendable {
     ) async throws -> [CalendarAgendaItem] {
         let calendar = Calendar.autoupdatingCurrent
         let dayStart = calendar.startOfDay(for: day)
-        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86_400)
+        let rangeStart = dayStart
+        let rangeEnd = calendar.date(byAdding: .day, value: Self.agendaWindowDays + 1, to: dayStart) ?? dayStart.addingTimeInterval(Double(Self.agendaWindowDays + 1) * 86_400)
         let visibleCalendars = calendars.filter { $0.isSelected && !$0.isHidden }
 
         return try await withThrowingTaskGroup(of: [CalendarAgendaItem].self) { group in
@@ -316,8 +318,8 @@ struct GoogleCalendarService: Sendable {
                 group.addTask {
                     let url = try Self.eventsURL(
                         calendarID: calendarDescriptor.id,
-                        dayStart: dayStart,
-                        dayEnd: dayEnd
+                        rangeStart: rangeStart,
+                        rangeEnd: rangeEnd
                     )
 
                     var request = URLRequest(url: url)
@@ -468,7 +470,7 @@ struct GoogleCalendarService: Sendable {
         makeISO8601Formatter().string(from: date)
     }
 
-    private static func eventsURL(calendarID: String, dayStart: Date, dayEnd: Date) throws -> URL {
+    private static func eventsURL(calendarID: String, rangeStart: Date, rangeEnd: Date) throws -> URL {
         let encodedCalendarID = calendarID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? calendarID
         guard var components = URLComponents(string: "https://www.googleapis.com/calendar/v3/calendars/\(encodedCalendarID)/events") else {
             throw GoogleCalendarIssue.invalidEventPayload
@@ -477,9 +479,9 @@ struct GoogleCalendarService: Sendable {
         components.queryItems = [
             URLQueryItem(name: "singleEvents", value: "true"),
             URLQueryItem(name: "orderBy", value: "startTime"),
-            URLQueryItem(name: "timeMin", value: Self.isoTimestamp(dayStart)),
-            URLQueryItem(name: "timeMax", value: Self.isoTimestamp(dayEnd)),
-            URLQueryItem(name: "maxResults", value: "50"),
+            URLQueryItem(name: "timeMin", value: Self.isoTimestamp(rangeStart)),
+            URLQueryItem(name: "timeMax", value: Self.isoTimestamp(rangeEnd)),
+            URLQueryItem(name: "maxResults", value: "250"),
         ]
 
         guard let url = components.url else {

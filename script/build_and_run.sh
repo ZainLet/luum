@@ -90,6 +90,17 @@ cat >"$INFO_PLIST" <<PLIST
   <string>NSApplication</string>
   <key>CFBundleIconFile</key>
   <string>AppIcon</string>
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>$BUNDLE_ID.auth</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>luum</string>
+      </array>
+    </dict>
+  </array>
 </dict>
 </plist>
 PLIST

@@ -77,6 +77,55 @@ func respectsManualCategoryOverridesOnSamples() {
 }
 
 @Test
+func keepsBrowserDomainsVisibleWhenBrowserAppIsIgnored() {
+    let engine = ClassificationEngine()
+    var preferences = MonitoringPreferencesSnapshot.default
+    preferences.ignoredApplications = ["google chrome"]
+
+    let ignored = engine.isIgnored(
+        applicationName: "Google Chrome",
+        bundleIdentifier: "com.google.Chrome",
+        webURL: "https://github.com/ZainLet/luum",
+        preferences: preferences
+    )
+
+    #expect(ignored == false)
+}
+
+@Test
+func stillIgnoresBrowserShellWithoutTrackedURL() {
+    let engine = ClassificationEngine()
+    var preferences = MonitoringPreferencesSnapshot.default
+    preferences.ignoredApplications = ["google chrome"]
+
+    let ignored = engine.isIgnored(
+        applicationName: "Google Chrome",
+        bundleIdentifier: "com.google.Chrome",
+        webURL: nil,
+        preferences: preferences
+    )
+
+    #expect(ignored == true)
+}
+
+@Test
+func stillIgnoresBlockedDomainsInsideBrowsers() {
+    let engine = ClassificationEngine()
+    var preferences = MonitoringPreferencesSnapshot.default
+    preferences.ignoredApplications = ["google chrome"]
+    preferences.ignoredDomains = ["github.com"]
+
+    let ignored = engine.isIgnored(
+        applicationName: "Google Chrome",
+        bundleIdentifier: "com.google.Chrome",
+        webURL: "https://github.com/ZainLet/luum",
+        preferences: preferences
+    )
+
+    #expect(ignored == true)
+}
+
+@Test
 func migratesLegacyGoogleCalendarSnapshot() throws {
     let now = Date(timeIntervalSince1970: 1_700_000_000)
     let legacy = LegacyGoogleCalendarSnapshotFixture(
@@ -223,6 +272,52 @@ final class ClassificationEngineTests: XCTestCase {
         )
 
         XCTAssertEqual(category, .work)
+    }
+
+    func testKeepsBrowserDomainsVisibleWhenBrowserAppIsIgnored() {
+        let engine = ClassificationEngine()
+        var preferences = MonitoringPreferencesSnapshot.default
+        preferences.ignoredApplications = ["google chrome"]
+
+        let ignored = engine.isIgnored(
+            applicationName: "Google Chrome",
+            bundleIdentifier: "com.google.Chrome",
+            webURL: "https://github.com/ZainLet/luum",
+            preferences: preferences
+        )
+
+        XCTAssertFalse(ignored)
+    }
+
+    func testStillIgnoresBrowserShellWithoutTrackedURL() {
+        let engine = ClassificationEngine()
+        var preferences = MonitoringPreferencesSnapshot.default
+        preferences.ignoredApplications = ["google chrome"]
+
+        let ignored = engine.isIgnored(
+            applicationName: "Google Chrome",
+            bundleIdentifier: "com.google.Chrome",
+            webURL: nil,
+            preferences: preferences
+        )
+
+        XCTAssertTrue(ignored)
+    }
+
+    func testStillIgnoresBlockedDomainsInsideBrowsers() {
+        let engine = ClassificationEngine()
+        var preferences = MonitoringPreferencesSnapshot.default
+        preferences.ignoredApplications = ["google chrome"]
+        preferences.ignoredDomains = ["github.com"]
+
+        let ignored = engine.isIgnored(
+            applicationName: "Google Chrome",
+            bundleIdentifier: "com.google.Chrome",
+            webURL: "https://github.com/ZainLet/luum",
+            preferences: preferences
+        )
+
+        XCTAssertTrue(ignored)
     }
 
     func testMigratesLegacyGoogleCalendarSnapshot() throws {

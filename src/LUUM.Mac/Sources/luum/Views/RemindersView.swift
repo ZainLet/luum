@@ -9,6 +9,10 @@ struct RemindersView: View {
     @State private var newReminderMessage = ""
     @State private var selectedWeekdays = Set([2, 3, 4, 5, 6])
 
+    private var categoryIDs: [String] {
+        store.categories.map(\.id)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
@@ -25,6 +29,10 @@ struct RemindersView: View {
             .padding(28)
         }
         .scrollIndicators(.hidden)
+        .onAppear(perform: syncSelections)
+        .onChange(of: categoryIDs) { _, _ in
+            syncSelections()
+        }
     }
 
     private var notificationsCard: some View {
@@ -104,7 +112,7 @@ struct RemindersView: View {
             Button("Adicionar lembrete") {
                 store.addReminder(
                     title: newReminderTitle,
-                    categoryID: newReminderCategoryID,
+                    categoryID: resolvedNewReminderCategoryID,
                     thresholdMinutes: newReminderThreshold,
                     weekdays: Array(selectedWeekdays).sorted(),
                     message: newReminderMessage
@@ -114,9 +122,20 @@ struct RemindersView: View {
                 newReminderMessage = ""
             }
             .buttonStyle(.glassProminent)
+            .disabled(newReminderTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedWeekdays.isEmpty)
         }
         .padding(22)
         .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.12))
+    }
+
+    private var resolvedNewReminderCategoryID: String {
+        store.category(for: newReminderCategoryID) != nil ? newReminderCategoryID : store.defaultCategoryID
+    }
+
+    private func syncSelections() {
+        if store.category(for: newReminderCategoryID) == nil {
+            newReminderCategoryID = store.defaultCategoryID
+        }
     }
 }
 
@@ -140,6 +159,10 @@ private struct EditableReminderCard: View {
         _message = State(initialValue: reminder.message)
         _isEnabled = State(initialValue: reminder.isEnabled)
         _selectedWeekdays = State(initialValue: Set(reminder.weekdays))
+    }
+
+    private var resolvedCategoryID: String {
+        store.category(for: categoryID) != nil ? categoryID : store.defaultCategoryID
     }
 
     var body: some View {
@@ -190,7 +213,7 @@ private struct EditableReminderCard: View {
                     ReminderProfile(
                         id: reminder.id,
                         title: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? reminder.title : title,
-                        categoryID: categoryID,
+                        categoryID: resolvedCategoryID,
                         thresholdMinutes: thresholdMinutes,
                         weekdays: Array(selectedWeekdays).sorted(),
                         isEnabled: isEnabled,
@@ -199,16 +222,50 @@ private struct EditableReminderCard: View {
                 )
             }
             .buttonStyle(.glassProminent)
+            .disabled(selectedWeekdays.isEmpty)
         }
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(.white.opacity(0.03))
         )
+        .onAppear(perform: syncDrafts)
+        .onChange(of: reminder.title) { _, _ in
+            syncDrafts()
+        }
+        .onChange(of: reminder.categoryID) { _, _ in
+            syncDrafts()
+        }
+        .onChange(of: reminder.thresholdMinutes) { _, _ in
+            syncDrafts()
+        }
+        .onChange(of: reminder.message) { _, _ in
+            syncDrafts()
+        }
+        .onChange(of: reminder.isEnabled) { _, _ in
+            syncDrafts()
+        }
+        .onChange(of: reminder.weekdays) { _, _ in
+            syncDrafts()
+        }
+        .onChange(of: store.categories.map(\.id)) { _, _ in
+            if store.category(for: categoryID) == nil {
+                categoryID = store.defaultCategoryID
+            }
+        }
+    }
+
+    private func syncDrafts() {
+        title = reminder.title
+        categoryID = store.category(for: reminder.categoryID) != nil ? reminder.categoryID : store.defaultCategoryID
+        thresholdMinutes = reminder.thresholdMinutes
+        message = reminder.message
+        isEnabled = reminder.isEnabled
+        selectedWeekdays = Set(reminder.weekdays)
     }
 }
 
-private struct WeekdaySelector: View {
+struct WeekdaySelector: View {
     @Binding var selectedWeekdays: Set<Int>
 
     var body: some View {

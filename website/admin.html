@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin — Luum</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <style>
+        .admin-page { min-height: 100vh; padding: 132px 0 80px; background: var(--bg-primary); }
+        .admin-page .container { max-width: 980px; }
+        .admin-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+        .admin-header h1 { font-size: 1.9rem; margin-bottom: 8px; }
+        .admin-header p { font-size: 0.98rem; max-width: 640px; }
+        .admin-shell { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+        .admin-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 26px; }
+        .admin-card h2 { font-size: 1.05rem; margin-bottom: 18px; letter-spacing: 0; }
+        .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .admin-grid .wide { grid-column: 1 / -1; }
+        .admin-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+        .admin-note { color: var(--text-muted); font-size: 0.84rem; line-height: 1.6; margin-top: 14px; }
+        .admin-result { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 16px; min-height: 180px; background: rgba(255,255,255,0.025); }
+        .admin-result dl { display: grid; gap: 10px; }
+        .admin-result dt { color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; }
+        .admin-result dd { color: var(--text-primary); font-size: 0.94rem; overflow-wrap: anywhere; }
+        .admin-status { margin-top: 14px; font-size: 0.9rem; color: var(--text-secondary); min-height: 24px; }
+        .admin-status.error { color: #fca5a5; }
+        .admin-status.ok { color: var(--green-400); }
+        .admin-health { margin-top: 14px; padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); background: rgba(255,255,255,0.025); color: var(--text-muted); font-size: 0.82rem; line-height: 1.6; }
+        .admin-health strong { color: var(--text-primary); }
+        .integration-vault { margin-top: 20px; }
+        .integration-vault h2 { margin-bottom: 8px; }
+        .integration-vault .admin-note { margin-top: 0; margin-bottom: 18px; }
+        .vault-section { margin-top: 22px; }
+        .vault-section h3 { color: var(--text-primary); font-size: 0.9rem; margin-bottom: 12px; }
+        .vault-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .vault-grid .form-group { margin-bottom: 0; }
+        .vault-grid input::placeholder { color: var(--text-muted); }
+        .vault-status { margin-top: 14px; min-height: 22px; color: var(--text-secondary); font-size: 0.88rem; }
+        .vault-status.error { color: #fca5a5; }
+        .vault-status.ok { color: var(--green-400); }
+        .admin-locked { display: none; text-align: center; padding: 80px 0; }
+        .admin-locked h1 { font-size: 1.6rem; margin-bottom: 12px; }
+        .admin-locked p { margin-bottom: 24px; }
+        @media (max-width: 860px) {
+            .admin-page { padding-top: 112px; }
+            .admin-header { display: block; }
+            .admin-header .btn { margin-top: 18px; }
+            .admin-shell { grid-template-columns: 1fr; }
+            .admin-grid { grid-template-columns: 1fr; }
+            .vault-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="logo"><a href="index.html">Luum</a></div>
+            <nav class="nav">
+                <ul class="nav-list">
+                    <li><a href="index.html#solucoes">Soluções</a></li>
+                    <li><a href="index.html#recursos">Recursos</a></li>
+                    <li><a href="index.html#precos">Preços</a></li>
+                    <li><a href="account.html">Minha Conta</a></li>
+                </ul>
+                <div class="nav-actions">
+                    <a href="login.html" class="btn btn-secondary js-auth-login">Entrar</a>
+                    <a href="cadastro.html" class="btn btn-primary js-auth-signup">Começar Grátis</a>
+                </div>
+            </nav>
+            <div class="nav-actions header-actions">
+                <a href="login.html" class="btn btn-secondary js-auth-login">Entrar</a>
+                <a href="cadastro.html" class="btn btn-primary js-auth-signup">Começar Grátis</a>
+            </div>
+            <button class="hamburger" aria-label="Abrir Menu">&#9776;</button>
+        </div>
+    </header>
+
+    <main class="admin-page">
+        <div class="container">
+            <section class="admin-locked" id="adminLocked">
+                <h1>Acesso administrativo</h1>
+                <p>Entre com uma conta autorizada para gerenciar planos.</p>
+                <a href="login.html?redirect=admin.html" class="btn btn-primary">Entrar</a>
+            </section>
+
+            <section id="adminApp" style="display:none;">
+                <div class="admin-header">
+                    <div>
+                        <span class="eyebrow">Admin</span>
+                        <h1>Níveis de conta</h1>
+                        <p>Busque um usuário por email ou UID, escolha o plano e libere o acesso manualmente. As mudanças são salvas no Firestore e lidas pelo app desktop.</p>
+                    </div>
+                    <button class="btn btn-secondary" id="adminSignOut">Sair</button>
+                </div>
+
+                <div class="admin-shell">
+                    <form class="admin-card" id="adminForm">
+                        <h2>Editar acesso</h2>
+                        <div class="admin-grid">
+                            <div class="form-group wide">
+                                <label for="lookup">Email ou UID</label>
+                                <input id="lookup" name="lookup" type="text" placeholder="cliente@email.com ou UID Firebase" autocomplete="off" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="plan">Plano</label>
+                                <select id="plan" name="plan">
+                                    <option value="essencial">Essencial</option>
+                                    <option value="profissional">Profissional</option>
+                                    <option value="equipes">Equipes</option>
+                                    <option value="negocios">Negócios</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="status">Status</label>
+                                <select id="status" name="status">
+                                    <option value="active">Ativo</option>
+                                    <option value="trial">Trial</option>
+                                    <option value="canceling">Cancelando</option>
+                                    <option value="canceled">Cancelado</option>
+                                    <option value="past_due">Pagamento pendente</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="days">Validade em dias</label>
+                                <input id="days" name="days" type="number" min="1" max="3650" value="365">
+                            </div>
+                            <div class="form-group">
+                                <label for="seats">Assentos</label>
+                                <input id="seats" name="seats" type="number" min="1" max="10000" value="1">
+                            </div>
+                            <div class="form-group wide">
+                                <label for="role">Perfil</label>
+                                <select id="role" name="role">
+                                    <option value="user">Usuário</option>
+                                    <option value="admin">Admin Luum</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="admin-actions">
+                            <button class="btn btn-primary" type="submit" id="saveBtn">Salvar acesso</button>
+                            <button class="btn btn-secondary" type="button" id="lookupBtn">Buscar usuário</button>
+                        </div>
+                        <p class="admin-note">A conta inicial autorizada é `oluum.app@gmail.com`. Depois você pode promover outros admins por esta tela ou adicionar emails extras em `ADMIN_EMAILS` na Vercel.</p>
+                        <div class="admin-status" id="adminStatus"></div>
+                        <div class="admin-health" id="adminHealth">API: aguardando login...</div>
+                    </form>
+
+                    <aside class="admin-card">
+                        <h2>Usuário selecionado</h2>
+                        <div class="admin-result" id="adminResult">
+                            <p style="font-size:0.9rem;color:var(--text-muted);">Nenhum usuário carregado.</p>
+                        </div>
+                    </aside>
+                </div>
+
+                <section class="admin-card integration-vault">
+                    <h2>Cofre de integrações</h2>
+                    <p class="admin-note">Preencha apenas os valores que deseja adicionar ou substituir. Segredos já salvos aparecem mascarados e nunca voltam completos ao navegador. Antes do primeiro uso, configure `FIREBASE_SERVICE_ACCOUNT_JSON` e `LUUM_SETTINGS_ENCRYPTION_KEY` na Vercel.</p>
+                    <form id="integrationsForm">
+                        <div id="integrationsFields"></div>
+                        <div class="admin-actions">
+                            <button class="btn btn-primary" type="submit" id="saveIntegrationsBtn">Salvar integrações</button>
+                            <button class="btn btn-secondary" type="button" id="reloadIntegrationsBtn">Atualizar status</button>
+                        </div>
+                        <div class="vault-status" id="vaultStatus"></div>
+                    </form>
+                </section>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        const statusEl = document.getElementById('adminStatus');
+        const resultEl = document.getElementById('adminResult');
+        const appEl = document.getElementById('adminApp');
+        const lockedEl = document.getElementById('adminLocked');
+        const form = document.getElementById('adminForm');
+        const healthEl = document.getElementById('adminHealth');
+        const integrationsForm = document.getElementById('integrationsForm');
+        const integrationsFields = document.getElementById('integrationsFields');
+        const vaultStatus = document.getElementById('vaultStatus');
+        let currentAdmin = null;
+        const integrationGroups = [
+            ['stripe', 'Stripe', [
+                'STRIPE_PUBLISHABLE_KEY', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET',
+                'STRIPE_PRICE_ESSENCIAL_MONTHLY', 'STRIPE_PRICE_ESSENCIAL_ANNUALLY',
+                'STRIPE_PRICE_PROFISSIONAL_MONTHLY', 'STRIPE_PRICE_PROFISSIONAL_ANNUALLY',
+                'STRIPE_PRICE_EQUIPES_MONTHLY', 'STRIPE_PRICE_EQUIPES_ANNUALLY',
+                'STRIPE_PRICE_NEGOCIOS_MONTHLY', 'STRIPE_PRICE_NEGOCIOS_ANNUALLY'
+            ]],
+            ['site', 'Site', ['PUBLIC_SITE_URL']],
+            ['app', 'Integrações do app', [
+                'GOOGLE_CALENDAR_CLIENT_ID', 'OUTLOOK_CLIENT_ID', 'NOTION_INTEGRATION_TOKEN',
+                'CLICKUP_API_TOKEN', 'LINEAR_API_KEY', 'ZAPIER_WEBHOOK_URL'
+            ]]
+        ];
+
+        function setStatus(message, type = '') {
+            statusEl.textContent = message || '';
+            statusEl.className = `admin-status ${type}`;
+        }
+
+        function setVaultStatus(message, type = '') {
+            vaultStatus.textContent = message || '';
+            vaultStatus.className = `vault-status ${type}`;
+        }
+
+        function escapeHTML(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function lookupPayload() {
+            const value = document.getElementById('lookup').value.trim();
+            if (!value) throw new Error('Informe email ou UID.');
+            return value.includes('@')
+                ? { email: value.toLowerCase() }
+                : { uid: value };
+        }
+
+        async function authHeaders() {
+            const token = await currentAdmin.getIdToken(true);
+            return {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+        }
+
+        function renderHealth(data) {
+            const flag = (value) => value ? 'OK' : 'Pendente';
+            healthEl.innerHTML = `
+                <strong>API</strong>: ${escapeHTML(window.LUUM_API_BASE || '-') }<br>
+                <strong>Firebase Admin</strong>: ${flag(data.firebaseAdminReady)}<br>
+                <strong>Firestore</strong>: ${flag(data.firestoreReady)}<br>
+                <strong>ADMIN_EMAILS</strong>: ${flag(data.adminEmailsConfigured)}<br>
+                <strong>Sua permissão</strong>: ${data.adminAllowed ? 'Admin autorizado' : 'Sem permissão admin para este email'}
+            `;
+        }
+
+        async function checkAdminHealth() {
+            try {
+                healthEl.textContent = `Testando API em ${window.LUUM_API_BASE}...`;
+                const response = await fetch(luumApiUrl('/api/admin/health'), {
+                    headers: await authHeaders()
+                });
+                const data = await response.json().catch(() => ({}));
+                renderHealth({
+                    firebaseAdminReady: data.firebaseAdminReady,
+                    firestoreReady: data.firestoreReady,
+                    adminEmailsConfigured: data.adminEmailsConfigured,
+                    adminAllowed: data.adminAllowed
+                });
+                if (!response.ok || !data.ok) {
+                    throw new Error(data.error || 'Diagnóstico admin falhou.');
+                }
+                if (!data.adminAllowed) {
+                    setStatus('Use oluum.app@gmail.com, um email extra de ADMIN_EMAILS ou uma conta promovida como admin.', 'error');
+                    return;
+                }
+
+                await checkStripeHealth();
+                await loadIntegrations();
+            } catch (err) {
+                healthEl.innerHTML = `<strong>API</strong>: ${escapeHTML(window.LUUM_API_BASE || '-')}<br><strong>Erro</strong>: ${escapeHTML(err.message || 'Diagnóstico indisponível')}`;
+            }
+        }
+
+        function renderIntegrations(settings) {
+            integrationsFields.innerHTML = integrationGroups.map(([, title, keys]) => `
+                <div class="vault-section">
+                    <h3>${escapeHTML(title)}</h3>
+                    <div class="vault-grid">
+                        ${keys.map((key) => {
+                            const item = settings[key] || {};
+                            const placeholder = item.configured ? `Salvo: ${item.masked}` : 'Ainda não configurado';
+                            return `
+                                <div class="form-group">
+                                    <label for="integration_${escapeHTML(key)}">${escapeHTML(item.label || key)}</label>
+                                    <input id="integration_${escapeHTML(key)}" name="${escapeHTML(key)}" type="password" placeholder="${escapeHTML(placeholder)}" autocomplete="new-password">
+                                </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadIntegrations() {
+            setVaultStatus('Carregando cofre...');
+            const response = await fetch(luumApiUrl('/api/admin/integrations'), {
+                headers: await authHeaders()
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || 'Cofre de integrações indisponível.');
+            renderIntegrations(data.settings || {});
+            setVaultStatus('Cofre carregado. Valores existentes estão mascarados.', 'ok');
+        }
+
+        async function saveIntegrations(event) {
+            event.preventDefault();
+            const updates = {};
+            new FormData(integrationsForm).forEach((value, key) => {
+                if (String(value).trim()) updates[key] = String(value).trim();
+            });
+            if (!Object.keys(updates).length) {
+                throw new Error('Preencha ao menos um valor para salvar.');
+            }
+
+            setVaultStatus('Salvando integrações...');
+            const response = await fetch(luumApiUrl('/api/admin/integrations'), {
+                method: 'POST',
+                headers: await authHeaders(),
+                body: JSON.stringify({ updates })
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || 'Não foi possível salvar as integrações.');
+            renderIntegrations(data.settings || {});
+            setVaultStatus('Integrações salvas com criptografia.', 'ok');
+            await checkStripeHealth();
+        }
+
+        async function checkStripeHealth() {
+            const response = await fetch(luumApiUrl('/api/admin/stripe-health'), {
+                headers: await authHeaders()
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || 'Diagnóstico Stripe indisponível.');
+
+            const missing = Array.isArray(data.missing) ? data.missing : [];
+            healthEl.innerHTML += `
+                <br><strong>Stripe</strong>: ${data.stripeReady ? 'OK' : 'Pendente'}<br>
+                <strong>PUBLIC_SITE_URL</strong>: ${data.publicSiteURLConfigured ? 'OK' : 'Pendente'}<br>
+                <strong>Stripe envs ausentes</strong>: ${missing.length ? escapeHTML(missing.join(', ')) : 'nenhuma'}
+            `;
+        }
+
+        function renderUser(user) {
+            if (!user) return;
+            const sub = user.subscription || {};
+            resultEl.innerHTML = `
+                <dl>
+                    <div><dt>Email</dt><dd>${escapeHTML(user.email || '-')}</dd></div>
+                    <div><dt>UID</dt><dd>${escapeHTML(user.uid)}</dd></div>
+                    <div><dt>Plano</dt><dd>${escapeHTML(user.plan || '-')}</dd></div>
+                    <div><dt>Status</dt><dd>${escapeHTML(sub.status || '-')}</dd></div>
+                    <div><dt>Perfil</dt><dd>${escapeHTML(user.role || 'user')}${user.luumAdmin ? ' / claim admin' : ''}</dd></div>
+                </dl>`;
+            document.getElementById('plan').value = user.plan || 'essencial';
+            document.getElementById('status').value = sub.status || 'active';
+            document.getElementById('role').value = user.role || (user.luumAdmin ? 'admin' : 'user');
+            document.getElementById('seats').value = sub.seats || user.seats || 1;
+        }
+
+        async function fetchUser() {
+            setStatus('Buscando usuário...');
+            const payload = lookupPayload();
+            const qs = new URLSearchParams(payload);
+            const response = await fetch(luumApiUrl(`/api/admin/users?${qs}`), {
+                headers: await authHeaders()
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || `Usuário não encontrado. Verifique se ${window.LUUM_API_BASE} está publicado e com ADMIN_EMAILS configurado.`);
+            renderUser(data.user);
+            setStatus('Usuário carregado.', 'ok');
+        }
+
+        async function saveUser(event) {
+            event.preventDefault();
+            setStatus('Salvando acesso...');
+            const payload = {
+                ...lookupPayload(),
+                plan: document.getElementById('plan').value,
+                status: document.getElementById('status').value,
+                role: document.getElementById('role').value,
+                days: document.getElementById('days').value,
+                seats: document.getElementById('seats').value
+            };
+            const response = await fetch(luumApiUrl('/api/admin/users'), {
+                method: 'POST',
+                headers: await authHeaders(),
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || `Não foi possível salvar. Verifique se ${window.LUUM_API_BASE} está publicado e com ADMIN_EMAILS configurado.`);
+            renderUser(data.user);
+            setStatus('Acesso atualizado com sucesso. No app da pessoa, clique em Validar plano ou faça login novamente.', 'ok');
+        }
+
+        if (typeof firebase === 'undefined' || !firebase.auth) {
+            lockedEl.style.display = 'block';
+            appEl.style.display = 'none';
+            lockedEl.querySelector('p').textContent = 'Firebase Auth não carregou. Confira a conexão e os scripts do Firebase.';
+        } else {
+            firebase.auth().onAuthStateChanged((user) => {
+            currentAdmin = user;
+            lockedEl.style.display = user ? 'none' : 'block';
+            appEl.style.display = user ? 'block' : 'none';
+            if (user) {
+                setStatus(`Logado como ${user.email || user.uid}.`);
+                checkAdminHealth();
+            }
+            });
+        }
+
+        document.getElementById('lookupBtn').addEventListener('click', () => {
+            fetchUser().catch((err) => setStatus(err.message, 'error'));
+        });
+
+        form.addEventListener('submit', (event) => {
+            saveUser(event).catch((err) => setStatus(err.message, 'error'));
+        });
+
+        document.getElementById('adminSignOut').addEventListener('click', () => {
+            if (typeof firebase !== 'undefined' && firebase.auth) firebase.auth().signOut();
+        });
+
+        integrationsForm.addEventListener('submit', (event) => {
+            saveIntegrations(event).catch((err) => setVaultStatus(err.message, 'error'));
+        });
+
+        document.getElementById('reloadIntegrationsBtn').addEventListener('click', () => {
+            loadIntegrations().catch((err) => setVaultStatus(err.message, 'error'));
+        });
+    </script>
+    <script src="auth.js?v=3"></script>
+</body>
+</html>

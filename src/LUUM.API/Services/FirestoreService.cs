@@ -144,6 +144,116 @@ namespace LUUM.API.Services
             return snapshots.Documents.Select(doc => doc.ConvertTo<Session>()).ToList();
         }
 
+        public async Task<DateTimeOffset> SaveWorkspaceMemberSnapshotAsync(
+            string workspaceId,
+            string memberId,
+            string workspaceSecret,
+            WorkspaceMemberSnapshotPayload payload)
+        {
+            var normalizedWorkspaceId = NormalizeIdentifier(workspaceId);
+            var normalizedMemberId = NormalizeIdentifier(memberId);
+            var now = DateTimeOffset.UtcNow;
+            var workspaceRef = _db.Collection("workspaces").Document(GetStableHash(normalizedWorkspaceId));
+
+            var workspaceSnapshot = await workspaceRef.GetSnapshotAsync();
+            if (workspaceSnapshot.Exists)
+            {
+                var existingWorkspace = workspaceSnapshot.ConvertTo<WorkspaceRecord>();
+                if (!BackupSecretMatches(workspaceSecret, existingWorkspace.SecretHash))
+                {
+                    throw new UnauthorizedAccessException("A chave do workspace nao confere com o backend.");
+                }
+            }
+
+            var workspaceRecord = new WorkspaceRecord
+            {
+                Id = GetStableHash(normalizedWorkspaceId),
+                WorkspaceId = normalizedWorkspaceId,
+                OrganizationName = payload.OrganizationName?.Trim() ?? string.Empty,
+                SecretHash = workspaceSnapshot.Exists
+                    ? workspaceSnapshot.ConvertTo<WorkspaceRecord>().SecretHash
+                    : GetStableHash(NormalizeSecret(workspaceSecret)),
+                UpdatedAt = Timestamp.FromDateTimeOffset(now)
+            };
+
+            await workspaceRef.SetAsync(workspaceRecord, SetOptions.MergeAll);
+
+            var memberRecord = new WorkspaceMemberRecord
+            {
+                Id = GetStableHash(normalizedMemberId),
+                WorkspaceId = normalizedWorkspaceId,
+                MemberId = normalizedMemberId,
+                DisplayName = payload.MemberDisplayName?.Trim() ?? "Membro",
+                RoleLabel = payload.RoleLabel?.Trim() ?? "Equipe",
+                TrackedTime = payload.TrackedTime,
+                FocusTime = payload.FocusTime,
+                PlannedTime = payload.PlannedTime,
+                ContextSwitches = payload.ContextSwitches,
+                Score = payload.Score,
+                SnapshotDay = Timestamp.FromDateTimeOffset(payload.SnapshotDay == default ? now : payload.SnapshotDay),
+                WeekStart = Timestamp.FromDateTimeOffset(payload.WeekStart == default ? now : payload.WeekStart),
+                WeekEnd = Timestamp.FromDateTimeOffset(payload.WeekEnd == default ? now : payload.WeekEnd),
+                UpdatedAt = Timestamp.FromDateTimeOffset(now)
+            };
+
+            await workspaceRef.Collection("members").Document(memberRecord.Id).SetAsync(memberRecord, SetOptions.MergeAll);
+            _logger.LogInformation("Saved workspace member snapshot {WorkspaceId}/{MemberId}.", normalizedWorkspaceId, normalizedMemberId);
+            return now;
+        }
+
+        public async Task<WorkspaceRankingResponse> GetWorkspaceRankingAsync(
+            string workspaceId,
+            string workspaceSecret,
+            string requestingMemberId)
+        {
+            var normalizedWorkspaceId = NormalizeIdentifier(workspaceId);
+            var normalizedMemberId = NormalizeIdentifier(requestingMemberId);
+            var workspaceRef = _db.Collection("workspaces").Document(GetStableHash(normalizedWorkspaceId));
+            var workspaceSnapshot = await workspaceRef.GetSnapshotAsync();
+
+            if (!workspaceSnapshot.Exists)
+            {
+                return new WorkspaceRankingResponse
+                {
+                    OrganizationName = null,
+                    UpdatedAt = null,
+                    Entries = new List<WorkspaceRankingEntryResponse>()
+                };
+            }
+
+            var workspaceRecord = workspaceSnapshot.ConvertTo<WorkspaceRecord>();
+            if (!BackupSecretMatches(workspaceSecret, workspaceRecord.SecretHash))
+            {
+                throw new UnauthorizedAccessException("A chave do workspace nao confere com o backend.");
+            }
+
+            var membersSnapshot = await workspaceRef.Collection("members").GetSnapshotAsync();
+            var entries = membersSnapshot.Documents
+                .Select(doc => doc.ConvertTo<WorkspaceMemberRecord>())
+                .OrderByDescending(record => record.Score)
+                .ThenByDescending(record => record.TrackedTime)
+                .Select(record => new WorkspaceRankingEntryResponse
+                {
+                    Id = record.MemberId,
+                    DisplayName = record.DisplayName,
+                    RoleLabel = record.RoleLabel,
+                    TrackedTime = record.TrackedTime,
+                    FocusTime = record.FocusTime,
+                    PlannedTime = record.PlannedTime,
+                    ContextSwitches = record.ContextSwitches,
+                    Score = record.Score,
+                    IsCurrentUser = !string.IsNullOrWhiteSpace(normalizedMemberId) && record.MemberId == normalizedMemberId
+                })
+                .ToList();
+
+            return new WorkspaceRankingResponse
+            {
+                OrganizationName = workspaceRecord.OrganizationName,
+                UpdatedAt = workspaceRecord.UpdatedAt.ToDateTimeOffset(),
+                Entries = entries
+            };
+        }
+
         public async Task<DateTimeOffset> SaveCloudBackupAsync(string backupId, string backupSecret, string payloadJson)
         {
             var normalizedBackupId = NormalizeBackupId(backupId);
@@ -201,6 +311,11 @@ namespace LUUM.API.Services
         private static string NormalizeSecret(string backupSecret)
         {
             return backupSecret.Trim();
+        }
+
+        private static string NormalizeIdentifier(string value)
+        {
+            return value.Trim().ToLowerInvariant();
         }
 
         private static (int SchemaVersion, string DeviceName, DateTimeOffset ExportedAt) ExtractBackupMetadata(string payloadJson, DateTimeOffset fallbackTimestamp)

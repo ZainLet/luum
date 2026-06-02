@@ -109,7 +109,7 @@ struct CloudSyncSettings: Codable, Hashable, Sendable {
 
     static let `default` = CloudSyncSettings(
         isEnabled: false,
-        endpointURL: "http://localhost:5000",
+        endpointURL: FirebaseAuthService.defaultBaseURL,
         backupID: "",
         syncCategoriesAndRules: true,
         syncDailySummaries: true,
@@ -123,8 +123,17 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
     var ignoredApplications: [String]
     var ignoredDomains: [String]
     var reminderProfiles: [ReminderProfile]
+    var usageGoals: [UsageGoal]
+    var focusProfiles: [FocusModeProfile]
+    var notionCalendarSettings: NotionCalendarSettings
+    var outlookCalendarSettings: OutlookCalendarSettings
+    var clickUpSettings: ClickUpSettings
+    var linearSettings: LinearSettings
+    var zapierSettings: ZapierSettings
+    var teamSettings: TeamSettings
     var privacySettings: PrivacySettings
     var cloudSyncSettings: CloudSyncSettings
+    var hasCompletedOnboarding: Bool
 
     static var `default`: MonitoringPreferencesSnapshot {
         MonitoringPreferencesSnapshot(
@@ -133,13 +142,132 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
             ignoredApplications: [],
             ignoredDomains: [],
             reminderProfiles: ReminderProfile.defaultProfiles,
+            usageGoals: [],
+            focusProfiles: [],
+            notionCalendarSettings: .default,
+            outlookCalendarSettings: .default,
+            clickUpSettings: .default,
+            linearSettings: .default,
+            zapierSettings: .default,
+            teamSettings: .default,
             privacySettings: .default,
-            cloudSyncSettings: .default
+            cloudSyncSettings: .default,
+            hasCompletedOnboarding: false
         )
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case categories
+        case categoryRules
+        case ignoredApplications
+        case ignoredDomains
+        case reminderProfiles
+        case usageGoals
+        case focusProfiles
+        case notionCalendarSettings
+        case outlookCalendarSettings
+        case clickUpSettings
+        case linearSettings
+        case zapierSettings
+        case teamSettings
+        case privacySettings
+        case cloudSyncSettings
+        case hasCompletedOnboarding
+    }
+
+    init(
+        categories: [ActivityCategory],
+        categoryRules: [CategoryRule],
+        ignoredApplications: [String],
+        ignoredDomains: [String],
+        reminderProfiles: [ReminderProfile],
+        usageGoals: [UsageGoal] = [],
+        focusProfiles: [FocusModeProfile] = [],
+        notionCalendarSettings: NotionCalendarSettings = .default,
+        outlookCalendarSettings: OutlookCalendarSettings = .default,
+        clickUpSettings: ClickUpSettings = .default,
+        linearSettings: LinearSettings = .default,
+        zapierSettings: ZapierSettings = .default,
+        teamSettings: TeamSettings = .default,
+        privacySettings: PrivacySettings = .default,
+        cloudSyncSettings: CloudSyncSettings = .default,
+        hasCompletedOnboarding: Bool = false
+    ) {
+        self.categories = categories
+        self.categoryRules = categoryRules
+        self.ignoredApplications = ignoredApplications
+        self.ignoredDomains = ignoredDomains
+        self.reminderProfiles = reminderProfiles
+        self.usageGoals = usageGoals
+        self.focusProfiles = focusProfiles
+        self.notionCalendarSettings = notionCalendarSettings
+        self.outlookCalendarSettings = outlookCalendarSettings
+        self.clickUpSettings = clickUpSettings
+        self.linearSettings = linearSettings
+        self.zapierSettings = zapierSettings
+        self.teamSettings = teamSettings
+        self.privacySettings = privacySettings
+        self.cloudSyncSettings = cloudSyncSettings
+        self.hasCompletedOnboarding = hasCompletedOnboarding
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        categories = try container.decodeIfPresent([ActivityCategory].self, forKey: .categories) ?? Self.default.categories
+        categoryRules = try container.decodeIfPresent([CategoryRule].self, forKey: .categoryRules) ?? Self.default.categoryRules
+        ignoredApplications = try container.decodeIfPresent([String].self, forKey: .ignoredApplications) ?? []
+        ignoredDomains = try container.decodeIfPresent([String].self, forKey: .ignoredDomains) ?? []
+        reminderProfiles = try container.decodeIfPresent([ReminderProfile].self, forKey: .reminderProfiles) ?? Self.default.reminderProfiles
+        usageGoals = try container.decodeIfPresent([UsageGoal].self, forKey: .usageGoals) ?? []
+        focusProfiles = try container.decodeIfPresent([FocusModeProfile].self, forKey: .focusProfiles) ?? []
+        notionCalendarSettings = try container.decodeIfPresent(NotionCalendarSettings.self, forKey: .notionCalendarSettings) ?? .default
+        outlookCalendarSettings = try container.decodeIfPresent(OutlookCalendarSettings.self, forKey: .outlookCalendarSettings) ?? .default
+        clickUpSettings = try container.decodeIfPresent(ClickUpSettings.self, forKey: .clickUpSettings) ?? .default
+        linearSettings = try container.decodeIfPresent(LinearSettings.self, forKey: .linearSettings) ?? .default
+        zapierSettings = try container.decodeIfPresent(ZapierSettings.self, forKey: .zapierSettings) ?? .default
+        teamSettings = try container.decodeIfPresent(TeamSettings.self, forKey: .teamSettings) ?? .default
+        privacySettings = try container.decodeIfPresent(PrivacySettings.self, forKey: .privacySettings) ?? .default
+        cloudSyncSettings = try container.decodeIfPresent(CloudSyncSettings.self, forKey: .cloudSyncSettings) ?? .default
+        hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(categories, forKey: .categories)
+        try container.encode(categoryRules, forKey: .categoryRules)
+        try container.encode(ignoredApplications, forKey: .ignoredApplications)
+        try container.encode(ignoredDomains, forKey: .ignoredDomains)
+        try container.encode(reminderProfiles, forKey: .reminderProfiles)
+        try container.encode(usageGoals, forKey: .usageGoals)
+        try container.encode(focusProfiles, forKey: .focusProfiles)
+        try container.encode(notionCalendarSettings, forKey: .notionCalendarSettings)
+        try container.encode(outlookCalendarSettings, forKey: .outlookCalendarSettings)
+        try container.encode(clickUpSettings, forKey: .clickUpSettings)
+        try container.encode(linearSettings, forKey: .linearSettings)
+        try container.encode(zapierSettings, forKey: .zapierSettings)
+        try container.encode(teamSettings, forKey: .teamSettings)
+        try container.encode(privacySettings, forKey: .privacySettings)
+        try container.encode(cloudSyncSettings, forKey: .cloudSyncSettings)
+        try container.encode(hasCompletedOnboarding, forKey: .hasCompletedOnboarding)
+    }
+
     func normalized() -> MonitoringPreferencesSnapshot {
-        var categoriesByID = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
+        var categoriesByID: [String: ActivityCategory] = [:]
+
+        for category in categories {
+            let trimmedID = category.id.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedID.isEmpty else { continue }
+
+            let trimmedTitle = category.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedSymbol = category.systemImage.trimmingCharacters(in: .whitespacesAndNewlines)
+            categoriesByID[trimmedID] = ActivityCategory(
+                id: trimmedID,
+                title: trimmedTitle.isEmpty ? "Categoria" : trimmedTitle,
+                systemImage: trimmedSymbol.isEmpty ? "tag.fill" : trimmedSymbol,
+                colorToken: category.colorToken,
+                isBuiltIn: category.isBuiltIn
+            )
+        }
 
         for category in ActivityCategory.builtInCategories where categoriesByID[category.id] == nil {
             categoriesByID[category.id] = category
@@ -154,6 +282,38 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
         }
 
         let validCategoryIDs = Set(orderedCategories.map(\.id))
+        var uniqueRules = Set<RuleKey>()
+        var normalizedRules: [CategoryRule] = []
+
+        for rule in categoryRules {
+            guard validCategoryIDs.contains(rule.categoryID) else { continue }
+            let cleanedPattern = Self.cleanPattern(rule.pattern)
+            guard !cleanedPattern.isEmpty else { continue }
+
+            let key = RuleKey(matchTarget: rule.matchTarget, pattern: cleanedPattern)
+            guard uniqueRules.insert(key).inserted else { continue }
+
+            normalizedRules.append(
+                CategoryRule(
+                    id: rule.id,
+                    categoryID: rule.categoryID,
+                    matchTarget: rule.matchTarget,
+                    pattern: cleanedPattern
+                )
+            )
+        }
+
+        var uniqueIgnoredApplications = Set<String>()
+        let normalizedIgnoredApplications = ignoredApplications
+            .map(Self.cleanPattern)
+            .filter { !$0.isEmpty }
+            .filter { uniqueIgnoredApplications.insert($0).inserted }
+
+        var uniqueIgnoredDomains = Set<String>()
+        let normalizedIgnoredDomains = ignoredDomains
+            .map(Self.cleanPattern)
+            .filter { !$0.isEmpty }
+            .filter { uniqueIgnoredDomains.insert($0).inserted }
 
         var privacySettings = privacySettings
         privacySettings.retentionDays = min(max(privacySettings.retentionDays, 7), 365)
@@ -162,21 +322,65 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
         cloudSyncSettings.endpointURL = cloudSyncSettings.endpointURL.trimmingCharacters(in: .whitespacesAndNewlines)
         cloudSyncSettings.backupID = cloudSyncSettings.backupID.trimmingCharacters(in: .whitespacesAndNewlines)
 
+        let normalizedGoals = usageGoals
+            .filter { validCategoryIDs.contains($0.categoryID) }
+            .map {
+                var goal = $0
+                goal.title = goal.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Meta" : goal.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                goal.targetMinutes = max(5, goal.targetMinutes)
+                return goal
+            }
+
+        let normalizedFocusProfiles = focusProfiles.map { profile in
+            var focusProfile = profile
+            focusProfile.title = focusProfile.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Modo foco" : focusProfile.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            focusProfile.message = focusProfile.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? "O luum detectou uma sequencia longa dentro desse perfil."
+                : focusProfile.message.trimmingCharacters(in: .whitespacesAndNewlines)
+            focusProfile.categoryIDs = Array(Set(focusProfile.categoryIDs.filter { validCategoryIDs.contains($0) })).sorted()
+            focusProfile.thresholdMinutes = max(5, focusProfile.thresholdMinutes)
+            focusProfile.weekdays = Array(Set(focusProfile.weekdays.filter { (1 ... 7).contains($0) })).sorted()
+            focusProfile.startHour = min(max(focusProfile.startHour, 0), 23)
+            focusProfile.endHour = min(max(focusProfile.endHour, 1), 24)
+            focusProfile.blockedApplications = Array(Set(focusProfile.blockedApplications.map(Self.cleanPattern).filter { !$0.isEmpty })).sorted()
+            focusProfile.blockedDomains = Array(Set(focusProfile.blockedDomains.map(Self.cleanPattern).filter { !$0.isEmpty })).sorted()
+            if focusProfile.endHour <= focusProfile.startHour {
+                focusProfile.endHour = min(focusProfile.startHour + 1, 24)
+            }
+            return focusProfile
+        }
+        .filter { !$0.categoryIDs.isEmpty && !$0.weekdays.isEmpty }
+
         return MonitoringPreferencesSnapshot(
             categories: orderedCategories,
-            categoryRules: categoryRules.filter { validCategoryIDs.contains($0.categoryID) && !$0.pattern.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
-            ignoredApplications: ignoredApplications.map(Self.cleanPattern).filter { !$0.isEmpty },
-            ignoredDomains: ignoredDomains.map(Self.cleanPattern).filter { !$0.isEmpty },
+            categoryRules: normalizedRules,
+            ignoredApplications: normalizedIgnoredApplications,
+            ignoredDomains: normalizedIgnoredDomains,
             reminderProfiles: reminderProfiles
                 .filter { validCategoryIDs.contains($0.categoryID) }
                 .map {
                     var reminder = $0
-                    reminder.weekdays = reminder.weekdays.filter { (1 ... 7).contains($0) }
+                    reminder.title = reminder.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? "Lembrete"
+                        : reminder.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                    reminder.message = reminder.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? "O luum percebeu uma sequencia longa dessa categoria."
+                        : reminder.message.trimmingCharacters(in: .whitespacesAndNewlines)
+                    reminder.weekdays = Array(Set(reminder.weekdays.filter { (1 ... 7).contains($0) })).sorted()
                     reminder.thresholdMinutes = max(5, reminder.thresholdMinutes)
                     return reminder
                 },
+            usageGoals: normalizedGoals,
+            focusProfiles: normalizedFocusProfiles,
+            notionCalendarSettings: notionCalendarSettings.normalized(),
+            outlookCalendarSettings: outlookCalendarSettings.normalized(),
+            clickUpSettings: clickUpSettings.normalized(),
+            linearSettings: linearSettings.normalized(),
+            zapierSettings: zapierSettings.normalized(),
+            teamSettings: teamSettings.normalized(),
             privacySettings: privacySettings,
-            cloudSyncSettings: cloudSyncSettings
+            cloudSyncSettings: cloudSyncSettings,
+            hasCompletedOnboarding: hasCompletedOnboarding
         )
     }
 
@@ -187,6 +391,11 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
     private static func cleanPattern(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
+}
+
+private struct RuleKey: Hashable {
+    let matchTarget: RuleMatchTarget
+    let pattern: String
 }
 
 struct ReminderWeekday: Identifiable, Hashable {

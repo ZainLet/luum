@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 
@@ -12,6 +13,13 @@ final class ActivityStore {
     private(set) var notificationPermissionMessage: String?
     private(set) var notificationsAuthorized = false
     private(set) var lastReminderStatusMessage: String?
+    private(set) var focusModeStatusMessage: String?
+    private(set) var focusShieldStatusMessage: String?
+    private(set) var currentFocusBlockMatch: FocusBlockMatch?
+    private(set) var exportStatusMessage: String?
+    private(set) var authSession: LuumAuthSession?
+    private(set) var authStatusMessage: String?
+    private(set) var isCheckingAuth = false
 
     private(set) var monitoringPreferences: MonitoringPreferencesSnapshot
 
@@ -21,10 +29,27 @@ final class ActivityStore {
     private(set) var googleCalendarStatusMessage: String?
     private(set) var isConnectingGoogleCalendar = false
     private(set) var isSyncingGoogleCalendar = false
+    private(set) var notionCalendarStatusMessage: String?
+    private(set) var notionAgendaItems: [CalendarAgendaItem] = []
+    private(set) var isSyncingNotionCalendar = false
+    private(set) var outlookCalendarStatusMessage: String?
+    private(set) var outlookAgendaItems: [CalendarAgendaItem] = []
+    private(set) var isSyncingOutlookCalendar = false
+    private(set) var clickUpStatusMessage: String?
+    private(set) var clickUpAgendaItems: [CalendarAgendaItem] = []
+    private(set) var isSyncingClickUp = false
+    private(set) var linearStatusMessage: String?
+    private(set) var linearAgendaItems: [CalendarAgendaItem] = []
+    private(set) var isSyncingLinear = false
+    private(set) var zapierStatusMessage: String?
 
     private(set) var cloudSyncStatusMessage: String?
     private(set) var cloudSyncLastSyncAt: Date?
     private(set) var isSyncingCloud = false
+    private(set) var workspaceSyncStatusMessage: String?
+    private(set) var workspaceSyncLastSyncAt: Date?
+    private(set) var workspaceRankingEntries: [TeamRankingEntry] = []
+    private(set) var isSyncingWorkspace = false
 
     let classifier = ClassificationEngine()
 
@@ -32,37 +57,66 @@ final class ActivityStore {
     @ObservationIgnored private let monitor: ActivityMonitor
     @ObservationIgnored private let googleCalendarPersistence: GoogleCalendarPersistence
     @ObservationIgnored private let googleCalendarService: GoogleCalendarService
+    @ObservationIgnored private let notionCalendarService: NotionCalendarService
+    @ObservationIgnored private let outlookCalendarService: OutlookCalendarService
+    @ObservationIgnored private let clickUpService: ClickUpService
+    @ObservationIgnored private let linearService: LinearService
+    @ObservationIgnored private let zapierService: ZapierService
     @ObservationIgnored private let monitoringPreferencesPersistence: MonitoringPreferencesPersistence
     @ObservationIgnored private let reminderEngine: ReminderEngine
     @ObservationIgnored private let keychainService: KeychainService
     @ObservationIgnored private let cloudSyncService: CloudSyncService
+    @ObservationIgnored private let workspaceSyncService: WorkspaceSyncService
+    @ObservationIgnored private let authService: FirebaseAuthService
     @ObservationIgnored private let sessionGapTolerance: TimeInterval = 15
     @ObservationIgnored private var calendarTokensByConnectionID: [String: GoogleCalendarTokens] = [:]
     @ObservationIgnored private var summaryCache: [Date: DailySummary] = [:]
+    @ObservationIgnored private var focusModeDeliveries: [UUID: Date] = [:]
+    @ObservationIgnored private var focusBlockDeliveries: [String: Date] = [:]
     @ObservationIgnored private var persistTask: Task<Void, Never>?
+    @ObservationIgnored private var reminderEvaluationTask: Task<Void, Never>?
     @ObservationIgnored private var cloudSyncTask: Task<Void, Never>?
     @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
     @ObservationIgnored private let calendarRefreshInterval: TimeInterval = 900
     @ObservationIgnored private let cloudSyncInterval: TimeInterval = 900
+    @ObservationIgnored private var notionAgendaDay: Date?
+    @ObservationIgnored private var outlookAgendaDay: Date?
+    @ObservationIgnored private var clickUpAgendaDay: Date?
+    @ObservationIgnored private var linearAgendaDay: Date?
+    private(set) var summaryRevision = 0
 
     init(
         persistence: ActivityPersistence = ActivityPersistence(),
         monitor: ActivityMonitor? = nil,
         googleCalendarPersistence: GoogleCalendarPersistence = GoogleCalendarPersistence(),
         googleCalendarService: GoogleCalendarService = GoogleCalendarService(),
+        notionCalendarService: NotionCalendarService = NotionCalendarService(),
+        outlookCalendarService: OutlookCalendarService = OutlookCalendarService(),
+        clickUpService: ClickUpService = ClickUpService(),
+        linearService: LinearService = LinearService(),
+        zapierService: ZapierService = ZapierService(),
         monitoringPreferencesPersistence: MonitoringPreferencesPersistence = MonitoringPreferencesPersistence(),
         reminderEngine: ReminderEngine = ReminderEngine(),
         keychainService: KeychainService = KeychainService(),
-        cloudSyncService: CloudSyncService = CloudSyncService()
+        cloudSyncService: CloudSyncService = CloudSyncService(),
+        workspaceSyncService: WorkspaceSyncService = WorkspaceSyncService(),
+        authService: FirebaseAuthService = FirebaseAuthService()
     ) {
         self.persistence = persistence
         self.monitor = monitor ?? ActivityMonitor()
         self.googleCalendarPersistence = googleCalendarPersistence
         self.googleCalendarService = googleCalendarService
+        self.notionCalendarService = notionCalendarService
+        self.outlookCalendarService = outlookCalendarService
+        self.clickUpService = clickUpService
+        self.linearService = linearService
+        self.zapierService = zapierService
         self.monitoringPreferencesPersistence = monitoringPreferencesPersistence
         self.reminderEngine = reminderEngine
         self.keychainService = keychainService
         self.cloudSyncService = cloudSyncService
+        self.workspaceSyncService = workspaceSyncService
+        self.authService = authService
 
         let monitoringPreferences = monitoringPreferencesPersistence.load().normalized()
         let calendarSnapshot = googleCalendarPersistence.load()
@@ -73,7 +127,15 @@ final class ActivityStore {
         self.googleCalendarClientSecret = keychainService.string(for: Self.googleCalendarClientSecretKey) ?? calendarSnapshot.clientSecret
         self.googleCalendarConnections = calendarSnapshot.connections
         self.googleCalendarStatusMessage = googleCalendarConnections.isEmpty ? nil : "Google Agenda pronta para sincronizar."
+        self.notionCalendarStatusMessage = monitoringPreferences.notionCalendarSettings.isEnabled ? "Notion pronta para sincronizar." : nil
+        self.outlookCalendarStatusMessage = monitoringPreferences.outlookCalendarSettings.isEnabled ? "Outlook pronto para sincronizar." : nil
+        self.clickUpStatusMessage = monitoringPreferences.clickUpSettings.isEnabled ? "ClickUp pronto para sincronizar." : nil
+        self.linearStatusMessage = monitoringPreferences.linearSettings.isEnabled ? "Linear pronto para sincronizar." : nil
+        self.zapierStatusMessage = monitoringPreferences.zapierSettings.isEnabled ? "Zapier pronto para disparar automacoes." : nil
         self.cloudSyncStatusMessage = nil
+        self.workspaceSyncStatusMessage = nil
+        self.authSession = keychainService.codable(LuumAuthSession.self, for: Self.firebaseAuthSessionKey)
+        self.authStatusMessage = self.authSession.map { "Conectado como \($0.accountLabel) • plano \($0.plan.title)" }
 
         migrateCalendarSecretsIfNeeded(snapshot: calendarSnapshot)
 
@@ -103,6 +165,13 @@ final class ActivityStore {
         monitoringPreferences.categories
     }
 
+    var defaultCategoryID: String {
+        monitoringPreferences.category(for: ActivityCategory.work.id)?.id ??
+        monitoringPreferences.category(for: ActivityCategory.uncategorized.id)?.id ??
+        monitoringPreferences.categories.first?.id ??
+        ActivityCategory.work.id
+    }
+
     var categoryRules: [CategoryRule] {
         monitoringPreferences.categoryRules
     }
@@ -119,6 +188,42 @@ final class ActivityStore {
         monitoringPreferences.reminderProfiles
     }
 
+    var usageGoals: [UsageGoal] {
+        monitoringPreferences.usageGoals
+    }
+
+    var focusProfiles: [FocusModeProfile] {
+        monitoringPreferences.focusProfiles
+    }
+
+    var focusShieldProfilesCount: Int {
+        focusProfiles.filter(\.hasBlockingRules).count
+    }
+
+    var notionCalendarSettings: NotionCalendarSettings {
+        monitoringPreferences.notionCalendarSettings
+    }
+
+    var outlookCalendarSettings: OutlookCalendarSettings {
+        monitoringPreferences.outlookCalendarSettings
+    }
+
+    var clickUpSettings: ClickUpSettings {
+        monitoringPreferences.clickUpSettings
+    }
+
+    var linearSettings: LinearSettings {
+        monitoringPreferences.linearSettings
+    }
+
+    var zapierSettings: ZapierSettings {
+        monitoringPreferences.zapierSettings
+    }
+
+    var teamSettings: TeamSettings {
+        monitoringPreferences.teamSettings
+    }
+
     var privacySettings: PrivacySettings {
         monitoringPreferences.privacySettings
     }
@@ -131,8 +236,173 @@ final class ActivityStore {
         classifier.previewRules(from: monitoringPreferences)
     }
 
+    var needsOnboarding: Bool {
+        !monitoringPreferences.hasCompletedOnboarding
+    }
+
+
+    var isSignedIn: Bool {
+        authSession != nil
+    }
+
+    var accountPlan: LuumAccountPlan {
+        authSession?.plan ?? .trial
+    }
+
+    var accountEmail: String {
+        authSession?.email ?? ""
+    }
+
+    var isAccountLocked: Bool {
+        authSession?.isLocked ?? true
+    }
+
+    func canUse(_ feature: LuumFeature) -> Bool {
+        guard let authSession, !authSession.isLocked else { return false }
+        return authSession.plan.includes(feature)
+    }
+
+    func lockMessage(for feature: LuumFeature) -> String {
+        if authSession == nil {
+            return "Entre com sua conta Firebase do Luum para liberar o app neste Mac."
+        }
+
+        if let reason = authSession?.lockedReason {
+            return "Sua assinatura esta bloqueada: \(reason)."
+        }
+
+        return "O recurso \(feature.title) exige um plano maior. Seu plano atual e \(accountPlan.title)."
+    }
+
+    func openLoginPage() {
+        guard let url = FirebaseAuthService.loginURL() else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    func handleAuthCallbackURL(_ url: URL) {
+        do {
+            let session = try authService.session(from: url)
+            applyAuthSession(session, message: "Login recebido. Validando plano no Firebase...")
+            refreshAccountStatus()
+        } catch {
+            authStatusMessage = error.localizedDescription
+        }
+    }
+
+    func refreshAccountStatus() {
+        guard let authSession else {
+            authStatusMessage = "Entre com sua conta Luum para validar o plano."
+            return
+        }
+
+        isCheckingAuth = true
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let verified = try await authService.verifiedSession(authSession)
+                await MainActor.run {
+                    self.applyAuthSession(verified, message: "Plano \(verified.plan.title) validado.")
+                    self.isCheckingAuth = false
+                }
+            } catch {
+                await MainActor.run {
+                    let offline = authSession
+                    let message = offline.isLocked
+                        ? "Conecte-se a internet e valide seu plano para liberar o app."
+                        : "Sem conexao com a API. Usando sessao local validada por ate 24 horas."
+                    self.applyAuthSession(offline, message: message)
+                    self.isCheckingAuth = false
+                }
+            }
+        }
+    }
+
+    func signOut() {
+        authSession = nil
+        authStatusMessage = "Conta desconectada deste Mac."
+        keychainService.removeValue(for: Self.firebaseAuthSessionKey)
+    }
+
+    private func applyAuthSession(_ session: LuumAuthSession, message: String) {
+        authSession = session
+        authStatusMessage = message
+        do {
+            try keychainService.setCodable(session, for: Self.firebaseAuthSessionKey)
+        } catch {
+            authStatusMessage = error.localizedDescription
+        }
+
+        if monitoringPreferences.cloudSyncSettings.backupID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            monitoringPreferences.cloudSyncSettings.backupID = session.uid
+        }
+
+        let endpoint = monitoringPreferences.cloudSyncSettings.endpointURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if endpoint.isEmpty || endpoint == "http://localhost:5000" {
+            monitoringPreferences.cloudSyncSettings.endpointURL = FirebaseAuthService.resolvedBaseURL()
+        }
+
+        if session.plan.includes(.cloudBackup) {
+            monitoringPreferences.cloudSyncSettings.isEnabled = true
+        }
+
+        persistMonitoringPreferences()
+        scheduleCloudSyncIfNeeded(reason: "auth-session")
+    }
+
+    var onboardingChecklist: [OnboardingChecklistItem] {
+        [
+            OnboardingChecklistItem(
+                id: "monitoring",
+                title: "Captura ativa",
+                detail: isMonitoring ? "O luum esta capturando apps e sites em background." : "Ative a captura para o luum começar a acompanhar o seu dia.",
+                isDone: isMonitoring,
+                actionTitle: isMonitoring ? nil : "Iniciar captura"
+            ),
+            OnboardingChecklistItem(
+                id: "google-client",
+                title: "Google configurado",
+                detail: isGoogleCalendarConfigured ? "O Client ID da agenda ja foi configurado." : "Adicione o Client ID do Google Calendar para liberar a agenda integrada.",
+                isDone: isGoogleCalendarConfigured,
+                actionTitle: isGoogleCalendarConfigured ? nil : "Configurar agenda"
+            ),
+            OnboardingChecklistItem(
+                id: "google-account",
+                title: "Conta conectada",
+                detail: isGoogleCalendarConnected ? "Pelo menos uma conta Google ja esta conectada." : "Conecte uma conta para comparar o planejado com o tempo real.",
+                isDone: isGoogleCalendarConnected,
+                actionTitle: isGoogleCalendarConnected ? nil : "Conectar conta"
+            ),
+            OnboardingChecklistItem(
+                id: "notifications",
+                title: "Notificacoes",
+                detail: notificationsAuthorized ? "As notificacoes do luum estao liberadas." : "Permita notificacoes para receber alertas de pausa, foco e distracao.",
+                isDone: notificationsAuthorized,
+                actionTitle: notificationsAuthorized ? nil : "Permitir notificacoes"
+            ),
+            OnboardingChecklistItem(
+                id: "browser-data",
+                title: "Dados do navegador",
+                detail: trackedSitesCount > 0 ? "O luum ja conseguiu ler URLs e enriquecer o historico do navegador." : "Abra um navegador suportado e permita Automacao para ler a URL da aba ativa.",
+                isDone: trackedSitesCount > 0,
+                actionTitle: trackedSitesCount > 0 ? nil : "Abrir automacao"
+            ),
+        ]
+    }
+
     var trackedAppsCount: Int {
-        Set(samples.filter { !$0.isHidden && !isIgnored(sample: $0) }.map(\.applicationName)).count
+        Set(
+            samples.filter { sample in
+                !sample.isHidden &&
+                    !isIgnored(sample: sample) &&
+                    !classifier.isApplicationIgnored(
+                        applicationName: sample.applicationName,
+                        bundleIdentifier: sample.bundleIdentifier,
+                        preferences: monitoringPreferences
+                    )
+            }
+            .map(\.applicationName)
+        )
+        .count
     }
 
     var trackedSitesCount: Int {
@@ -149,9 +419,19 @@ final class ActivityStore {
         )
     }
 
+    var currentActivityDuration: TimeInterval {
+        guard currentSnapshot != nil else { return 0 }
+        guard let lastSample = samples.last else { return 0 }
+        return max(Date().timeIntervalSince(lastSample.startDate), lastSample.duration)
+    }
+
     var currentActivityTitle: String {
         guard let currentSnapshot else {
             return "Nenhuma atividade ativa agora"
+        }
+
+        if let query = classifier.searchQuery(from: currentSnapshot.webURL) {
+            return "\(currentSnapshot.applicationName) • \(query)"
         }
 
         if let domain = classifier.domain(from: currentSnapshot.webURL) {
@@ -181,10 +461,73 @@ final class ActivityStore {
         googleCalendarConnections.compactMap(\.lastSyncAt).max()
     }
 
+    var notionCalendarConfigured: Bool {
+        hasNotionToken && !notionCalendarSettings.databaseIDs.isEmpty
+    }
+
+    var hasNotionToken: Bool {
+        !(keychainService.string(for: Self.notionCalendarTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }
+
+    var notionCalendarLastSyncAt: Date? {
+        notionCalendarSettings.lastSyncAt
+    }
+
+    var outlookCalendarConfigured: Bool {
+        hasOutlookToken
+    }
+
+    var hasOutlookToken: Bool {
+        !(keychainService.string(for: Self.outlookCalendarTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }
+
+    var outlookCalendarLastSyncAt: Date? {
+        outlookCalendarSettings.lastSyncAt
+    }
+
+    var clickUpConfigured: Bool {
+        hasClickUpToken && !clickUpSettings.listIDs.isEmpty
+    }
+
+    var hasClickUpToken: Bool {
+        !(keychainService.string(for: Self.clickUpTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }
+
+    var clickUpLastSyncAt: Date? {
+        clickUpSettings.lastSyncAt
+    }
+
+    var linearConfigured: Bool {
+        hasLinearToken && !linearSettings.teamIDs.isEmpty
+    }
+
+    var hasLinearToken: Bool {
+        !(keychainService.string(for: Self.linearTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }
+
+    var linearLastSyncAt: Date? {
+        linearSettings.lastSyncAt
+    }
+
+    var zapierConfigured: Bool {
+        !zapierSettings.webhookURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var teamWorkspaceConfigured: Bool {
+        !teamSettings.workspaceEndpointURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !teamSettings.workspaceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !(workspaceSecret?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }
+
+    var hasWorkspaceSecret: Bool {
+        !(workspaceSecret?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }
+
     var cloudSyncConfigured: Bool {
         !cloudSyncSettings.endpointURL.isEmpty &&
         !cloudSyncSettings.backupID.isEmpty &&
-        !(cloudBackupSecret?.isEmpty ?? true)
+        (!(authSession?.idToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) ||
+         !(cloudBackupSecret?.isEmpty ?? true))
     }
 
     var hasCloudBackupSecret: Bool {
@@ -242,6 +585,28 @@ final class ActivityStore {
 
         Task { [weak self] in
             await self?.runCalendarSync(for: day, force: true)
+        }
+    }
+
+    func refreshIntegratedCalendars(for day: Date = Date()) {
+        if isGoogleCalendarConnected {
+            refreshGoogleCalendar(for: day)
+        }
+
+        if notionCalendarSettings.isEnabled {
+            refreshNotionCalendar(for: day)
+        }
+
+        if outlookCalendarSettings.isEnabled {
+            refreshOutlookCalendar(for: day)
+        }
+
+        if clickUpSettings.isEnabled {
+            refreshClickUp(for: day)
+        }
+
+        if linearSettings.isEnabled {
+            refreshLinear(for: day)
         }
     }
 
@@ -316,6 +681,391 @@ final class ActivityStore {
             googleCalendarStatusMessage = error.localizedDescription
         }
         persistGoogleCalendar()
+    }
+
+    func updateNotionCalendarEnabled(_ value: Bool) {
+        monitoringPreferences.notionCalendarSettings.isEnabled = value
+        persistMonitoringPreferences()
+
+        guard value else {
+            notionAgendaItems = []
+            notionAgendaDay = nil
+            notionCalendarStatusMessage = "Integracao do Notion pausada."
+            return
+        }
+
+        notionCalendarStatusMessage = notionCalendarConfigured
+            ? "Notion pronto para sincronizar."
+            : "Ative o token e pelo menos uma data source do Notion para concluir essa integracao."
+    }
+
+    func updateNotionWorkspaceLabel(_ value: String) {
+        monitoringPreferences.notionCalendarSettings.workspaceLabel = value
+        persistMonitoringPreferences()
+    }
+
+    func updateNotionDatePropertyName(_ value: String) {
+        monitoringPreferences.notionCalendarSettings.datePropertyName = value
+        persistMonitoringPreferences()
+    }
+
+    func updateNotionTitlePropertyName(_ value: String) {
+        monitoringPreferences.notionCalendarSettings.titlePropertyName = value
+        persistMonitoringPreferences()
+    }
+
+    func addNotionDataSourceID(_ value: String) {
+        guard let normalizedID = NotionCalendarSettings.normalizedDatabaseID(value) else {
+            notionCalendarStatusMessage = "Cole um Data Source ID valido do Notion."
+            return
+        }
+
+        guard !monitoringPreferences.notionCalendarSettings.databaseIDs.contains(normalizedID) else { return }
+        monitoringPreferences.notionCalendarSettings.databaseIDs.append(normalizedID)
+        monitoringPreferences.notionCalendarSettings.databaseIDs.sort()
+        notionCalendarStatusMessage = "Data source adicionada ao Notion."
+        persistMonitoringPreferences()
+    }
+
+    func removeNotionDataSourceID(_ value: String) {
+        monitoringPreferences.notionCalendarSettings.databaseIDs.removeAll { $0 == value }
+        if monitoringPreferences.notionCalendarSettings.databaseIDs.isEmpty {
+            notionAgendaItems = []
+            notionAgendaDay = nil
+            notionCalendarStatusMessage = "Nenhuma data source do Notion selecionada."
+        }
+        persistMonitoringPreferences()
+    }
+
+    func updateNotionToken(_ value: String) {
+        do {
+            if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                keychainService.removeValue(for: Self.notionCalendarTokenKey)
+                notionAgendaItems = []
+                notionAgendaDay = nil
+                notionCalendarStatusMessage = "Token do Notion removido deste Mac."
+            } else {
+                try keychainService.setString(value, for: Self.notionCalendarTokenKey)
+                notionCalendarStatusMessage = "Token do Notion atualizado neste Mac."
+            }
+        } catch {
+            notionCalendarStatusMessage = error.localizedDescription
+        }
+    }
+
+    func refreshNotionCalendar(for day: Date = Date()) {
+        guard !isSyncingNotionCalendar else { return }
+        Task { [weak self] in
+            await self?.runNotionCalendarSync(for: day, force: true)
+        }
+    }
+
+    func updateOutlookCalendarEnabled(_ value: Bool) {
+        monitoringPreferences.outlookCalendarSettings.isEnabled = value
+        persistMonitoringPreferences()
+
+        guard value else {
+            outlookAgendaItems = []
+            outlookAgendaDay = nil
+            outlookCalendarStatusMessage = "Integracao do Outlook pausada."
+            return
+        }
+
+        outlookCalendarStatusMessage = outlookCalendarConfigured
+            ? "Outlook pronto para sincronizar."
+            : "Salve um token do Microsoft Graph para concluir a integracao do Outlook."
+    }
+
+    func updateOutlookWorkspaceLabel(_ value: String) {
+        monitoringPreferences.outlookCalendarSettings.workspaceLabel = value
+        persistMonitoringPreferences()
+    }
+
+    func updateOutlookToken(_ value: String) {
+        do {
+            if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                keychainService.removeValue(for: Self.outlookCalendarTokenKey)
+                outlookAgendaItems = []
+                outlookAgendaDay = nil
+                monitoringPreferences.outlookCalendarSettings.accountEmail = ""
+                monitoringPreferences.outlookCalendarSettings.calendars = []
+                outlookCalendarStatusMessage = "Token do Outlook removido deste Mac."
+            } else {
+                try keychainService.setString(value, for: Self.outlookCalendarTokenKey)
+                outlookCalendarStatusMessage = "Token do Outlook atualizado neste Mac."
+            }
+            persistMonitoringPreferences()
+        } catch {
+            outlookCalendarStatusMessage = error.localizedDescription
+        }
+    }
+
+    func setOutlookCalendarSelection(calendarID: String, isSelected: Bool) {
+        guard let index = monitoringPreferences.outlookCalendarSettings.calendars.firstIndex(where: { $0.id == calendarID }) else { return }
+        monitoringPreferences.outlookCalendarSettings.calendars[index].isSelected = isSelected
+        persistMonitoringPreferences()
+    }
+
+    func refreshOutlookCalendar(for day: Date = Date()) {
+        guard !isSyncingOutlookCalendar else { return }
+        Task { [weak self] in
+            await self?.runOutlookCalendarSync(for: day, force: true)
+        }
+    }
+
+    func updateClickUpEnabled(_ value: Bool) {
+        monitoringPreferences.clickUpSettings.isEnabled = value
+        persistMonitoringPreferences()
+
+        guard value else {
+            clickUpAgendaItems = []
+            clickUpAgendaDay = nil
+            clickUpStatusMessage = "Integracao do ClickUp pausada."
+            return
+        }
+
+        clickUpStatusMessage = clickUpConfigured
+            ? "ClickUp pronto para sincronizar."
+            : "Salve um token e pelo menos uma lista do ClickUp."
+    }
+
+    func updateClickUpWorkspaceLabel(_ value: String) {
+        monitoringPreferences.clickUpSettings.workspaceLabel = value
+        persistMonitoringPreferences()
+    }
+
+    func updateClickUpWorkspaceID(_ value: String) {
+        monitoringPreferences.clickUpSettings.workspaceID = value
+        persistMonitoringPreferences()
+    }
+
+    func updateClickUpIncludeClosedTasks(_ value: Bool) {
+        monitoringPreferences.clickUpSettings.includeClosedTasks = value
+        persistMonitoringPreferences()
+    }
+
+    func updateClickUpToken(_ value: String) {
+        do {
+            if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                keychainService.removeValue(for: Self.clickUpTokenKey)
+                clickUpAgendaItems = []
+                clickUpAgendaDay = nil
+                clickUpStatusMessage = "Token do ClickUp removido deste Mac."
+            } else {
+                try keychainService.setString(value, for: Self.clickUpTokenKey)
+                clickUpStatusMessage = "Token do ClickUp atualizado neste Mac."
+            }
+        } catch {
+            clickUpStatusMessage = error.localizedDescription
+        }
+    }
+
+    func addClickUpListID(_ value: String) {
+        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else {
+            clickUpStatusMessage = "Cole um List ID valido do ClickUp."
+            return
+        }
+
+        guard !monitoringPreferences.clickUpSettings.listIDs.contains(normalized) else { return }
+        monitoringPreferences.clickUpSettings.listIDs.append(normalized)
+        monitoringPreferences.clickUpSettings.listIDs.sort()
+        clickUpStatusMessage = "Lista do ClickUp adicionada."
+        persistMonitoringPreferences()
+    }
+
+    func removeClickUpListID(_ value: String) {
+        monitoringPreferences.clickUpSettings.listIDs.removeAll { $0 == value }
+        if monitoringPreferences.clickUpSettings.listIDs.isEmpty {
+            clickUpAgendaItems = []
+            clickUpAgendaDay = nil
+            clickUpStatusMessage = "Nenhuma lista do ClickUp selecionada."
+        }
+        persistMonitoringPreferences()
+    }
+
+    func refreshClickUp(for day: Date = Date()) {
+        guard !isSyncingClickUp else { return }
+        Task { [weak self] in
+            await self?.runClickUpSync(for: day, force: true)
+        }
+    }
+
+    func updateLinearEnabled(_ value: Bool) {
+        monitoringPreferences.linearSettings.isEnabled = value
+        persistMonitoringPreferences()
+
+        guard value else {
+            linearAgendaItems = []
+            linearAgendaDay = nil
+            linearStatusMessage = "Integracao do Linear pausada."
+            return
+        }
+
+        linearStatusMessage = linearConfigured
+            ? "Linear pronto para sincronizar."
+            : "Salve uma API key e pelo menos um Team ID do Linear."
+    }
+
+    func updateLinearWorkspaceLabel(_ value: String) {
+        monitoringPreferences.linearSettings.workspaceLabel = value
+        persistMonitoringPreferences()
+    }
+
+    func updateLinearWorkspaceID(_ value: String) {
+        monitoringPreferences.linearSettings.workspaceID = value
+        persistMonitoringPreferences()
+    }
+
+    func updateLinearIncludeCompletedIssues(_ value: Bool) {
+        monitoringPreferences.linearSettings.includeCompletedIssues = value
+        persistMonitoringPreferences()
+    }
+
+    func updateLinearToken(_ value: String) {
+        do {
+            if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                keychainService.removeValue(for: Self.linearTokenKey)
+                linearAgendaItems = []
+                linearAgendaDay = nil
+                linearStatusMessage = "API key do Linear removida deste Mac."
+            } else {
+                try keychainService.setString(value, for: Self.linearTokenKey)
+                linearStatusMessage = "API key do Linear atualizada neste Mac."
+            }
+        } catch {
+            linearStatusMessage = error.localizedDescription
+        }
+    }
+
+    func addLinearTeamID(_ value: String) {
+        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else {
+            linearStatusMessage = "Cole um Team ID valido do Linear."
+            return
+        }
+
+        guard !monitoringPreferences.linearSettings.teamIDs.contains(normalized) else { return }
+        monitoringPreferences.linearSettings.teamIDs.append(normalized)
+        monitoringPreferences.linearSettings.teamIDs.sort()
+        linearStatusMessage = "Time do Linear adicionado."
+        persistMonitoringPreferences()
+    }
+
+    func removeLinearTeamID(_ value: String) {
+        monitoringPreferences.linearSettings.teamIDs.removeAll { $0 == value }
+        if monitoringPreferences.linearSettings.teamIDs.isEmpty {
+            linearAgendaItems = []
+            linearAgendaDay = nil
+            linearStatusMessage = "Nenhum time do Linear selecionado."
+        }
+        persistMonitoringPreferences()
+    }
+
+    func refreshLinear(for day: Date = Date()) {
+        guard !isSyncingLinear else { return }
+        Task { [weak self] in
+            await self?.runLinearSync(for: day, force: true)
+        }
+    }
+
+    func updateZapierEnabled(_ value: Bool) {
+        monitoringPreferences.zapierSettings.isEnabled = value
+        persistMonitoringPreferences()
+        zapierStatusMessage = value ? "Zapier pronto para disparar automacoes." : "Integracao com Zapier pausada."
+    }
+
+    func updateZapierWebhookURL(_ value: String) {
+        monitoringPreferences.zapierSettings.webhookURL = value
+        persistMonitoringPreferences()
+    }
+
+    func updateZapierSendsFocusEvents(_ value: Bool) {
+        monitoringPreferences.zapierSettings.sendsFocusEvents = value
+        persistMonitoringPreferences()
+    }
+
+    func updateZapierSendsCalendarSyncEvents(_ value: Bool) {
+        monitoringPreferences.zapierSettings.sendsCalendarSyncEvents = value
+        persistMonitoringPreferences()
+    }
+
+    func updateZapierSendsWorkspaceRankingEvents(_ value: Bool) {
+        monitoringPreferences.zapierSettings.sendsWorkspaceRankingEvents = value
+        persistMonitoringPreferences()
+    }
+
+    func sendZapierTestEvent() {
+        Task { [weak self] in
+            await self?.sendZapierEvent(
+                type: "manual_test",
+                details: [
+                    "status": "ok",
+                    "source": "luum-settings",
+                ]
+            )
+        }
+    }
+
+    func updateTeamOrganizationName(_ value: String) {
+        monitoringPreferences.teamSettings.organizationName = value
+        persistMonitoringPreferences()
+    }
+
+    func updateTeamMemberDisplayName(_ value: String) {
+        monitoringPreferences.teamSettings.memberDisplayName = value
+        persistMonitoringPreferences()
+    }
+
+    func updateTeamRoleLabel(_ value: String) {
+        monitoringPreferences.teamSettings.roleLabel = value
+        persistMonitoringPreferences()
+    }
+
+    func updateTeamSharesAnonymousMetrics(_ value: Bool) {
+        monitoringPreferences.teamSettings.sharesAnonymousMetrics = value
+        persistMonitoringPreferences()
+    }
+
+    func updateTeamWorkspaceID(_ value: String) {
+        monitoringPreferences.teamSettings.workspaceID = value
+        persistMonitoringPreferences()
+    }
+
+    func updateTeamWorkspaceMemberID(_ value: String) {
+        monitoringPreferences.teamSettings.workspaceMemberID = value
+        persistMonitoringPreferences()
+    }
+
+    func updateTeamWorkspaceEndpointURL(_ value: String) {
+        monitoringPreferences.teamSettings.workspaceEndpointURL = value
+        persistMonitoringPreferences()
+    }
+
+    func updateTeamAutomaticallySyncWorkspace(_ value: Bool) {
+        monitoringPreferences.teamSettings.automaticallySyncWorkspace = value
+        persistMonitoringPreferences()
+    }
+
+    func updateTeamWorkspaceSecret(_ value: String) {
+        do {
+            if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                keychainService.removeValue(for: Self.teamWorkspaceSecretKey)
+                workspaceSyncStatusMessage = "Chave do workspace removida deste Mac."
+            } else {
+                try keychainService.setString(value, for: Self.teamWorkspaceSecretKey)
+                workspaceSyncStatusMessage = "Chave do workspace atualizada neste Mac."
+            }
+        } catch {
+            workspaceSyncStatusMessage = error.localizedDescription
+        }
+    }
+
+    func syncWorkspaceRankingNow(for day: Date = Date()) {
+        guard !isSyncingWorkspace else { return }
+        Task { [weak self] in
+            await self?.runWorkspaceSync(for: day, force: true)
+        }
     }
 
     func updatePrivacyStorePageTitles(_ value: Bool) {
@@ -406,6 +1156,101 @@ final class ActivityStore {
         monitoringPreferences.category(for: id)
     }
 
+    func completeOnboarding() {
+        monitoringPreferences.hasCompletedOnboarding = true
+        persistMonitoringPreferences()
+    }
+
+    func reopenOnboarding() {
+        monitoringPreferences.hasCompletedOnboarding = false
+        persistMonitoringPreferences()
+    }
+
+    func addUsageGoal(
+        title: String,
+        categoryID: String,
+        targetMinutes: Int,
+        period: GoalPeriod,
+        direction: GoalDirection
+    ) {
+        guard monitoringPreferences.category(for: categoryID) != nil else { return }
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        monitoringPreferences.usageGoals.append(
+            UsageGoal(
+                title: trimmedTitle.isEmpty ? "Meta" : trimmedTitle,
+                categoryID: categoryID,
+                targetMinutes: max(5, targetMinutes),
+                period: period,
+                direction: direction,
+                isEnabled: true
+            )
+        )
+        persistMonitoringPreferences()
+    }
+
+    func updateUsageGoal(_ goal: UsageGoal) {
+        guard let index = monitoringPreferences.usageGoals.firstIndex(where: { $0.id == goal.id }) else { return }
+        guard monitoringPreferences.category(for: goal.categoryID) != nil else { return }
+        var normalizedGoal = goal
+        normalizedGoal.title = normalizedGoal.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Meta" : normalizedGoal.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        normalizedGoal.targetMinutes = max(5, normalizedGoal.targetMinutes)
+        monitoringPreferences.usageGoals[index] = normalizedGoal
+        persistMonitoringPreferences()
+    }
+
+    func removeUsageGoal(id: UUID) {
+        monitoringPreferences.usageGoals.removeAll { $0.id == id }
+        persistMonitoringPreferences()
+    }
+
+    func addFocusProfile(
+        title: String,
+        kind: FocusModeKind,
+        categoryIDs: [String],
+        thresholdMinutes: Int,
+        weekdays: [Int],
+        startHour: Int,
+        endHour: Int,
+        message: String,
+        blockedApplications: [String] = [],
+        blockedDomains: [String] = []
+    ) {
+        let validCategoryIDs = Array(Set(categoryIDs.filter { monitoringPreferences.category(for: $0) != nil })).sorted()
+        let validWeekdays = Array(Set(weekdays.filter { (1 ... 7).contains($0) })).sorted()
+        guard !validCategoryIDs.isEmpty, !validWeekdays.isEmpty else { return }
+
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedMessage = message.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        monitoringPreferences.focusProfiles.append(
+            FocusModeProfile(
+                title: trimmedTitle.isEmpty ? "Modo \(kind.title.lowercased())" : trimmedTitle,
+                kind: kind,
+                categoryIDs: validCategoryIDs,
+                thresholdMinutes: max(5, thresholdMinutes),
+                weekdays: validWeekdays,
+                startHour: min(max(startHour, 0), 23),
+                endHour: min(max(endHour, 1), 24),
+                isEnabled: true,
+                message: trimmedMessage.isEmpty ? "O luum detectou uma sequencia longa dentro desse perfil." : trimmedMessage,
+                blockedApplications: blockedApplications,
+                blockedDomains: blockedDomains
+            )
+        )
+        persistMonitoringPreferences()
+    }
+
+    func updateFocusProfile(_ profile: FocusModeProfile) {
+        guard let index = monitoringPreferences.focusProfiles.firstIndex(where: { $0.id == profile.id }) else { return }
+        monitoringPreferences.focusProfiles[index] = profile
+        persistMonitoringPreferences()
+    }
+
+    func removeFocusProfile(id: UUID) {
+        monitoringPreferences.focusProfiles.removeAll { $0.id == id }
+        persistMonitoringPreferences()
+    }
+
     func addCategory(title: String, systemImage: String, colorToken: CategoryColorToken) {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty else { return }
@@ -452,6 +1297,12 @@ final class ActivityStore {
         monitoringPreferences.categories.removeAll { $0.id == id }
         monitoringPreferences.categoryRules.removeAll { $0.categoryID == id }
         monitoringPreferences.reminderProfiles.removeAll { $0.categoryID == id }
+        monitoringPreferences.usageGoals.removeAll { $0.categoryID == id }
+        monitoringPreferences.focusProfiles = monitoringPreferences.focusProfiles.compactMap { profile in
+            var updatedProfile = profile
+            updatedProfile.categoryIDs.removeAll { $0 == id }
+            return updatedProfile.categoryIDs.isEmpty ? nil : updatedProfile
+        }
         for index in samples.indices where samples[index].manualCategoryID == id {
             samples[index].manualCategoryID = nil
         }
@@ -476,19 +1327,7 @@ final class ActivityStore {
     }
 
     func addRule(categoryID: String, matchTarget: RuleMatchTarget, pattern: String) {
-        let cleanedPattern = normalizePattern(pattern, for: matchTarget)
-        guard !cleanedPattern.isEmpty else { return }
-        guard monitoringPreferences.category(for: categoryID) != nil else { return }
-
-        monitoringPreferences.categoryRules.insert(
-            CategoryRule(
-                categoryID: categoryID,
-                matchTarget: matchTarget,
-                pattern: cleanedPattern
-            ),
-            at: 0
-        )
-        persistMonitoringPreferences()
+        upsertRule(categoryID: categoryID, matchTarget: matchTarget, pattern: pattern)
     }
 
     func updateRule(_ rule: CategoryRule) {
@@ -541,13 +1380,15 @@ final class ActivityStore {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty else { return }
         guard monitoringPreferences.category(for: categoryID) != nil else { return }
+        let normalizedWeekdays = Array(Set(weekdays.filter { (1 ... 7).contains($0) })).sorted()
+        guard !normalizedWeekdays.isEmpty else { return }
 
         monitoringPreferences.reminderProfiles.append(
             ReminderProfile(
                 title: trimmedTitle,
                 categoryID: categoryID,
                 thresholdMinutes: max(5, thresholdMinutes),
-                weekdays: weekdays.sorted(),
+                weekdays: normalizedWeekdays,
                 isEnabled: true,
                 message: message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     ? "O luum percebeu uma sequencia longa dessa categoria."
@@ -559,7 +1400,20 @@ final class ActivityStore {
 
     func updateReminder(_ reminder: ReminderProfile) {
         guard let index = monitoringPreferences.reminderProfiles.firstIndex(where: { $0.id == reminder.id }) else { return }
-        monitoringPreferences.reminderProfiles[index] = reminder
+        guard monitoringPreferences.category(for: reminder.categoryID) != nil else { return }
+
+        var normalizedReminder = reminder
+        normalizedReminder.title = reminder.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "Lembrete"
+            : reminder.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        normalizedReminder.message = reminder.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "O luum percebeu uma sequencia longa dessa categoria."
+            : reminder.message.trimmingCharacters(in: .whitespacesAndNewlines)
+        normalizedReminder.thresholdMinutes = max(5, reminder.thresholdMinutes)
+        normalizedReminder.weekdays = Array(Set(reminder.weekdays.filter { (1 ... 7).contains($0) })).sorted()
+        guard !normalizedReminder.weekdays.isEmpty else { return }
+
+        monitoringPreferences.reminderProfiles[index] = normalizedReminder
         persistMonitoringPreferences()
     }
 
@@ -570,7 +1424,9 @@ final class ActivityStore {
 
     func overrideActivityCategory(sampleID: UUID, categoryID: String?) {
         guard let index = samples.firstIndex(where: { $0.id == sampleID }) else { return }
-        guard categoryID == nil || monitoringPreferences.category(for: categoryID!) != nil else { return }
+        if let categoryID, monitoringPreferences.category(for: categoryID) == nil {
+            return
+        }
         samples[index].manualCategoryID = categoryID
         invalidateSummaries()
         schedulePersistence()
@@ -595,27 +1451,171 @@ final class ActivityStore {
         evaluateReminders()
     }
 
+    func updateActivityNote(sampleID: UUID, note: String) {
+        guard let index = samples.firstIndex(where: { $0.id == sampleID }) else { return }
+        let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        samples[index].note = trimmedNote.isEmpty ? nil : trimmedNote
+        invalidateSummaries()
+        schedulePersistence()
+    }
+
+    func overrideCurrentActivityCategory(categoryID: String) {
+        guard let lastSample = samples.last else { return }
+        overrideActivityCategory(sampleID: lastSample.id, categoryID: categoryID)
+    }
+
+    func splitActivity(sampleID: UUID, at splitDate: Date) {
+        guard let index = samples.firstIndex(where: { $0.id == sampleID }) else { return }
+        let sample = samples[index]
+        guard splitDate > sample.startDate.addingTimeInterval(60) else { return }
+        guard splitDate < sample.endDate.addingTimeInterval(-60) else { return }
+
+        var firstPart = sample
+        firstPart.endDate = splitDate
+
+        let secondPart = ActivitySample(
+            startDate: splitDate,
+            endDate: sample.endDate,
+            applicationName: sample.applicationName,
+            bundleIdentifier: sample.bundleIdentifier,
+            webURL: sample.webURL,
+            webDomain: sample.webDomain,
+            pageTitle: sample.pageTitle,
+            source: sample.source,
+            manualCategoryID: sample.manualCategoryID,
+            isHidden: sample.isHidden,
+            note: sample.note
+        )
+
+        samples[index] = firstPart
+        samples.insert(secondPart, at: index + 1)
+        sortSamples()
+        invalidateSummaries()
+        schedulePersistence()
+        evaluateReminders()
+    }
+
+    func mergeActivity(sampleID: UUID, direction: TimelineMergeDirection) {
+        guard let index = samples.firstIndex(where: { $0.id == sampleID }) else { return }
+        let otherIndex = direction == .previous ? index - 1 : index + 1
+        guard samples.indices.contains(otherIndex) else { return }
+
+        let current = samples[index]
+        let adjacent = samples[otherIndex]
+        guard canMerge(lhs: current, rhs: adjacent) else { return }
+
+        var merged = current
+        merged.startDate = min(current.startDate, adjacent.startDate)
+        merged.endDate = max(current.endDate, adjacent.endDate)
+        merged.manualCategoryID = current.manualCategoryID ?? adjacent.manualCategoryID
+        merged.isHidden = current.isHidden || adjacent.isHidden
+        merged.note = [adjacent.note, current.note].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }.joined(separator: "\n")
+            .nilIfBlank
+
+        let lowerIndex = min(index, otherIndex)
+        let higherIndex = max(index, otherIndex)
+        samples.remove(at: higherIndex)
+        samples[lowerIndex] = merged
+        sortSamples()
+        invalidateSummaries()
+        schedulePersistence()
+        evaluateReminders()
+    }
+
+    func canMergeActivity(sampleID: UUID, direction: TimelineMergeDirection) -> Bool {
+        guard let index = samples.firstIndex(where: { $0.id == sampleID }) else { return false }
+        let otherIndex = direction == .previous ? index - 1 : index + 1
+        guard samples.indices.contains(otherIndex) else { return false }
+        return canMerge(lhs: samples[index], rhs: samples[otherIndex])
+    }
+
     func ensureAgenda(for day: Date) async {
         await runCalendarSync(for: day, force: false)
+        await runNotionCalendarSync(for: day, force: false)
+        await runOutlookCalendarSync(for: day, force: false)
+        await runClickUpSync(for: day, force: false)
+        await runLinearSync(for: day, force: false)
     }
 
     func agendaSummary(for day: Date) -> AgendaSummary {
-        let normalizedDay = Calendar.autoupdatingCurrent.startOfDay(for: day)
+        let calendar = Calendar.autoupdatingCurrent
+        let normalizedDay = calendar.startOfDay(for: day)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: normalizedDay) ?? normalizedDay.addingTimeInterval(86_400)
+        let agendaWindowEnd = calendar.date(byAdding: .day, value: 4, to: normalizedDay) ?? dayEnd
         let enabledConnections = googleCalendarConnections.filter(\.isEnabled)
-        let events: [CalendarAgendaItem] = enabledConnections.flatMap { connection in
+        let googleEvents: [CalendarAgendaItem] = enabledConnections.flatMap { connection in
             let storedDay = connection.agendaDay.map { Calendar.autoupdatingCurrent.startOfDay(for: $0) }
             guard storedDay == normalizedDay else { return [CalendarAgendaItem]() }
-            return connection.agendaItems
+            return connection.agendaItems.filter { event in
+                event.endDate > normalizedDay && event.startDate < agendaWindowEnd
+            }
         }
-        .sorted(by: { $0.startDate < $1.startDate })
+        let notionEvents: [CalendarAgendaItem]
+        if notionCalendarSettings.isEnabled,
+           notionAgendaDay == normalizedDay {
+            notionEvents = notionAgendaItems.filter { event in
+                event.endDate > normalizedDay && event.startDate < agendaWindowEnd
+            }
+        } else {
+            notionEvents = []
+        }
 
-        let lastSyncAt = enabledConnections.compactMap(\.lastSyncAt).max()
+        let outlookEvents: [CalendarAgendaItem]
+        if outlookCalendarSettings.isEnabled,
+           outlookAgendaDay == normalizedDay {
+            outlookEvents = outlookAgendaItems.filter { event in
+                event.endDate > normalizedDay && event.startDate < agendaWindowEnd
+            }
+        } else {
+            outlookEvents = []
+        }
+
+        let clickUpEvents: [CalendarAgendaItem]
+        if clickUpSettings.isEnabled,
+           clickUpAgendaDay == normalizedDay {
+            clickUpEvents = clickUpAgendaItems.filter { event in
+                event.endDate > normalizedDay && event.startDate < agendaWindowEnd
+            }
+        } else {
+            clickUpEvents = []
+        }
+
+        let linearEvents: [CalendarAgendaItem]
+        if linearSettings.isEnabled,
+           linearAgendaDay == normalizedDay {
+            linearEvents = linearAgendaItems.filter { event in
+                event.endDate > normalizedDay && event.startDate < agendaWindowEnd
+            }
+        } else {
+            linearEvents = []
+        }
+
+        let events = (googleEvents + notionEvents + outlookEvents + clickUpEvents + linearEvents)
+            .sorted(by: { $0.startDate < $1.startDate })
+        let focusedEvents = events.filter { event in
+            event.endDate > normalizedDay && event.startDate < dayEnd
+        }
+
+        let lastSyncAt = (
+            enabledConnections.compactMap(\.lastSyncAt)
+                + [
+                    notionCalendarSettings.lastSyncAt,
+                    outlookCalendarSettings.lastSyncAt,
+                    clickUpSettings.lastSyncAt,
+                    linearSettings.lastSyncAt,
+                ].compactMap { $0 }
+        ).max()
 
         return AgendaSummary(
             day: day,
             events: events,
-            isConnected: !enabledConnections.isEmpty,
-            isConfigured: isGoogleCalendarConfigured,
+            focusedEvents: focusedEvents,
+            isConnected: !enabledConnections.isEmpty
+                || (notionCalendarSettings.isEnabled && notionCalendarConfigured)
+                || (outlookCalendarSettings.isEnabled && outlookCalendarConfigured)
+                || (clickUpSettings.isEnabled && clickUpConfigured)
+                || (linearSettings.isEnabled && linearConfigured),
+            isConfigured: isGoogleCalendarConfigured || notionCalendarConfigured || outlookCalendarConfigured || clickUpConfigured || linearConfigured,
             lastSyncAt: lastSyncAt,
             connections: enabledConnections.map {
                 GoogleCalendarConnectionSummary(
@@ -625,7 +1625,50 @@ final class ActivityStore {
                     isEnabled: $0.isEnabled,
                     lastSyncAt: $0.lastSyncAt
                 )
-            }
+            },
+            notionSources: notionCalendarSettings.isEnabled && notionCalendarConfigured
+                ? [
+                    NotionCalendarSourceSummary(
+                        id: "notion-\(slugify(notionCalendarSettings.workspaceLabel))",
+                        workspaceLabel: notionCalendarSettings.workspaceLabel,
+                        dataSourceIDs: notionCalendarSettings.databaseIDs,
+                        lastSyncAt: notionCalendarSettings.lastSyncAt
+                    ),
+                ]
+                : [],
+            outlookSources: outlookCalendarSettings.isEnabled && outlookCalendarConfigured
+                ? [
+                    OutlookCalendarSourceSummary(
+                        id: "outlook-\(slugify(outlookCalendarSettings.workspaceLabel))",
+                        workspaceLabel: outlookCalendarSettings.workspaceLabel,
+                        accountEmail: outlookCalendarSettings.accountEmail,
+                        calendars: outlookCalendarSettings.calendars,
+                        lastSyncAt: outlookCalendarSettings.lastSyncAt
+                    ),
+                ]
+                : [],
+            clickUpSources: clickUpSettings.isEnabled && clickUpConfigured
+                ? [
+                    WorkItemSourceSummary(
+                        id: "clickup-\(slugify(clickUpSettings.workspaceLabel))",
+                        title: clickUpSettings.workspaceLabel,
+                        configuredSourceIDs: clickUpSettings.listIDs,
+                        itemCount: clickUpEvents.count,
+                        lastSyncAt: clickUpSettings.lastSyncAt
+                    ),
+                ]
+                : [],
+            linearSources: linearSettings.isEnabled && linearConfigured
+                ? [
+                    WorkItemSourceSummary(
+                        id: "linear-\(slugify(linearSettings.workspaceLabel))",
+                        title: linearSettings.workspaceLabel,
+                        configuredSourceIDs: linearSettings.teamIDs,
+                        itemCount: linearEvents.count,
+                        lastSyncAt: linearSettings.lastSyncAt
+                    ),
+                ]
+                : []
         )
     }
 
@@ -650,16 +1693,23 @@ final class ActivityStore {
             guard let clipped = clip(sample: sample, from: dayStart, to: dayEnd) else { continue }
 
             let category = classifier.classify(sample: clipped, preferences: monitoringPreferences)
+            let applicationIgnored = classifier.isApplicationIgnored(
+                applicationName: clipped.applicationName,
+                bundleIdentifier: clipped.bundleIdentifier,
+                preferences: monitoringPreferences
+            )
             categoryTotals[category, default: 0] += clipped.duration
 
-            var appBucket = appBuckets[clipped.applicationName, default: AggregateBucket(
-                label: clipped.applicationName,
-                secondaryLabel: clipped.bundleIdentifier,
-                systemImage: "app.connected.to.app.below.fill"
-            )]
-            appBucket.duration += clipped.duration
-            appBucket.categoryTotals[category, default: 0] += clipped.duration
-            appBuckets[clipped.applicationName] = appBucket
+            if !applicationIgnored {
+                var appBucket = appBuckets[clipped.applicationName, default: AggregateBucket(
+                    label: clipped.applicationName,
+                    secondaryLabel: clipped.bundleIdentifier,
+                    systemImage: "app.connected.to.app.below.fill"
+                )]
+                appBucket.duration += clipped.duration
+                appBucket.categoryTotals[category, default: 0] += clipped.duration
+                appBuckets[clipped.applicationName] = appBucket
+            }
 
             if let domain = clipped.webDomain {
                 var websiteBucket = websiteBuckets[domain, default: AggregateBucket(
@@ -688,7 +1738,7 @@ final class ActivityStore {
             .sorted { $0.duration > $1.duration }
 
         let timelineActivities = resolvedActivities
-            .sorted { $0.startDate < $1.startDate }
+            .sorted { $0.startDate > $1.startDate }
 
         let recentActivities = resolvedActivities
             .sorted { $0.endDate > $1.endDate }
@@ -709,6 +1759,456 @@ final class ActivityStore {
 
         summaryCache[normalizedDay] = summary
         return summary
+    }
+
+    func goalProgress(for day: Date) -> [GoalProgress] {
+        let summary = summary(for: day)
+        let categoryTotals = Dictionary(uniqueKeysWithValues: summary.categoryBreakdown.map { ($0.category.id, $0.duration) })
+
+        return usageGoals
+            .filter { $0.isEnabled && $0.period == .daily }
+            .compactMap { goal in
+                guard let category = category(for: goal.categoryID) else { return nil }
+                return GoalProgress(
+                    goal: goal,
+                    category: category,
+                    currentDuration: categoryTotals[goal.categoryID] ?? 0
+                )
+            }
+            .sorted { $0.goal.title < $1.goal.title }
+    }
+
+    func focusProfileInsights(at date: Date = Date()) -> [FocusProfileInsight] {
+        let orderedSamples = samples
+            .filter { !$0.isHidden && !isIgnored(sample: $0) }
+            .sorted { $0.endDate < $1.endDate }
+
+        return focusProfiles.compactMap { profile in
+            let categories = profile.categoryIDs.compactMap { category(for: $0) }
+            guard !categories.isEmpty else { return nil }
+
+            let isWithinSchedule = isProfileWithinSchedule(profile, at: date)
+            let duration = continuousStreakDuration(for: Set(profile.categoryIDs), in: orderedSamples)
+
+            return FocusProfileInsight(
+                profile: profile,
+                categories: categories,
+                currentDuration: duration,
+                isWithinSchedule: isWithinSchedule
+            )
+        }
+        .sorted {
+            if $0.isTriggered == $1.isTriggered {
+                return $0.currentDuration > $1.currentDuration
+            }
+
+            return $0.isTriggered && !$1.isTriggered
+        }
+    }
+
+    var classificationSuggestions: [ClassificationSuggestion] {
+        struct SuggestionAccumulator {
+            let kind: SuggestionTargetKind
+            let pattern: String
+            let categoryID: String
+            var sampleCount: Int = 0
+            var totalDuration: TimeInterval = 0
+        }
+
+        let existingAppRules = Set(categoryRules.filter { $0.matchTarget == .applicationName }.map(\.pattern))
+        let existingDomainRules = Set(categoryRules.filter { $0.matchTarget == .domain }.map(\.pattern))
+        var accumulators: [String: SuggestionAccumulator] = [:]
+
+        for sample in samples where !sample.isHidden {
+            guard let manualCategoryID = sample.manualCategoryID else { continue }
+
+            let appPattern = normalizePattern(sample.applicationName)
+            if !appPattern.isEmpty, !existingAppRules.contains(appPattern) {
+                let key = "app:\(appPattern):\(manualCategoryID)"
+                accumulators[key, default: SuggestionAccumulator(kind: .application, pattern: appPattern, categoryID: manualCategoryID)].sampleCount += 1
+                accumulators[key, default: SuggestionAccumulator(kind: .application, pattern: appPattern, categoryID: manualCategoryID)].totalDuration += sample.duration
+            }
+
+            if let domain = sample.webDomain {
+                let normalizedDomain = normalizePattern(domain, for: .domain)
+                if !normalizedDomain.isEmpty, !existingDomainRules.contains(normalizedDomain) {
+                    let key = "domain:\(normalizedDomain):\(manualCategoryID)"
+                    accumulators[key, default: SuggestionAccumulator(kind: .domain, pattern: normalizedDomain, categoryID: manualCategoryID)].sampleCount += 1
+                    accumulators[key, default: SuggestionAccumulator(kind: .domain, pattern: normalizedDomain, categoryID: manualCategoryID)].totalDuration += sample.duration
+                }
+            }
+        }
+
+        return accumulators.values
+            .filter { $0.sampleCount >= 2 || $0.totalDuration >= 600 }
+            .compactMap { item in
+                guard let recommendedCategory = category(for: item.categoryID) else { return nil }
+                let confidence = min(0.98, 0.52 + (Double(item.sampleCount) * 0.08) + min(item.totalDuration / 7200, 0.18))
+                let reason = item.kind == .application
+                    ? "Voce recategorizou este app manualmente varias vezes."
+                    : "Voce recategorizou este site manualmente varias vezes."
+                return ClassificationSuggestion(
+                    id: "\(item.kind.rawValue):\(item.pattern):\(item.categoryID)",
+                    kind: item.kind,
+                    pattern: item.pattern,
+                    recommendedCategory: recommendedCategory,
+                    sampleCount: item.sampleCount,
+                    totalDuration: item.totalDuration,
+                    reason: reason,
+                    confidence: confidence
+                )
+            }
+            .sorted {
+                if $0.sampleCount == $1.sampleCount {
+                    return $0.totalDuration > $1.totalDuration
+                }
+
+                return $0.sampleCount > $1.sampleCount
+            }
+    }
+
+    func applySuggestion(_ suggestion: ClassificationSuggestion) {
+        switch suggestion.kind {
+        case .application:
+            assignCategory(toApplication: suggestion.pattern, categoryID: suggestion.recommendedCategory.id)
+        case .domain:
+            assignCategory(toDomain: suggestion.pattern, categoryID: suggestion.recommendedCategory.id)
+        }
+    }
+
+    func weeklyReport(containing day: Date) -> WeeklyReport {
+        let calendar = Calendar.autoupdatingCurrent
+        let normalizedDay = calendar.startOfDay(for: day)
+        let weekday = calendar.component(.weekday, from: normalizedDay)
+        let startOffset = weekday == 1 ? -6 : 2 - weekday
+        let weekStart = calendar.date(byAdding: .day, value: startOffset, to: normalizedDay) ?? normalizedDay
+        let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? normalizedDay
+
+        var days: [WeeklyReportDay] = []
+        var combinedCategories: [ActivityCategory: TimeInterval] = [:]
+        var combinedApps: [String: AggregateBucket] = [:]
+        var combinedSites: [String: AggregateBucket] = [:]
+        var totalTrackedTime: TimeInterval = 0
+
+        var cursor = weekStart
+        while cursor < weekEnd {
+            let summary = summary(for: cursor)
+            totalTrackedTime += summary.totalTrackedTime
+            days.append(WeeklyReportDay(date: cursor, trackedTime: summary.totalTrackedTime, topCategory: summary.categoryBreakdown.first))
+
+            for bucket in summary.categoryBreakdown {
+                combinedCategories[bucket.category, default: 0] += bucket.duration
+            }
+
+            for item in summary.appBreakdown {
+                var bucket = combinedApps[item.label, default: AggregateBucket(label: item.label, secondaryLabel: item.secondaryLabel, systemImage: item.systemImage)]
+                bucket.duration += item.duration
+                if let category = item.category {
+                    bucket.categoryTotals[category, default: 0] += item.duration
+                }
+                combinedApps[item.label] = bucket
+            }
+
+            for item in summary.websiteBreakdown {
+                var bucket = combinedSites[item.label, default: AggregateBucket(label: item.label, secondaryLabel: item.secondaryLabel, systemImage: item.systemImage)]
+                bucket.duration += item.duration
+                if let category = item.category {
+                    bucket.categoryTotals[category, default: 0] += item.duration
+                }
+                combinedSites[item.label] = bucket
+            }
+
+            cursor = calendar.date(byAdding: .day, value: 1, to: cursor) ?? weekEnd
+        }
+
+        let weekSamples = samples
+            .filter { !$0.isHidden && !isIgnored(sample: $0) }
+            .compactMap { clip(sample: $0, from: weekStart, to: weekEnd) }
+            .sorted { $0.startDate < $1.startDate }
+
+        let contextSwitches = max(weekSamples.count - 1, 0)
+        let focusIDs = Set(focusProfiles.filter { $0.kind == .focus }.flatMap(\.categoryIDs))
+        let distractionIDs = Set(focusProfiles.filter { $0.kind == .distraction }.flatMap(\.categoryIDs))
+
+        let focusTime = weekSamples.reduce(into: 0.0) { partial, sample in
+            let categoryID = classifier.classify(sample: sample, preferences: monitoringPreferences).id
+            if focusIDs.contains(categoryID) {
+                partial += sample.duration
+            }
+        }
+
+        let distractionTime = weekSamples.reduce(into: 0.0) { partial, sample in
+            let categoryID = classifier.classify(sample: sample, preferences: monitoringPreferences).id
+            if distractionIDs.contains(categoryID) {
+                partial += sample.duration
+            }
+        }
+
+        let topCategories = combinedCategories
+            .map { CategoryBreakdown(category: $0.key, duration: $0.value) }
+            .sorted { $0.duration > $1.duration }
+
+        let topApps = combinedApps.values.map(\.item).sorted { $0.duration > $1.duration }
+        let topSites = combinedSites.values.map(\.item).sorted { $0.duration > $1.duration }
+
+        let weeklyCategoryTotals = Dictionary(uniqueKeysWithValues: topCategories.map { ($0.category.id, $0.duration) })
+        let goalProgress = usageGoals
+            .filter { $0.isEnabled }
+            .compactMap { goal -> GoalProgress? in
+                guard let resolvedCategory = category(for: goal.categoryID) else { return nil }
+                let currentDuration: TimeInterval
+
+                switch goal.period {
+                case .daily:
+                    currentDuration = summary(for: normalizedDay).categoryBreakdown.first(where: { $0.category.id == goal.categoryID })?.duration ?? 0
+                case .weekly:
+                    currentDuration = weeklyCategoryTotals[goal.categoryID] ?? 0
+                }
+
+                return GoalProgress(goal: goal, category: resolvedCategory, currentDuration: currentDuration)
+            }
+
+        let averageDailyTrackedTime = totalTrackedTime / 7
+        var highlights: [String] = []
+
+        if let topCategory = topCategories.first {
+            highlights.append("A categoria lider da semana foi \(topCategory.category.title) com \(LuumFormatters.duration(topCategory.duration)).")
+        }
+        if focusTime > 0 {
+            highlights.append("Os perfis de foco acumularam \(LuumFormatters.duration(focusTime)) nesta semana.")
+        }
+        if distractionTime > 0 {
+            highlights.append("Os perfis de distracao somaram \(LuumFormatters.duration(distractionTime)) nesta semana.")
+        }
+        highlights.append("O luum registrou \(contextSwitches) trocas de contexto ao longo da semana.")
+
+        return WeeklyReport(
+            startDate: weekStart,
+            endDate: weekEnd.addingTimeInterval(-1),
+            totalTrackedTime: totalTrackedTime,
+            averageDailyTrackedTime: averageDailyTrackedTime,
+            contextSwitches: contextSwitches,
+            focusTime: focusTime,
+            distractionTime: distractionTime,
+            topCategories: Array(topCategories.prefix(5)),
+            topApps: Array(topApps.prefix(5)),
+            topSites: Array(topSites.prefix(5)),
+            goalProgress: goalProgress,
+            days: days,
+            highlights: highlights
+        )
+    }
+
+    var teamRankingUsesPreviewData: Bool {
+        workspaceRankingEntries.isEmpty
+    }
+
+    func teamRanking(for day: Date) -> [TeamRankingEntry] {
+        if !workspaceRankingEntries.isEmpty {
+            return workspaceRankingEntries.sorted { lhs, rhs in
+                if lhs.score == rhs.score {
+                    return lhs.trackedTime > rhs.trackedTime
+                }
+                return lhs.score > rhs.score
+            }
+        }
+
+        let report = weeklyReport(containing: day)
+        let currentUser = TeamRankingEntry(
+            id: "me",
+            displayName: teamSettings.memberDisplayName,
+            roleLabel: teamSettings.roleLabel,
+            trackedTime: report.totalTrackedTime,
+            focusTime: report.focusTime,
+            plannedTime: max(report.totalTrackedTime * 0.92, report.averageDailyTrackedTime * 5),
+            contextSwitches: report.contextSwitches,
+            score: makeTeamScore(
+                trackedTime: report.totalTrackedTime,
+                focusTime: report.focusTime,
+                plannedTime: max(report.totalTrackedTime * 0.92, report.averageDailyTrackedTime * 5),
+                contextSwitches: report.contextSwitches
+            ),
+            isCurrentUser: true
+        )
+
+        let previewMembers = [
+            ("Ana Martins", "Produto", 1.14, 1.10, 0.98, 0.86),
+            ("Caio Lopes", "Design", 0.92, 0.88, 1.02, 1.18),
+            ("Marina Costa", "Sucesso do cliente", 1.08, 0.95, 1.04, 0.91),
+            ("Rafael Gomes", "Engenharia", 1.22, 1.18, 1.10, 0.79),
+        ]
+
+        let previewEntries = previewMembers.enumerated().map { index, member in
+            let trackedTime = max(3_600, report.totalTrackedTime * member.2)
+            let focusTime = max(1_800, report.focusTime * member.3)
+            let plannedTime = max(3_600, currentUser.plannedTime * member.4)
+            let contextSwitches = max(8, Int((Double(report.contextSwitches) * member.5).rounded()))
+
+            return TeamRankingEntry(
+                id: "preview-\(index)",
+                displayName: member.0,
+                roleLabel: member.1,
+                trackedTime: trackedTime,
+                focusTime: focusTime,
+                plannedTime: plannedTime,
+                contextSwitches: contextSwitches,
+                score: makeTeamScore(
+                    trackedTime: trackedTime,
+                    focusTime: focusTime,
+                    plannedTime: plannedTime,
+                    contextSwitches: contextSwitches
+                ),
+                isCurrentUser: false
+            )
+        }
+
+        return ([currentUser] + previewEntries).sorted { lhs, rhs in
+            if lhs.score == rhs.score {
+                return lhs.trackedTime > rhs.trackedTime
+            }
+
+            return lhs.score > rhs.score
+        }
+    }
+
+    func searchResults(matching rawQuery: String) -> [GlobalSearchResult] {
+        let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return [] }
+        let normalizedQuery = query.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+
+        let activityResults = samples
+            .filter { !$0.isHidden && !isIgnored(sample: $0) }
+            .compactMap { sample -> GlobalSearchResult? in
+                let haystack = [
+                    sample.applicationName,
+                    sample.bundleIdentifier ?? "",
+                    sample.webDomain ?? "",
+                    sample.pageTitle ?? "",
+                    sample.webURL ?? "",
+                    sample.note ?? "",
+                    classifier.searchQuery(from: sample.webURL) ?? "",
+                ]
+                .joined(separator: " ")
+                .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+
+                guard haystack.contains(normalizedQuery) else { return nil }
+
+                let resolvedCategory = classifier.classify(sample: sample, preferences: monitoringPreferences)
+                return GlobalSearchResult(
+                    id: sample.id.uuidString,
+                    kind: .activity,
+                    date: sample.startDate,
+                    title: sample.pageTitle ?? sample.applicationName,
+                    subtitle: sample.webDomain ?? sample.applicationName,
+                    footnote: LuumFormatters.timeRange(start: sample.startDate, end: sample.endDate),
+                    category: resolvedCategory
+                )
+            }
+
+        let planningEvents =
+            googleCalendarConnections
+                .filter(\.isEnabled)
+                .flatMap(\.agendaItems)
+            + notionAgendaItems
+            + outlookAgendaItems
+            + clickUpAgendaItems
+            + linearAgendaItems
+
+        let agendaResults = planningEvents
+            .compactMap { event -> GlobalSearchResult? in
+                let haystack = [
+                    event.title,
+                    event.location ?? "",
+                    event.calendarTitle,
+                    event.accountLabel,
+                    event.notes ?? "",
+                ]
+                .joined(separator: " ")
+                .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+
+                guard haystack.contains(normalizedQuery) else { return nil }
+
+                return GlobalSearchResult(
+                    id: "agenda-\(event.id)",
+                    kind: .agenda,
+                    date: event.startDate,
+                    title: event.title,
+                    subtitle: "\(event.accountLabel) • \(event.calendarTitle)",
+                    footnote: event.isAllDay ? "Dia inteiro" : LuumFormatters.timeRange(start: event.startDate, end: event.endDate),
+                    category: nil
+                )
+            }
+
+        return (activityResults + agendaResults).sorted { $0.date > $1.date }
+    }
+
+    func exportWeeklyReport(containing day: Date, format: ExportFormat) {
+        let report = weeklyReport(containing: day)
+        let fileManager = FileManager.default
+        let downloadsURL = fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent("Downloads", isDirectory: true)
+            .appendingPathComponent("luum-exports", isDirectory: true)
+
+        do {
+            try fileManager.createDirectory(at: downloadsURL, withIntermediateDirectories: true)
+            let dateToken = report.startDate.formatted(.dateTime.year().month().day())
+                .replacingOccurrences(of: "/", with: "-")
+                .replacingOccurrences(of: " ", with: "-")
+            let fileURL = downloadsURL.appendingPathComponent("luum-weekly-report-\(dateToken).\(format.fileExtension)")
+
+            switch format {
+            case .json:
+                let payload = WeeklyReportExportPayload(
+                    startDate: report.startDate,
+                    endDate: report.endDate,
+                    totalTrackedTime: report.totalTrackedTime,
+                    averageDailyTrackedTime: report.averageDailyTrackedTime,
+                    contextSwitches: report.contextSwitches,
+                    focusTime: report.focusTime,
+                    distractionTime: report.distractionTime,
+                    topCategories: report.topCategories.map { WeeklyExportBreakdown(label: $0.category.title, duration: $0.duration) },
+                    topApps: report.topApps.map { WeeklyExportBreakdown(label: $0.label, duration: $0.duration) },
+                    topSites: report.topSites.map { WeeklyExportBreakdown(label: $0.label, duration: $0.duration) },
+                    highlights: report.highlights
+                )
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                encoder.dateEncodingStrategy = .iso8601
+                let data = try encoder.encode(payload)
+                try data.write(to: fileURL, options: .atomic)
+            case .csv:
+                let header = "type,label,duration_minutes\n"
+                let categoryLines = report.topCategories.map { "category,\($0.category.title),\(Int(($0.duration / 60).rounded()))" }
+                let appLines = report.topApps.map { "app,\($0.label),\(Int(($0.duration / 60).rounded()))" }
+                let siteLines = report.topSites.map { "site,\($0.label),\(Int(($0.duration / 60).rounded()))" }
+                let csv = header + (categoryLines + appLines + siteLines).joined(separator: "\n")
+                guard let data = csv.data(using: .utf8) else {
+                    throw CocoaError(.fileWriteUnknown)
+                }
+                try data.write(to: fileURL, options: .atomic)
+            }
+
+            exportStatusMessage = "Exportado para \(fileURL.path)."
+        } catch {
+            exportStatusMessage = error.localizedDescription
+        }
+    }
+
+    func handleOnboardingAction(_ itemID: String, day: Date = Date()) {
+        switch itemID {
+        case "monitoring":
+            startMonitoring()
+        case "google-client", "google-account":
+            if isGoogleCalendarConfigured {
+                connectGoogleCalendar(for: day)
+            }
+        case "notifications":
+            requestNotificationAuthorization()
+        case "browser-data":
+            break
+        default:
+            break
+        }
     }
 
     private func runCalendarConnect(for day: Date) async {
@@ -842,7 +2342,7 @@ final class ActivityStore {
             }
         }
 
-        googleCalendarConnections = updatedConnections
+            googleCalendarConnections = updatedConnections
         persistGoogleCalendar()
         scheduleCloudSyncIfNeeded(reason: "calendar-sync")
 
@@ -851,16 +2351,295 @@ final class ActivityStore {
         } else if force {
             googleCalendarStatusMessage = "Agenda sincronizada em \(googleCalendarConnections.count) conta(s)."
         }
+
+        if syncMessages.isEmpty {
+            let totalEvents = googleCalendarConnections
+                .filter(\.isEnabled)
+                .flatMap(\.agendaItems)
+                .count
+            await sendZapierCalendarSyncEventIfNeeded(source: "google", itemCount: totalEvents)
+        }
+    }
+
+    private func runNotionCalendarSync(for day: Date, force: Bool) async {
+        let settings = notionCalendarSettings.normalized()
+
+        guard settings.isEnabled else {
+            if force {
+                notionCalendarStatusMessage = "Ative a integracao do Notion para sincronizar esta fonte."
+            }
+            return
+        }
+
+        guard notionCalendarConfigured else {
+            if force {
+                notionCalendarStatusMessage = "Informe token e Data Source IDs do Notion para liberar essa agenda."
+            }
+            return
+        }
+
+        guard let token = keychainService.string(for: Self.notionCalendarTokenKey),
+              !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            notionCalendarStatusMessage = NotionCalendarIssue.missingToken.errorDescription
+            return
+        }
+
+        let normalizedDay = Calendar.autoupdatingCurrent.startOfDay(for: day)
+        let lastSyncAge = settings.lastSyncAt.map { Date().timeIntervalSince($0) } ?? .infinity
+        let shouldReuseCurrentAgenda = !force &&
+            notionAgendaDay == normalizedDay &&
+            !notionAgendaItems.isEmpty &&
+            lastSyncAge < calendarRefreshInterval
+
+        guard !shouldReuseCurrentAgenda else { return }
+
+        isSyncingNotionCalendar = true
+        defer { isSyncingNotionCalendar = false }
+
+        do {
+            let result = try await notionCalendarService.refresh(
+                day: normalizedDay,
+                settings: settings,
+                token: token
+            )
+
+            notionAgendaItems = result.events
+            notionAgendaDay = normalizedDay
+            monitoringPreferences.notionCalendarSettings.lastSyncAt = result.syncedAt
+            notionCalendarStatusMessage = result.events.isEmpty
+                ? "Notion sincronizado sem eventos na janela atual."
+                : "Notion sincronizado em \(result.dataSourceIDs.count) fonte(s)."
+            persistMonitoringPreferences()
+            await sendZapierCalendarSyncEventIfNeeded(source: "notion", itemCount: result.events.count)
+        } catch {
+            notionCalendarStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func runOutlookCalendarSync(for day: Date, force: Bool) async {
+        let settings = outlookCalendarSettings.normalized()
+
+        guard settings.isEnabled else {
+            if force {
+                outlookCalendarStatusMessage = "Ative a integracao do Outlook para sincronizar esta fonte."
+            }
+            return
+        }
+
+        guard outlookCalendarConfigured else {
+            if force {
+                outlookCalendarStatusMessage = "Informe um token do Microsoft Graph para liberar o Outlook."
+            }
+            return
+        }
+
+        guard let token = keychainService.string(for: Self.outlookCalendarTokenKey),
+              !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            outlookCalendarStatusMessage = OutlookCalendarIssue.missingToken.errorDescription
+            return
+        }
+
+        let normalizedDay = Calendar.autoupdatingCurrent.startOfDay(for: day)
+        let lastSyncAge = settings.lastSyncAt.map { Date().timeIntervalSince($0) } ?? .infinity
+        let shouldReuseCurrentAgenda = !force &&
+            outlookAgendaDay == normalizedDay &&
+            !outlookAgendaItems.isEmpty &&
+            lastSyncAge < calendarRefreshInterval
+        guard !shouldReuseCurrentAgenda else { return }
+
+        isSyncingOutlookCalendar = true
+        defer { isSyncingOutlookCalendar = false }
+
+        do {
+            let result = try await outlookCalendarService.sync(
+                day: normalizedDay,
+                settings: settings,
+                accessToken: token
+            )
+            outlookAgendaItems = result.events
+            outlookAgendaDay = normalizedDay
+            monitoringPreferences.outlookCalendarSettings.accountEmail = result.accountEmail
+            monitoringPreferences.outlookCalendarSettings.calendars = result.calendars
+            monitoringPreferences.outlookCalendarSettings.lastSyncAt = result.syncedAt
+            outlookCalendarStatusMessage = result.events.isEmpty
+                ? "Outlook sincronizado sem eventos na janela atual."
+                : "Outlook sincronizado em \(result.calendars.filter(\.isSelected).count) calendario(s)."
+            persistMonitoringPreferences()
+            await sendZapierCalendarSyncEventIfNeeded(source: "outlook", itemCount: result.events.count)
+        } catch {
+            outlookCalendarStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func runClickUpSync(for day: Date, force: Bool) async {
+        let settings = clickUpSettings.normalized()
+
+        guard settings.isEnabled else {
+            if force {
+                clickUpStatusMessage = "Ative a integracao do ClickUp para sincronizar esta fonte."
+            }
+            return
+        }
+
+        guard clickUpConfigured else {
+            if force {
+                clickUpStatusMessage = "Informe um token e pelo menos uma lista do ClickUp."
+            }
+            return
+        }
+
+        guard let token = keychainService.string(for: Self.clickUpTokenKey),
+              !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            clickUpStatusMessage = ClickUpIssue.missingToken.errorDescription
+            return
+        }
+
+        let normalizedDay = Calendar.autoupdatingCurrent.startOfDay(for: day)
+        let lastSyncAge = settings.lastSyncAt.map { Date().timeIntervalSince($0) } ?? .infinity
+        let shouldReuseCurrentAgenda = !force &&
+            clickUpAgendaDay == normalizedDay &&
+            !clickUpAgendaItems.isEmpty &&
+            lastSyncAge < calendarRefreshInterval
+        guard !shouldReuseCurrentAgenda else { return }
+
+        isSyncingClickUp = true
+        defer { isSyncingClickUp = false }
+
+        do {
+            let result = try await clickUpService.sync(
+                day: normalizedDay,
+                settings: settings,
+                apiToken: token
+            )
+            clickUpAgendaItems = result.events
+            clickUpAgendaDay = normalizedDay
+            monitoringPreferences.clickUpSettings.lastSyncAt = result.syncedAt
+            clickUpStatusMessage = result.events.isEmpty
+                ? "ClickUp sincronizado sem tarefas com prazo na janela atual."
+                : "ClickUp sincronizado em \(result.listIDs.count) lista(s)."
+            persistMonitoringPreferences()
+            await sendZapierCalendarSyncEventIfNeeded(source: "clickup", itemCount: result.events.count)
+        } catch {
+            clickUpStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func runLinearSync(for day: Date, force: Bool) async {
+        let settings = linearSettings.normalized()
+
+        guard settings.isEnabled else {
+            if force {
+                linearStatusMessage = "Ative a integracao do Linear para sincronizar esta fonte."
+            }
+            return
+        }
+
+        guard linearConfigured else {
+            if force {
+                linearStatusMessage = "Informe uma API key e pelo menos um Team ID do Linear."
+            }
+            return
+        }
+
+        guard let token = keychainService.string(for: Self.linearTokenKey),
+              !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            linearStatusMessage = LinearIssue.missingToken.errorDescription
+            return
+        }
+
+        let normalizedDay = Calendar.autoupdatingCurrent.startOfDay(for: day)
+        let lastSyncAge = settings.lastSyncAt.map { Date().timeIntervalSince($0) } ?? .infinity
+        let shouldReuseCurrentAgenda = !force &&
+            linearAgendaDay == normalizedDay &&
+            !linearAgendaItems.isEmpty &&
+            lastSyncAge < calendarRefreshInterval
+        guard !shouldReuseCurrentAgenda else { return }
+
+        isSyncingLinear = true
+        defer { isSyncingLinear = false }
+
+        do {
+            let result = try await linearService.sync(
+                day: normalizedDay,
+                settings: settings,
+                apiKey: token
+            )
+            linearAgendaItems = result.events
+            linearAgendaDay = normalizedDay
+            monitoringPreferences.linearSettings.lastSyncAt = result.syncedAt
+            linearStatusMessage = result.events.isEmpty
+                ? "Linear sincronizado sem issues com prazo na janela atual."
+                : "Linear sincronizado em \(result.teamIDs.count) time(s)."
+            persistMonitoringPreferences()
+            await sendZapierCalendarSyncEventIfNeeded(source: "linear", itemCount: result.events.count)
+        } catch {
+            linearStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func runWorkspaceSync(for day: Date, force: Bool) async {
+        guard teamSettings.sharesAnonymousMetrics else {
+            if force {
+                workspaceSyncStatusMessage = "Ative o compartilhamento de metricas para usar o ranking corporativo."
+            }
+            return
+        }
+
+        guard teamWorkspaceConfigured else {
+            if force {
+                workspaceSyncStatusMessage = "Preencha endpoint, Workspace ID e chave para liberar o ranking corporativo."
+            }
+            return
+        }
+
+        guard let secret = workspaceSecret,
+              !secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            workspaceSyncStatusMessage = WorkspaceSyncError.missingSecret.errorDescription
+            return
+        }
+
+        isSyncingWorkspace = true
+        defer { isSyncingWorkspace = false }
+
+        do {
+            let payload = makeWorkspaceMemberPayload(for: day)
+            let updatedAt = try await workspaceSyncService.push(
+                baseURL: teamSettings.workspaceEndpointURL,
+                workspaceID: teamSettings.workspaceID,
+                memberID: teamSettings.workspaceMemberID,
+                secret: secret,
+                payload: payload
+            )
+            let ranking = try await workspaceSyncService.fetchRanking(
+                baseURL: teamSettings.workspaceEndpointURL,
+                workspaceID: teamSettings.workspaceID,
+                memberID: teamSettings.workspaceMemberID,
+                secret: secret
+            )
+            workspaceRankingEntries = ranking.entries
+            workspaceSyncLastSyncAt = ranking.updatedAt ?? updatedAt
+            workspaceSyncStatusMessage = workspaceRankingEntries.isEmpty
+                ? "Workspace sincronizado sem membros suficientes para ranking."
+                : "Workspace sincronizado com \(workspaceRankingEntries.count) membro(s)."
+            await sendZapierWorkspaceEventIfNeeded(memberCount: workspaceRankingEntries.count)
+        } catch {
+            workspaceSyncStatusMessage = error.localizedDescription
+        }
     }
 
     private func runCloudSync() async {
         guard monitoringPreferences.cloudSyncSettings.isEnabled else { return }
-        guard cloudSyncConfigured else {
-            cloudSyncStatusMessage = "Preencha endpoint, Backup ID e chave para ativar o sync."
+        guard canUse(.cloudBackup) else {
+            cloudSyncStatusMessage = lockMessage(for: .cloudBackup)
             return
         }
-        guard let secret = cloudBackupSecret else {
-            cloudSyncStatusMessage = "A chave de backup nao foi encontrada neste Mac."
+        guard cloudSyncConfigured else {
+            cloudSyncStatusMessage = "Entre na conta Luum ou preencha endpoint, Backup ID e chave para ativar o sync."
             return
         }
 
@@ -871,7 +2650,8 @@ final class ActivityStore {
             let updatedAt = try await cloudSyncService.push(
                 baseURL: monitoringPreferences.cloudSyncSettings.endpointURL,
                 backupID: monitoringPreferences.cloudSyncSettings.backupID,
-                secret: secret,
+                secret: cloudBackupSecret,
+                firebaseToken: authSession?.idToken,
                 payload: makeCloudBackupPayload()
             )
             cloudSyncLastSyncAt = updatedAt
@@ -886,8 +2666,8 @@ final class ActivityStore {
             cloudSyncStatusMessage = "Configure o sync antes de restaurar."
             return
         }
-        guard let secret = cloudBackupSecret else {
-            cloudSyncStatusMessage = "A chave de backup nao foi encontrada neste Mac."
+        guard canUse(.cloudBackup) else {
+            cloudSyncStatusMessage = lockMessage(for: .cloudBackup)
             return
         }
 
@@ -898,7 +2678,8 @@ final class ActivityStore {
             guard let payload = try await cloudSyncService.pull(
                 baseURL: monitoringPreferences.cloudSyncSettings.endpointURL,
                 backupID: monitoringPreferences.cloudSyncSettings.backupID,
-                secret: secret
+                secret: cloudBackupSecret,
+                firebaseToken: authSession?.idToken
             ) else {
                 cloudSyncStatusMessage = "Nenhum backup encontrado para esse identificador."
                 return
@@ -947,7 +2728,7 @@ final class ActivityStore {
         }
 
         let rawActivities: [ActivitySample]?
-        if monitoringPreferences.cloudSyncSettings.syncRawActivities {
+        if monitoringPreferences.cloudSyncSettings.syncRawActivities && canUse(.rawActivityBackup) {
             rawActivities = samples.map(makeCloudSafeSample)
         } else {
             rawActivities = nil
@@ -1020,6 +2801,7 @@ final class ActivityStore {
         }
 
         reconcileCurrentSnapshotAfterPreferencesChange()
+        evaluateReminders()
         scheduleCloudSyncIfNeeded(reason: "preferences")
     }
 
@@ -1032,6 +2814,8 @@ final class ActivityStore {
             preferences: monitoringPreferences
         ) {
             closeCurrentSession(at: Date())
+            currentFocusBlockMatch = nil
+            focusShieldStatusMessage = nil
         }
     }
 
@@ -1047,6 +2831,8 @@ final class ActivityStore {
             preferences: monitoringPreferences
         ) {
             currentSnapshot = nil
+            currentFocusBlockMatch = nil
+            focusShieldStatusMessage = nil
             closeCurrentSession(at: snapshot.timestamp)
             return
         }
@@ -1080,6 +2866,8 @@ final class ActivityStore {
         }
 
         currentSnapshot = nil
+        currentFocusBlockMatch = nil
+        focusShieldStatusMessage = nil
         schedulePersistence()
     }
 
@@ -1134,6 +2922,37 @@ final class ActivityStore {
             await runCalendarSync(for: Date(), force: false)
         }
 
+        if notionCalendarSettings.isEnabled,
+           notionCalendarConfigured,
+           !isSyncingNotionCalendar {
+            await runNotionCalendarSync(for: Date(), force: false)
+        }
+
+        if outlookCalendarSettings.isEnabled,
+           outlookCalendarConfigured,
+           !isSyncingOutlookCalendar {
+            await runOutlookCalendarSync(for: Date(), force: false)
+        }
+
+        if clickUpSettings.isEnabled,
+           clickUpConfigured,
+           !isSyncingClickUp {
+            await runClickUpSync(for: Date(), force: false)
+        }
+
+        if linearSettings.isEnabled,
+           linearConfigured,
+           !isSyncingLinear {
+            await runLinearSync(for: Date(), force: false)
+        }
+
+        if teamSettings.automaticallySyncWorkspace,
+           teamSettings.sharesAnonymousMetrics,
+           teamWorkspaceConfigured,
+           !isSyncingWorkspace {
+            await runWorkspaceSync(for: Date(), force: false)
+        }
+
         guard monitoringPreferences.cloudSyncSettings.isEnabled,
               cloudSyncConfigured,
               !isSyncingCloud
@@ -1147,15 +2966,93 @@ final class ActivityStore {
     }
 
     private func evaluateReminders() {
+        reminderEvaluationTask?.cancel()
         let filteredSamples = samples.filter { !$0.isHidden && !isIgnored(sample: $0) }
-        Task { [weak self] in
+        reminderEvaluationTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(350))
             guard let self else { return }
             await self.reminderEngine.evaluate(
                 samples: filteredSamples,
                 preferences: self.monitoringPreferences,
                 classifier: self.classifier
             )
+            await self.evaluateFocusModes(using: filteredSamples)
         }
+    }
+
+    private func evaluateFocusModes(using filteredSamples: [ActivitySample]) async {
+        _ = filteredSamples
+        await evaluateFocusShield()
+
+        let insights = focusProfileInsights()
+        guard let triggeredInsight = insights.first(where: \.isTriggered) else {
+            focusModeStatusMessage = insights.first.map {
+                "\($0.profile.title): \(LuumFormatters.duration($0.currentDuration)) dentro do perfil."
+            }
+            return
+        }
+
+        focusModeStatusMessage = "\(triggeredInsight.profile.title): \(triggeredInsight.messageSubtitle)"
+
+        let lastDeliveredAt = focusModeDeliveries[triggeredInsight.profile.id]
+        let minimumInterval = TimeInterval(max(900, triggeredInsight.profile.thresholdMinutes * 60))
+        if let lastDeliveredAt, Date().timeIntervalSince(lastDeliveredAt) < minimumInterval {
+            return
+        }
+
+        focusModeDeliveries[triggeredInsight.profile.id] = Date()
+        await reminderEngine.triggerManualReminder(
+            identifier: "luum-focus-\(triggeredInsight.profile.id.uuidString)",
+            title: triggeredInsight.profile.title,
+            message: triggeredInsight.profile.message,
+            subtitle: triggeredInsight.messageSubtitle
+        )
+        await sendZapierFocusEventIfNeeded(
+            type: "focus_profile_triggered",
+            profileTitle: triggeredInsight.profile.title,
+            details: [
+                "duration": LuumFormatters.duration(triggeredInsight.currentDuration),
+                "kind": triggeredInsight.profile.kind.title,
+            ]
+        )
+    }
+
+    private func evaluateFocusShield() async {
+        guard let match = activeFocusBlockMatch() else {
+            currentFocusBlockMatch = nil
+
+            let armedProfiles = focusProfileInsights()
+                .filter { $0.profile.hasBlockingRules && $0.isWithinSchedule && $0.profile.isEnabled }
+
+            focusShieldStatusMessage = armedProfiles.isEmpty
+                ? nil
+                : "\(armedProfiles.count) perfil(is) com escudo pronto nesta janela."
+            return
+        }
+
+        currentFocusBlockMatch = match
+        focusShieldStatusMessage = "\(match.title) esta bloqueado por \(match.profile.title)."
+
+        if let lastDeliveredAt = focusBlockDeliveries[match.id],
+           Date().timeIntervalSince(lastDeliveredAt) < 300 {
+            return
+        }
+
+        focusBlockDeliveries[match.id] = Date()
+        await reminderEngine.triggerManualReminder(
+            identifier: "luum-shield-\(match.id)",
+            title: "Escudo de foco ativo",
+            message: match.detail,
+            subtitle: match.subtitle
+        )
+        await sendZapierFocusEventIfNeeded(
+            type: "focus_block_triggered",
+            profileTitle: match.profile.title,
+            details: [
+                "target": match.title,
+                "kind": match.targetKind.title,
+            ]
+        )
     }
 
     private func isIgnored(sample: ActivitySample) -> Bool {
@@ -1181,8 +3078,77 @@ final class ActivityStore {
         return clipped
     }
 
+    private func continuousStreakDuration(for categoryIDs: Set<String>, in samples: [ActivitySample]) -> TimeInterval {
+        guard let lastSample = samples.last else { return 0 }
+        let lastCategoryID = classifier.classify(sample: lastSample, preferences: monitoringPreferences).id
+        guard categoryIDs.contains(lastCategoryID) else { return 0 }
+
+        var streakStart = lastSample.startDate
+        var streakEnd = lastSample.endDate
+
+        for sample in samples.dropLast().reversed() {
+            let categoryID = classifier.classify(sample: sample, preferences: monitoringPreferences).id
+            guard categoryIDs.contains(categoryID) else { break }
+            guard streakStart.timeIntervalSince(sample.endDate) <= 90 else { break }
+
+            streakStart = sample.startDate
+            streakEnd = max(streakEnd, sample.endDate)
+        }
+
+        return max(0, streakEnd.timeIntervalSince(streakStart))
+    }
+
+    private func isProfileWithinSchedule(_ profile: FocusModeProfile, at date: Date) -> Bool {
+        let weekday = Calendar.autoupdatingCurrent.component(.weekday, from: date)
+        let hour = Calendar.autoupdatingCurrent.component(.hour, from: date)
+
+        return profile.isEnabled &&
+            profile.weekdays.contains(weekday) &&
+            hour >= profile.startHour &&
+            hour < profile.endHour
+    }
+
+    private func activeFocusBlockMatch(at date: Date = Date()) -> FocusBlockMatch? {
+        guard let currentSnapshot else { return nil }
+
+        let normalizedDomain = classifier.domain(from: sanitizedURL(from: currentSnapshot.webURL))
+        let normalizedTitle = sanitizedTitle(from: currentSnapshot.pageTitle)
+        let normalizedAppName = normalizePattern(currentSnapshot.applicationName)
+        let normalizedBundleID = normalizePattern(currentSnapshot.bundleIdentifier ?? "")
+
+        for profile in focusProfiles where profile.hasBlockingRules && isProfileWithinSchedule(profile, at: date) {
+            if let domain = normalizedDomain,
+               let blockedDomain = profile.blockedDomains.first(where: { !$0.isEmpty && domain.contains($0) }) {
+                return FocusBlockMatch(
+                    profile: profile,
+                    targetKind: .domain,
+                    blockedPattern: blockedDomain,
+                    applicationName: currentSnapshot.applicationName,
+                    pageTitle: normalizedTitle,
+                    domain: domain
+                )
+            }
+
+            if let blockedApplication = profile.blockedApplications.first(where: { pattern in
+                !pattern.isEmpty && (normalizedAppName.contains(pattern) || normalizedBundleID.contains(pattern))
+            }) {
+                return FocusBlockMatch(
+                    profile: profile,
+                    targetKind: .application,
+                    blockedPattern: blockedApplication,
+                    applicationName: currentSnapshot.applicationName,
+                    pageTitle: normalizedTitle,
+                    domain: normalizedDomain
+                )
+            }
+        }
+
+        return nil
+    }
+
     private func invalidateSummaries() {
         summaryCache.removeAll()
+        summaryRevision &+= 1
     }
 
     private func normalizedDay(_ day: Date) -> Date {
@@ -1310,12 +3276,148 @@ final class ActivityStore {
         return stored
     }
 
+    private func sortSamples() {
+        samples.sort {
+            if $0.startDate == $1.startDate {
+                return $0.endDate < $1.endDate
+            }
+
+            return $0.startDate < $1.startDate
+        }
+    }
+
+    private func canMerge(lhs: ActivitySample, rhs: ActivitySample) -> Bool {
+        let gap = min(
+            abs(lhs.startDate.timeIntervalSince(rhs.endDate)),
+            abs(rhs.startDate.timeIntervalSince(lhs.endDate))
+        )
+
+        return lhs.applicationName == rhs.applicationName &&
+            lhs.bundleIdentifier == rhs.bundleIdentifier &&
+            lhs.webURL == rhs.webURL &&
+            lhs.webDomain == rhs.webDomain &&
+            lhs.pageTitle == rhs.pageTitle &&
+            lhs.manualCategoryID == rhs.manualCategoryID &&
+            gap <= sessionGapTolerance
+    }
+
+    private func makeTeamScore(
+        trackedTime: TimeInterval,
+        focusTime: TimeInterval,
+        plannedTime: TimeInterval,
+        contextSwitches: Int
+    ) -> Int {
+        let utilization = plannedTime > 0 ? min(trackedTime / plannedTime, 1.25) : 1
+        let focusRatio = trackedTime > 0 ? min(focusTime / trackedTime, 1) : 0
+        let switchPenalty = min(Double(contextSwitches) / 120, 0.2)
+        let rawScore = (utilization * 52) + (focusRatio * 38) + ((1 - switchPenalty) * 10)
+        return max(0, min(100, Int(rawScore.rounded())))
+    }
+
+    private func makeWorkspaceMemberPayload(for day: Date) -> WorkspaceMemberSnapshotPayload {
+        let report = weeklyReport(containing: day)
+        let plannedTime = max(report.totalTrackedTime * 0.92, report.averageDailyTrackedTime * 5)
+        let score = makeTeamScore(
+            trackedTime: report.totalTrackedTime,
+            focusTime: report.focusTime,
+            plannedTime: plannedTime,
+            contextSwitches: report.contextSwitches
+        )
+
+        return WorkspaceMemberSnapshotPayload(
+            organizationName: teamSettings.organizationName,
+            memberDisplayName: teamSettings.memberDisplayName,
+            roleLabel: teamSettings.roleLabel,
+            trackedTime: report.totalTrackedTime,
+            focusTime: report.focusTime,
+            plannedTime: plannedTime,
+            contextSwitches: report.contextSwitches,
+            score: score,
+            snapshotDay: Calendar.autoupdatingCurrent.startOfDay(for: day),
+            weekStart: report.startDate,
+            weekEnd: report.endDate
+        )
+    }
+
+    private func sendZapierFocusEventIfNeeded(type: String, profileTitle: String, details: [String: String]) async {
+        guard zapierSettings.isEnabled,
+              zapierSettings.sendsFocusEvents,
+              zapierConfigured
+        else { return }
+
+        var payloadDetails = details
+        payloadDetails["profile"] = profileTitle
+        await sendZapierEvent(type: type, details: payloadDetails)
+    }
+
+    private func sendZapierCalendarSyncEventIfNeeded(source: String, itemCount: Int) async {
+        guard zapierSettings.isEnabled,
+              zapierSettings.sendsCalendarSyncEvents,
+              zapierConfigured
+        else { return }
+
+        await sendZapierEvent(
+            type: "calendar_sync",
+            details: [
+                "source": source,
+                "items": String(itemCount),
+            ]
+        )
+    }
+
+    private func sendZapierWorkspaceEventIfNeeded(memberCount: Int) async {
+        guard zapierSettings.isEnabled,
+              zapierSettings.sendsWorkspaceRankingEvents,
+              zapierConfigured
+        else { return }
+
+        await sendZapierEvent(
+            type: "workspace_ranking_sync",
+            details: [
+                "workspace": teamSettings.workspaceID,
+                "members": String(memberCount),
+            ]
+        )
+    }
+
+    private func sendZapierEvent(type: String, details: [String: String]) async {
+        do {
+            let payload = ZapierWebhookPayload(
+                eventType: type,
+                sentAt: Date(),
+                appName: "luum",
+                organizationName: teamSettings.organizationName,
+                memberName: teamSettings.memberDisplayName,
+                details: details
+            )
+            try await zapierService.send(
+                webhookURL: zapierSettings.webhookURL,
+                payload: payload
+            )
+            monitoringPreferences.zapierSettings.lastDeliveryAt = Date()
+            zapierStatusMessage = "Webhook do Zapier entregue com sucesso."
+            persistMonitoringPreferences()
+        } catch {
+            zapierStatusMessage = error.localizedDescription
+        }
+    }
+
     private var cloudBackupSecret: String? {
         keychainService.string(for: Self.cloudBackupSecretKey)
     }
 
+    private var workspaceSecret: String? {
+        keychainService.string(for: Self.teamWorkspaceSecretKey)
+    }
+
+    private static let firebaseAuthSessionKey = "firebase-auth-session"
     private static let googleCalendarClientSecretKey = "google-calendar-client-secret"
     private static let cloudBackupSecretKey = "cloud-sync-backup-secret"
+    private static let notionCalendarTokenKey = "notion-calendar-token"
+    private static let outlookCalendarTokenKey = "outlook-calendar-token"
+    private static let clickUpTokenKey = "clickup-api-token"
+    private static let linearTokenKey = "linear-api-key"
+    private static let teamWorkspaceSecretKey = "team-workspace-secret"
 
     private static func googleCalendarTokenKey(_ connectionID: String) -> String {
         "google-calendar-token-\(connectionID)"
@@ -1338,5 +3440,31 @@ private struct AggregateBucket {
             category: categoryTotals.max(by: { $0.value < $1.value })?.key,
             systemImage: systemImage
         )
+    }
+}
+
+private struct WeeklyExportBreakdown: Codable {
+    let label: String
+    let duration: TimeInterval
+}
+
+private struct WeeklyReportExportPayload: Codable {
+    let startDate: Date
+    let endDate: Date
+    let totalTrackedTime: TimeInterval
+    let averageDailyTrackedTime: TimeInterval
+    let contextSwitches: Int
+    let focusTime: TimeInterval
+    let distractionTime: TimeInterval
+    let topCategories: [WeeklyExportBreakdown]
+    let topApps: [WeeklyExportBreakdown]
+    let topSites: [WeeklyExportBreakdown]
+    let highlights: [String]
+}
+
+private extension String {
+    var nilIfBlank: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

@@ -23,9 +23,9 @@ secrets.json
 
 # Firebase
 .firebase/
-firebase.json
-database.rules.json
-storage.rules
+/firebase.json
+/database.rules.json
+/storage.rules
 *.log
 
 # Rider

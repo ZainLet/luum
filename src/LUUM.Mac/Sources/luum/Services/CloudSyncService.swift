@@ -22,12 +22,12 @@ struct CloudSyncSnapshotResponse: Codable, Sendable {
 }
 
 struct CloudSyncSaveRequest: Codable, Sendable {
-    let backupSecret: String
+    let backupSecret: String?
     let payload: CloudBackupPayload
 }
 
 struct CloudSyncRestoreRequest: Codable, Sendable {
-    let backupSecret: String
+    let backupSecret: String?
 }
 
 enum CloudSyncError: LocalizedError {
@@ -41,7 +41,7 @@ enum CloudSyncError: LocalizedError {
         case .invalidBaseURL:
             "A URL do sync em nuvem nao e valida."
         case .unauthorized:
-            "A chave de backup nao confere com a copia salva."
+            "O login Firebase ou a chave de backup nao autorizou o sync."
         case .invalidResponse:
             "A resposta do sync em nuvem veio incompleta."
         case let .apiError(message):
@@ -57,11 +57,14 @@ struct CloudSyncService {
         self.session = session
     }
 
-    func push(baseURL: String, backupID: String, secret: String, payload: CloudBackupPayload) async throws -> Date {
+    func push(baseURL: String, backupID: String, secret: String?, firebaseToken: String?, payload: CloudBackupPayload) async throws -> Date {
         let url = try makeURL(baseURL: baseURL, backupID: backupID)
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let firebaseToken = Self.nonBlank(firebaseToken) {
+            request.setValue("Bearer \(firebaseToken)", forHTTPHeaderField: "Authorization")
+        }
         request.httpBody = try JSONEncoder().encode(CloudSyncSaveRequest(backupSecret: secret, payload: payload))
 
         let response: CloudSyncSnapshotResponse = try await perform(request)
@@ -71,11 +74,14 @@ struct CloudSyncService {
         return updatedAt
     }
 
-    func pull(baseURL: String, backupID: String, secret: String) async throws -> CloudBackupPayload? {
+    func pull(baseURL: String, backupID: String, secret: String?, firebaseToken: String?) async throws -> CloudBackupPayload? {
         let url = try makeURL(baseURL: baseURL, backupID: backupID)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let firebaseToken = Self.nonBlank(firebaseToken) {
+            request.setValue("Bearer \(firebaseToken)", forHTTPHeaderField: "Authorization")
+        }
         request.httpBody = try JSONEncoder().encode(CloudSyncRestoreRequest(backupSecret: secret))
 
         let response: CloudSyncSnapshotResponse = try await perform(request)
@@ -94,6 +100,12 @@ struct CloudSyncService {
         }
 
         return base.appending(path: "/api/sync/\(trimmedBackupID)")
+    }
+
+    private static func nonBlank(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private func perform<T: Decodable>(_ request: URLRequest) async throws -> T {

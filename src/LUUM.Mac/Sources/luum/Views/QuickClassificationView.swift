@@ -25,7 +25,7 @@ enum QuickClassificationKind {
     var helperText: String {
         switch self {
         case .applications:
-            "Os apps com mais tempo no dia aparecem primeiro. Voce pode trocar a categoria ou ignorar um item sem abrir uma lista enorme de regras."
+            "Os apps com mais tempo no dia aparecem primeiro. Voce pode trocar a categoria ou ocultar um item sem abrir uma lista enorme de regras. Se ocultar um navegador, os sites dele continuam aparecendo na aba de sites."
         case .websites:
             "Os dominios mais presentes no dia aparecem primeiro. Ajuste a categoria com um clique ou bloqueie um site para ele sair das metricas."
         }
@@ -43,7 +43,7 @@ enum QuickClassificationKind {
     var ignoreLabel: String {
         switch self {
         case .applications:
-            "Ignorar app"
+            "Ocultar app nas metricas"
         case .websites:
             "Ignorar site"
         }
@@ -76,12 +76,23 @@ struct QuickClassificationView: View {
     let title: String
     let subtitle: String
     let emptyState: String
-    let items: [UsageBreakdownItem]
+    let selectedDay: Date
 
     @State private var searchText = ""
     @State private var showsAllItems = false
 
     private let collapsedItemLimit = 10
+
+    private var items: [UsageBreakdownItem] {
+        _ = store.summaryRevision
+        let summary = store.summary(for: selectedDay)
+        switch kind {
+        case .applications:
+            return summary.appBreakdown
+        case .websites:
+            return summary.websiteBreakdown
+        }
+    }
 
     private var filteredItems: [UsageBreakdownItem] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -155,6 +166,10 @@ struct QuickClassificationView: View {
             .padding(28)
         }
         .scrollIndicators(.hidden)
+        .onChange(of: selectedDay) { _, _ in
+            showsAllItems = false
+            searchText = ""
+        }
     }
 
     private var filtersCard: some View {
@@ -200,7 +215,8 @@ private struct QuickClassificationRow: View {
     let item: UsageBreakdownItem
 
     private var selectedCategory: ActivityCategory {
-        item.category ?? store.category(for: ActivityCategory.uncategorized.id) ?? .uncategorized
+        _ = store.summaryRevision
+        return item.category ?? store.category(for: ActivityCategory.uncategorized.id) ?? .uncategorized
     }
 
     var body: some View {

@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luum - Cadastro</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a12; color: #ffffff;
+            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            padding: 24px;
+        }
+        .card {
+            background: #12121e; border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 32px; padding: 36px 32px; max-width: 440px; width: 100%;
+        }
+        .logo { width: 64px; height: 64px; margin-bottom: 10px; border-radius: 16px; display: block; }
+        h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+        p.subtitle { color: #8888aa; font-size: 14px; margin-bottom: 24px; }
+
+        .progress-track { height: 3px; background: rgba(255,255,255,0.06); border-radius: 100px; margin-bottom: 24px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #6c5ce7; border-radius: 100px; transition: width 0.4s ease; width: 0%; }
+
+        .step { display: none; }
+        .step.active { display: block; }
+        .step h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+        .step .desc { color: #8888aa; font-size: 14px; margin-bottom: 18px; }
+
+        .options { display: flex; flex-direction: column; gap: 6px; }
+        .option {
+            display: flex; align-items: center; gap: 12px;
+            padding: 13px 16px; border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.06); cursor: pointer;
+            background: transparent; color: #ffffff;
+            font-size: 14px; font-family: inherit; text-align: left;
+            transition: all 0.2s; width: 100%;
+        }
+        .option:hover { border-color: rgba(108,92,231,0.3); background: rgba(255,255,255,0.02); }
+        .option.selected { border-color: #6c5ce7; background: rgba(108,92,231,0.08); }
+        .option .emoji { font-size: 16px; flex-shrink: 0; }
+        .option .check {
+            width: 18px; height: 18px; border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.1); flex-shrink: 0;
+            margin-left: auto; display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .option.selected .check { border-color: #6c5ce7; background: #6c5ce7; }
+        .option.selected .check::after { content: ''; width: 6px; height: 3px; border-left: 2px solid white; border-bottom: 2px solid white; rotate: -45deg; margin-top: -1px; }
+        .option.multi .check { border-radius: 4px; }
+
+        .nav-btns { display: flex; gap: 10px; margin-top: 20px; }
+        .nav-btns .btn { padding: 12px 24px; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; border: none; font-family: inherit; transition: all 0.2s; }
+        .btn-primary { background: #6c5ce7; color: white; flex: 1; }
+        .btn-primary:hover { background: #5a4bd1; }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-back { background: rgba(255,255,255,0.04); color: #aaaacc; border: 1px solid rgba(255,255,255,0.06); }
+        .btn-back:hover { background: rgba(255,255,255,0.08); }
+        .btn-skip { background: none; color: #555577; font-size: 13px; cursor: pointer; padding: 12px 8px; font-family: inherit; border: none; }
+        .btn-skip:hover { color: #8888aa; }
+
+        .form-group { margin-bottom: 16px; text-align: left; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; color: #aaaacc; margin-bottom: 6px; }
+        .form-group input {
+            width: 100%; padding: 12px 14px; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px; background: #0e0e1a; color: #ffffff; font-size: 14px; outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus { border-color: #6c5ce7; }
+
+        .error { color: #ff4757; font-size: 13px; margin-top: 12px; display: none; }
+        .success { color: #2ed573; font-size: 13px; margin-top: 12px; display: none; }
+        .loading { display: none; align-items: center; gap: 10px; margin-top: 16px; color: #8888aa; font-size: 14px; }
+        .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.1); border-top-color: #6c5ce7; border-radius: 50%; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .info { margin-top: 20px; font-size: 12px; color: #555577; }
+        .info a { color: #6c5ce7; text-decoration: none; }
+
+        .outro-input { display: none; margin-top: 12px; }
+        .outro-input.visible { display: block; }
+        .signup-form { animation: fadeUp 0.3s ease-out; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+        .fallback-link { margin-top: 16px; font-size: 13px; }
+        .fallback-link a { color: #6c5ce7; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+
+        <div class="step active" id="step0">
+            <img class="logo" src="favicon.png" alt="Luum">
+            <h1>Bem-vindo ao Luum</h1>
+            <p class="subtitle">Algumas perguntas rápidas para entendermos você.</p>
+            <button class="btn btn-primary" onclick="go(1)" style="width:100%;">Começar</button>
+        </div>
+
+        <div class="step" id="step1">
+            <h2>Qual seu cargo?</h2>
+            <p class="desc">Selecione ou digite sua função.</p>
+            <div class="options" id="s1">
+                <button class="option" data-v="desenvolvedor" onclick="pick(this,'s1')"><span class="emoji">💻</span> Desenvolvedor(a)<span class="check"></span></button>
+                <button class="option" data-v="designer" onclick="pick(this,'s1')"><span class="emoji">🎨</span> Designer<span class="check"></span></button>
+                <button class="option" data-v="gestor" onclick="pick(this,'s1')"><span class="emoji">📊</span> Gestor(a)<span class="check"></span></button>
+                <button class="option" data-v="ceo" onclick="pick(this,'s1')"><span class="emoji">🏢</span> CEO / Founder<span class="check"></span></button>
+                <button class="option" data-v="freelancer" onclick="pick(this,'s1')"><span class="emoji">✨</span> Freelancer<span class="check"></span></button>
+                <button class="option" data-v="outro" onclick="pick(this,'s1')"><span class="emoji">🗂️</span> Outro<span class="check"></span></button>
+            </div>
+            <div class="outro-input" id="outroBox">
+                <label style="font-size:13px;color:#aaaacc;font-weight:600;display:block;margin-bottom:6px;">Qual sua profissão?</label>
+                <input type="text" id="outroField" placeholder="Ex: Advogado, Médico, Professor..." oninput="state.answers.cargo = this.value || 'outro'">
+            </div>
+            <div class="nav-btns">
+                <button class="btn btn-back" onclick="go(0)">Voltar</button>
+                <button class="btn btn-primary" id="n1" onclick="go(2)" disabled>Avançar</button>
+            </div>
+        </div>
+
+        <div class="step" id="step2">
+            <h2>Quantas pessoas no seu time?</h2>
+            <p class="desc">Isso ajuda a recomendar o plano ideal.</p>
+            <div class="options" id="s2">
+                <button class="option" data-v="solo" onclick="pick(this,'s2')"><span class="emoji">👤</span> Apenas eu<span class="check"></span></button>
+                <button class="option" data-v="2-5" onclick="pick(this,'s2')"><span class="emoji">👥</span> 2 a 5<span class="check"></span></button>
+                <button class="option" data-v="6-20" onclick="pick(this,'s2')"><span class="emoji">👨‍👩‍👧‍👦</span> 6 a 20<span class="check"></span></button>
+                <button class="option" data-v="20+" onclick="pick(this,'s2')"><span class="emoji">🏢</span> Mais de 20<span class="check"></span></button>
+            </div>
+            <div class="nav-btns">
+                <button class="btn btn-back" onclick="go(1)">Voltar</button>
+                <button class="btn btn-primary" id="n2" onclick="go(3)" disabled>Avançar</button>
+            </div>
+        </div>
+
+        <div class="step" id="step3">
+            <h2>Ferramentas que mais usa?</h2>
+            <p class="desc">Selecione as que seu time utiliza.</p>
+            <div class="options" id="s3">
+                <button class="option multi" data-v="gcal" onclick="tmulti(this)"><span class="emoji">📅</span> Google Calendar<span class="check"></span></button>
+                <button class="option multi" data-v="notion" onclick="tmulti(this)"><span class="emoji">📝</span> Notion<span class="check"></span></button>
+                <button class="option multi" data-v="clickup" onclick="tmulti(this)"><span class="emoji">✅</span> ClickUp<span class="check"></span></button>
+                <button class="option multi" data-v="linear" onclick="tmulti(this)"><span class="emoji">⬆️</span> Linear<span class="check"></span></button>
+                <button class="option multi" data-v="slack" onclick="tmulti(this)"><span class="emoji">💬</span> Slack<span class="check"></span></button>
+                <button class="option multi" data-v="asana" onclick="tmulti(this)"><span class="emoji">📋</span> Asana<span class="check"></span></button>
+            </div>
+            <div class="nav-btns">
+                <button class="btn btn-back" onclick="go(2)">Voltar</button>
+                <button class="btn btn-primary" onclick="go(4)">Avançar</button>
+                <button class="btn-skip" onclick="go(4)">Pular</button>
+            </div>
+        </div>
+
+        <div class="step" id="step4">
+            <h2>Principal objetivo?</h2>
+            <p class="desc">O que você quer alcançar com o Luum?</p>
+            <div class="options" id="s4">
+                <button class="option" data-v="faturar" onclick="pick(this,'s4')"><span class="emoji">💰</span> Faturar mais horas<span class="check"></span></button>
+                <button class="option" data-v="foco" onclick="pick(this,'s4')"><span class="emoji">🧠</span> Reduzir distrações<span class="check"></span></button>
+                <button class="option" data-v="estimar" onclick="pick(this,'s4')"><span class="emoji">📈</span> Melhorar estimativas<span class="check"></span></button>
+                <button class="option" data-v="perf" onclick="pick(this,'s4')"><span class="emoji">🚀</span> Performance do time<span class="check"></span></button>
+                <button class="option" data-v="burnout" onclick="pick(this,'s4')"><span class="emoji">⚖️</span> Evitar burnout<span class="check"></span></button>
+            </div>
+            <div class="nav-btns">
+                <button class="btn btn-back" onclick="go(3)">Voltar</button>
+                <button class="btn btn-primary" id="n4" onclick="go(5)" disabled>Criar conta</button>
+            </div>
+        </div>
+
+        <div class="step" id="step5">
+            <div class="signup-form">
+                <h1>Criar Conta</h1>
+                <p class="subtitle">Cadastre-se para usar o Luum</p>
+                <form id="signupForm">
+                    <div class="form-group">
+                        <label for="name">Nome</label>
+                        <input type="text" id="name" placeholder="Seu nome" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" placeholder="seu@email.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Senha</label>
+                        <input type="password" id="password" placeholder="Mínimo 6 caracteres" minlength="6" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirmar Senha</label>
+                        <input type="password" id="confirmPassword" placeholder="Repita a senha" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="signupBtn" style="width:100%;padding:14px;">Criar Conta</button>
+                </form>
+                <div class="error" id="errorMsg"></div>
+                <div class="success" id="successMsg"></div>
+                <div class="loading" id="loadingIndicator">
+                    <div class="spinner"></div>
+                    <span>Criando conta...</span>
+                </div>
+                <div class="info">
+                    <p>Já tem conta? <a href="login.html">Faça login</a></p>
+                    <p style="margin-top:4px;">Ao criar conta, você aceita os <a href="termos.html">Termos</a>.</p>
+                </div>
+                <div class="fallback-link" id="fallbackLink" style="display:none;">
+                    <p>Se o aplicativo não abrir, <a href="account.html">clique aqui</a>.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://api.luum-app.com';
+
+        const state = { step: 0, answers: { cargo: null, time: null, tools: [], objetivo: null } };
+        let signingUp = false; // evita conflito com onAuthStateChanged
+        let redirecting = false;
+
+        function go(n) {
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            document.getElementById('step' + n).classList.add('active');
+            document.getElementById('progressFill').style.width = (n / 5) * 100 + '%';
+            state.step = n;
+        }
+
+        function pick(el, sid) {
+            const key = { s1: 'cargo', s2: 'time', s4: 'objetivo' }[sid];
+            el.parentElement.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+            el.classList.add('selected');
+            const isOutro = sid === 's1' && el.dataset.v === 'outro';
+            document.getElementById('outroBox').classList.toggle('visible', isOutro);
+            state.answers[key] = isOutro ? (document.getElementById('outroField').value || 'outro') : el.dataset.v;
+            const btn = document.getElementById({ s1: 'n1', s2: 'n2', s4: 'n4' }[sid]);
+            if (btn) btn.disabled = false;
+        }
+
+        function tmulti(el) {
+            el.classList.toggle('selected');
+            state.answers.tools = [...document.querySelectorAll('#s3 .option.selected')].map(o => o.dataset.v);
+        }
+
+        function showError(msg) {
+            document.getElementById('errorMsg').textContent = msg;
+            document.getElementById('errorMsg').style.display = 'block';
+            document.getElementById('successMsg').style.display = 'none';
+        }
+        function showSuccess(msg) {
+            document.getElementById('successMsg').textContent = msg;
+            document.getElementById('successMsg').style.display = 'block';
+            document.getElementById('errorMsg').style.display = 'none';
+        }
+        function setLoading(l) {
+            document.getElementById('loadingIndicator').style.display = l ? 'flex' : 'none';
+            document.getElementById('signupBtn').disabled = l;
+        }
+
+        function getRedirectTarget() {
+            const params = new URLSearchParams(window.location.search);
+            const redirect = params.get('redirect');
+            if (!redirect) return null;
+
+            const target = new URL(redirect, window.location.href);
+            if (target.origin !== window.location.origin) return null;
+            return `${target.pathname.replace(/^\//, '')}${target.search}${target.hash}`;
+        }
+
+        function shouldOpenApp() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('app') === 'mac' || !getRedirectTarget();
+        }
+
+        async function exchangeTokenAndRedirect(user) {
+            if (redirecting) return;
+            redirecting = true;
+            try {
+                const idToken = await user.getIdToken();
+                const accountResponse = await fetch(luumApiUrl('/api/auth/upsert-user'), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${idToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: user.email,
+                        name: user.displayName,
+                        onboarding: {
+                            cargo: state.answers.cargo || null,
+                            time: state.answers.time || null,
+                            ferramentas: state.answers.tools || [],
+                            objetivo: state.answers.objetivo || null
+                        }
+                    })
+                });
+                const accountData = await accountResponse.json().catch(() => ({}));
+                if (!accountResponse.ok) {
+                    throw new Error(accountData.error || 'Backend de conta indisponível.');
+                }
+
+                const redirectTarget = getRedirectTarget();
+
+                if (!shouldOpenApp() && redirectTarget) {
+                    showSuccess('Conta criada! Redirecionando...');
+                    window.location.href = redirectTarget;
+                    return;
+                }
+
+                const refreshToken = user.refreshToken || '';
+                const redirectUrl = `luum://auth?token=${encodeURIComponent(idToken)}&refreshToken=${encodeURIComponent(refreshToken)}&uid=${encodeURIComponent(user.uid)}`;
+
+                showSuccess('Conta criada! Redirecionando...');
+
+                // Tenta abrir o app. Se falhar, mostra fallback.
+                document.getElementById('fallbackLink').style.display = 'block';
+                window.location.href = redirectUrl;
+            } catch (error) {
+                redirecting = false;
+                showError('Erro: ' + error.message);
+                setLoading(false);
+            }
+        }
+
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (signingUp) return;
+            signingUp = true;
+
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const confirm = document.getElementById('confirmPassword').value;
+            if (password !== confirm) { showError('Senhas não conferem'); signingUp = false; return; }
+            setLoading(true);
+
+            try {
+                const result = await firebase.auth().createUserWithEmailAndPassword(email, password);
+                await result.user.updateProfile({ displayName: name });
+
+                await exchangeTokenAndRedirect(result.user);
+            } catch (error) {
+                const map = {
+                    'auth/email-already-in-use': 'Email já cadastrado',
+                    'auth/weak-password': 'Senha muito fraca (mínimo 6 caracteres)',
+                    'auth/invalid-email': 'Email inválido',
+                    'auth/operation-not-allowed': 'Email/Senha não ativado no Firebase Console'
+                };
+                showError(map[error.code] || error.message);
+                setLoading(false);
+                signingUp = false;
+            }
+        });
+
+        // Só redireciona se não estiver no meio do cadastro
+        firebase.auth().onAuthStateChanged(async user => {
+            if (user && !signingUp) {
+                await exchangeTokenAndRedirect(user);
+            }
+        });
+    </script>
+</body>
+</html>

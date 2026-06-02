@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planos e Preços — Luum</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        .sales-hero {
+            padding: 160px 0 80px;
+            text-align: center;
+            background: var(--bg-primary);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sales-hero::before {
+            content: '';
+            position: absolute;
+            top: -20%;
+            left: 50%;
+            translate: -50% 0;
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle at center, rgba(155, 108, 255, 0.06) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        .sales-hero h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, #ffffff 0%, #b088ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .sales-hero p {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+            max-width: 560px;
+            margin: 0 auto;
+        }
+
+        .sales-pricing {
+            background: var(--bg-secondary);
+            padding: 80px 0 100px;
+        }
+
+        .sales-pricing .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .pricing-card .btn {
+            margin-bottom: 0;
+        }
+
+        .pricing-card .btn[data-checkout] {
+            width: 100%;
+        }
+
+        .sales-faq {
+            background: var(--bg-primary);
+            padding: 100px 0;
+        }
+
+        .sales-faq h2 {
+            margin-bottom: 48px;
+        }
+
+        .faq-grid {
+            max-width: 720px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .faq-item {
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        .faq-question {
+            width: 100%;
+            padding: 20px 24px;
+            background: var(--bg-card);
+            border: none;
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            font-family: inherit;
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.25s ease;
+        }
+
+        .faq-question:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .faq-question .faq-icon {
+            font-size: 1.25rem;
+            transition: transform 0.3s ease;
+            color: var(--text-muted);
+        }
+
+        .faq-item.open .faq-question .faq-icon {
+            transform: rotate(45deg);
+        }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease, padding 0.35s ease;
+            padding: 0 24px;
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+
+        .faq-item.open .faq-answer {
+            max-height: 300px;
+            padding: 0 24px 20px;
+        }
+
+        .sales-cta {
+            background: linear-gradient(135deg, rgba(155, 108, 255, 0.06) 0%, transparent 100%);
+            border-top: 1px solid var(--border-subtle);
+            border-bottom: 1px solid var(--border-subtle);
+            text-align: center;
+            padding: 100px 0;
+        }
+
+        .sales-cta h2 {
+            font-size: 2.75rem;
+            margin-bottom: 16px;
+        }
+
+        .sales-cta p {
+            max-width: 520px;
+            margin: 0 auto 40px;
+            color: var(--text-secondary);
+        }
+
+        .sales-cta .cta-actions {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .highlight {
+            color: var(--purple-500);
+            font-weight: 600;
+        }
+
+        @media (max-width: 992px) {
+            .sales-hero { padding: 130px 0 60px; }
+            .sales-hero h1 { font-size: 2.5rem; }
+            .sales-pricing .pricing-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sales-hero h1 { font-size: 2rem; }
+            .sales-pricing .pricing-grid {
+                grid-template-columns: 1fr;
+                max-width: 420px;
+                margin: 0 auto;
+            }
+            .sales-cta h2 { font-size: 2rem; }
+            .sales-cta .cta-actions { flex-direction: column; align-items: center; }
+            .sales-cta .cta-actions .btn { width: 100%; max-width: 320px; }
+            .faq-question { font-size: 0.9375rem; padding: 16px 20px; }
+            .faq-answer { font-size: 0.875rem; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <a href="index.html">Luum</a>
+            </div>
+            <nav class="nav">
+                <ul class="nav-list">
+                    <li><a href="index.html#solucoes">Soluções</a></li>
+                    <li><a href="index.html#recursos">Recursos</a></li>
+                    <li><a href="vendas.html">Preços</a></li>
+                    <li><a href="index.html#integracoes">Integrações</a></li>
+                    <li><a href="index.html#privacidade">Privacidade</a></li>
+                    <li><a href="cadastro.html">Começar</a></li>
+                </ul>
+                <div class="nav-actions">
+                    <a href="login.html" class="btn btn-secondary js-auth-login">Entrar</a>
+                    <a href="cadastro.html" class="btn btn-primary js-auth-signup">Começar Grátis</a>
+                </div>
+            </nav>
+            <div class="nav-actions header-actions">
+                <a href="login.html" class="btn btn-secondary js-auth-login">Entrar</a>
+                <a href="cadastro.html" class="btn btn-primary js-auth-signup">Começar Grátis</a>
+            </div>
+            <button class="hamburger" aria-label="Abrir Menu">&#9776;</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Sales Hero -->
+        <section class="sales-hero">
+            <div class="container">
+                <h1>Invista na produtividade do seu time</h1>
+                <p>Do indivíduo à grande empresa. Escolha o plano ideal e comece com 7 dias grátis — sem cartão de crédito.</p>
+            </div>
+        </section>
+
+        <!-- Pricing Cards -->
+        <section class="sales-pricing" id="planos">
+            <div class="container">
+                <div class="pricing-grid">
+                    <div class="pricing-card fade-in">
+                        <span class="plan-tag">Individual</span>
+                        <h3>Essencial</h3>
+                        <p class="plan-description">Produtividade pessoal com rastreamento inteligente.</p>
+                        <div class="price-display">
+                            <span class="price-monthly">R$ 29,90<span>/mês</span></span>
+                            <span class="price-annually hidden">R$ 22,42<span>/mês</span></span>
+                            <p class="billing-info price-annually hidden">Cobrança anual: R$ 269,00/ano</p>
+                        </div>
+                        <button class="btn btn-primary" data-checkout="essencial" data-plan="essencial">Assinar Agora</button>
+                        <ul class="features-list">
+                            <li>Rastreamento automático de apps e sites</li>
+                            <li>Classificação automática com 70+ regras nativas</li>
+                            <li>Detecção automática de foco</li>
+                            <li>Focus Shields (bloqueio de distrações)</li>
+                            <li>Música para foco integrada</li>
+                            <li>Relatórios de produtividade pessoal</li>
+                            <li>Insights de produtividade por IA</li>
+                            <li>Planejador de sessões por IA</li>
+                            <li>Notificações de pausas inteligentes</li>
+                            <li>Um workspace</li>
+                        </ul>
+                    </div>
+
+                    <div class="pricing-card fade-in">
+                        <span class="plan-tag">Solopreneurs & Freelancers</span>
+                        <h3>Profissional</h3>
+                        <p class="plan-description">Controle de projetos e estimativas precisas.</p>
+                        <div class="price-display">
+                            <span class="price-monthly">R$ 49,90<span>/mês</span></span>
+                            <span class="price-annually hidden">R$ 37,42<span>/mês</span></span>
+                            <p class="billing-info price-annually hidden">Cobrança anual: R$ 449,00/ano</p>
+                        </div>
+                        <button class="btn btn-primary" data-checkout="profissional" data-plan="profissional">Assinar Agora</button>
+                        <ul class="features-list">
+                            <li>Tudo do plano Essencial, mais:</li>
+                            <li>Rastreamento automático de clientes e projetos</li>
+                            <li>Relatórios agendados (PDF & CSV)</li>
+                            <li>API & Webhooks</li>
+                            <li>Integração com Zapier</li>
+                            <li>Integrações com ClickUp & Linear</li>
+                            <li>Relatórios de cliente exportáveis</li>
+                            <li>Um workspace</li>
+                        </ul>
+                    </div>
+
+                    <div class="pricing-card fade-in featured-plan">
+                        <span class="plan-tag">Equipes & Agências</span>
+                        <h3>Equipes</h3>
+                        <p class="plan-description">Visão completa do time e deep work colaborativo.</p>
+                        <div class="price-display">
+                            <span class="price-monthly">R$ 45,00<span>/usuário/mês</span></span>
+                            <span class="price-annually hidden">R$ 33,75<span>/usuário/mês</span></span>
+                            <p class="billing-info price-annually hidden">Mínimo 2 usuários</p>
+                        </div>
+                        <button class="btn btn-primary" data-checkout="equipes" data-plan="equipes" data-min-seats="2">Assinar Agora</button>
+                        <ul class="features-list">
+                            <li>Tudo do plano Profissional, mais:</li>
+                            <li>Insights de produtividade de equipe por IA</li>
+                            <li>Rastreamento de adoção de ferramentas por IA</li>
+                            <li>Acesso ao servidor MCP</li>
+                            <li>Rentabilidade de cliente e ROI</li>
+                            <li>Visualização de utilização e capacidade</li>
+                            <li>Integração com Google Calendar (múltiplas contas)</li>
+                            <li>Integração com Notion Calendar</li>
+                            <li>Tela de Ranking de Equipe</li>
+                        </ul>
+                    </div>
+
+                    <div class="pricing-card fade-in">
+                        <span class="plan-tag">Empresas</span>
+                        <h3>Negócios</h3>
+                        <p class="plan-description">Gestão avançada para empresas em crescimento.</p>
+                        <div class="price-display">
+                            <span class="price-monthly">R$ 65,00<span>/usuário/mês</span></span>
+                            <span class="price-annually hidden">R$ 48,75<span>/usuário/mês</span></span>
+                            <p class="billing-info price-annually hidden">Mínimo 5 usuários</p>
+                        </div>
+                        <button class="btn btn-primary" data-checkout="negocios" data-plan="negocios" data-min-seats="5">Assinar Agora</button>
+                        <ul class="features-list">
+                            <li>Tudo do plano Equipes, mais:</li>
+                            <li>Previsão e orçamento</li>
+                            <li>Backup de atividades brutas opcional</li>
+                            <li>Suporte prioritário</li>
+                            <li>SSO / SAML (em breve)</li>
+                            <li>Provisionamento SCIM</li>
+                            <li>Integrações e fluxos personalizados</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FAQ -->
+        <section class="sales-faq">
+            <div class="container">
+                <h2>Perguntas Frequentes</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <button class="faq-question" onclick="toggleFaq(this)">
+                            Posso testar grátis?
+                            <span class="faq-icon">+</span>
+                        </button>
+                        <div class="faq-answer">
+                            Sim! Todos os planos oferecem 7 dias de trial gratuito com acesso completo a todas as funcionalidades — sem cartão de crédito.
+                        </div>
+                    </div>
+                    <div class="faq-item">
+                        <button class="faq-question" onclick="toggleFaq(this)">
+                            Como funciona a cobrança?
+                            <span class="faq-icon">+</span>
+                        </button>
+                        <div class="faq-answer">
+                            Oferecemos cobrança mensal ou anual. O plano anual tem desconto de até 25%. Você pode cancelar quando quiser — sem multa.
+                        </div>
+                    </div>
+                    <div class="faq-item">
+                        <button class="faq-question" onclick="toggleFaq(this)">
+                            O Luum funciona como vigilância?
+                            <span class="faq-icon">+</span>
+                        </button>
+                        <div class="faq-answer">
+                            Não. O Luum foi desenhado com privacidade por design. Não capturamos screenshots, keyloggers ou conteúdo de tela. Apenas metadados de janelas e URLs. O colaborador controla o que é compartilhado.
+                        </div>
+                    </div>
+                    <div class="faq-item">
+                        <button class="faq-question" onclick="toggleFaq(this)">
+                            Quais plataformas são suportadas?
+                            <span class="faq-icon">+</span>
+                        </button>
+                        <div class="faq-answer">
+                            O Luum está disponível para macOS e Windows. Suporte para Linux está em desenvolvimento.
+                        </div>
+                    </div>
+                    <div class="faq-item">
+                        <button class="faq-question" onclick="toggleFaq(this)">
+                            Posso migrar de plano depois?
+                            <span class="faq-icon">+</span>
+                        </button>
+                        <div class="faq-answer">
+                            Sim! Você pode fazer upgrade ou downgrade do seu plano a qualquer momento. O valor é ajustado proporcionalmente ao período restante.
+                        </div>
+                    </div>
+                    <div class="faq-item">
+                        <button class="faq-question" onclick="toggleFaq(this)">
+                            Como funciona a integração com Stripe?
+                            <span class="faq-icon">+</span>
+                        </button>
+                        <div class="faq-answer">
+                            O pagamento é processado com segurança via Stripe. Aceitamos cartões de crédito e débito. Para planos corporativos, oferecemos faturamento por nota fiscal.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA Final -->
+        <section class="sales-cta">
+            <div class="container">
+                <h2>Pronto para transformar a produtividade do seu time?</h2>
+                <p>Milhares de profissionais já usam o Luum para focar no que realmente importa.</p>
+                <div class="cta-actions">
+                    <a href="cadastro.html" class="btn btn-primary">Começar Grátis — 7 dias</a>
+                    <a href="#" class="btn btn-secondary">Falar com Consultor <span class="arrow">&rarr;</span></a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Contato para Corporativo -->
+        <section id="contato" class="integrations-section" style="border-top:1px solid var(--border-subtle);">
+            <div class="container">
+                <span class="eyebrow">Contato Corporativo</span>
+                <h2>Solução personalizada para sua empresa</h2>
+                <p style="max-width:560px;margin:0 auto 40px;">Preencha o formulário abaixo e nossa equipe comercial entrará em contato em até 24h.</p>
+                <form style="max-width:480px;margin:0 auto;text-align:left;">
+                    <div class="form-group">
+                        <label for="companyName">Nome da Empresa</label>
+                        <input type="text" id="companyName" placeholder="Sua empresa">
+                    </div>
+                    <div class="form-group">
+                        <label for="companyEmail">Email</label>
+                        <input type="email" id="companyEmail" placeholder="seu@email.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="companySize">Quantos assentos?</label>
+                        <input type="number" id="companySize" placeholder="100+" min="100">
+                    </div>
+                    <button type="submit" class="btn-submit" style="margin-top:8px;">Solicitar Proposta</button>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-col">
+                <h3>Luum</h3>
+                <p style="margin-top:12px;font-size:0.9375rem;">O sistema operacional de produtividade do seu time.</p>
+            </div>
+            <div class="footer-col">
+                <h3>Produto</h3>
+                <ul>
+                    <li><a href="index.html#solucoes">Soluções</a></li>
+                    <li><a href="index.html#recursos">Recursos</a></li>
+                    <li><a href="vendas.html">Preços</a></li>
+                    <li><a href="index.html#integracoes">Integrações</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h3>Empresa</h3>
+                <ul>
+                    <li><a href="#">Sobre Nós</a></li>
+                    <li><a href="#">Blog</a></li>
+                    <li><a href="#">Termos de Serviço</a></li>
+                    <li><a href="#">Política de Privacidade</a></li>
+                </ul>
+            </div>
+            <div class="footer-col community">
+                <h3>Comunidade</h3>
+                <div class="social-links">
+                    <a href="#"><img src="https://cdn.icon-icons.com/icons2/2699/PNG/512/twitter_logo_icon_169022.png" alt="Twitter/X"></a>
+                    <a href="#"><img src="https://cdn.icon-icons.com/icons2/2699/PNG/512/linkedin_logo_icon_169018.png" alt="LinkedIn"></a>
+                    <a href="#"><img src="https://cdn.icon-icons.com/icons2/2699/PNG/512/discord_logo_icon_169002.png" alt="Discord"></a>
+                </div>
+                <p>&copy; 2026 Luum. Todos os direitos reservados.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="auth.js?v=3"></script>
+    <script src="script.js"></script>
+    <script>
+        // ─── FAQ Toggle ──────────────────────────────────
+        function toggleFaq(btn) {
+            const item = btn.closest('.faq-item');
+            const isOpen = item.classList.contains('open');
+
+            // Close all
+            document.querySelectorAll('.faq-item').forEach(el => el.classList.remove('open'));
+
+            // Toggle current
+            if (!isOpen) item.classList.add('open');
+        }
+    </script>
+</body>
+</html>

@@ -91,6 +91,26 @@ final class ReminderEngine {
         return settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
     }
 
+    func triggerManualReminder(identifier: String, title: String, message: String, subtitle: String) async {
+        let allowed = await notificationsAllowed()
+        guard allowed else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = message
+        content.sound = .default
+        content.subtitle = subtitle
+
+        let request = UNNotificationRequest(
+            identifier: identifier,
+            content: content,
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        )
+
+        try? await notificationCenter.add(request)
+        onReminderMessage?("Lembrete disparado: \(title)")
+    }
+
     private func deliver(
         reminder: ReminderProfile,
         streak: ReminderStreak,

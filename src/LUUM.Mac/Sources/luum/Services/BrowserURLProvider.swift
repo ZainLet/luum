@@ -71,11 +71,31 @@ final class BrowserURLProvider {
             return nil
         }
 
+        guard Self.isMeaningfulBrowserURL(url) else {
+            return nil
+        }
+
         return BrowserContext(
             browserName: browser.name,
             pageTitle: title,
             urlString: url
         )
+    }
+
+    private static func isMeaningfulBrowserURL(_ urlString: String) -> Bool {
+        guard let components = URLComponents(string: urlString) else { return false }
+
+        if let scheme = components.scheme?.lowercased(),
+           ["about", "chrome", "edge", "arc", "brave", "vivaldi", "opera", "file"].contains(scheme) {
+            return scheme == "file"
+        }
+
+        if let host = components.host?.lowercased(),
+           !host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return true
+        }
+
+        return false
     }
 }
 
@@ -88,7 +108,7 @@ private struct BrowserDescriptor {
         name: "Safari",
         bundleIdentifiers: ["com.apple.Safari"],
         script: """
-        tell application "Safari"
+        tell application id "com.apple.Safari"
             if not running then return ""
             if (count of windows) is 0 then return ""
             set pageTitle to ""
@@ -105,11 +125,12 @@ private struct BrowserDescriptor {
     )
 
     static func chrome(_ name: String, bundleIdentifiers: [String]) -> BrowserDescriptor {
-        BrowserDescriptor(
+        let targetIdentifier = bundleIdentifiers.first ?? name
+        return BrowserDescriptor(
             name: name,
             bundleIdentifiers: bundleIdentifiers,
             script: """
-            tell application "\(name)"
+            tell application id "\(targetIdentifier)"
                 if not running then return ""
                 if (count of windows) is 0 then return ""
                 set pageTitle to ""

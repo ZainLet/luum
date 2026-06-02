@@ -29,6 +29,7 @@ struct KeychainService {
             kSecAttrAccount as String: account,
         ]
         SecItemDelete(query as CFDictionary)
+        UserDefaults.standard.removeObject(forKey: fallbackKey(for: account))
     }
 
     private func setData(_ data: Data, for account: String) throws {
@@ -48,7 +49,8 @@ struct KeychainService {
         }
 
         if updateStatus != errSecItemNotFound {
-            throw KeychainServiceError(status: updateStatus)
+            setFallbackData(data, for: account)
+            return
         }
 
         var insertQuery = query
@@ -57,8 +59,11 @@ struct KeychainService {
 
         let addStatus = SecItemAdd(insertQuery as CFDictionary, nil)
         guard addStatus == errSecSuccess else {
-            throw KeychainServiceError(status: addStatus)
+            setFallbackData(data, for: account)
+            return
         }
+
+        UserDefaults.standard.removeObject(forKey: fallbackKey(for: account))
     }
 
     private func data(for account: String) -> Data? {
@@ -72,8 +77,21 @@ struct KeychainService {
 
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
-        guard status == errSecSuccess else { return nil }
+        guard status == errSecSuccess else { return fallbackData(for: account) }
         return item as? Data
+    }
+
+    private func fallbackKey(for account: String) -> String {
+        "luum.fallback-secret.\(account)"
+    }
+
+    private func setFallbackData(_ data: Data, for account: String) {
+        UserDefaults.standard.set(data.base64EncodedString(), forKey: fallbackKey(for: account))
+    }
+
+    private func fallbackData(for account: String) -> Data? {
+        guard let raw = UserDefaults.standard.string(forKey: fallbackKey(for: account)) else { return nil }
+        return Data(base64Encoded: raw)
     }
 }
 
