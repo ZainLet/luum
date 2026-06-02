@@ -74,12 +74,16 @@ struct WorkspaceSyncService: Sendable {
         workspaceID: String,
         memberID: String,
         secret: String,
+        firebaseToken: String?,
         payload: WorkspaceMemberSnapshotPayload
     ) async throws -> Date? {
         let url = try makeMemberURL(baseURL: baseURL, workspaceID: workspaceID, memberID: memberID)
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let firebaseToken = Self.nonBlank(firebaseToken) {
+            request.setValue("Bearer \(firebaseToken)", forHTTPHeaderField: "Authorization")
+        }
         request.httpBody = try JSONEncoder().encode(WorkspaceSyncSaveRequest(workspaceSecret: secret, payload: payload))
         let response: WorkspaceSyncSaveResponse = try await perform(request)
         return response.updatedAt
@@ -89,12 +93,16 @@ struct WorkspaceSyncService: Sendable {
         baseURL: String,
         workspaceID: String,
         memberID: String,
-        secret: String
+        secret: String,
+        firebaseToken: String?
     ) async throws -> WorkspaceRankingResponse {
         let url = try makeRankingURL(baseURL: baseURL, workspaceID: workspaceID)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let firebaseToken = Self.nonBlank(firebaseToken) {
+            request.setValue("Bearer \(firebaseToken)", forHTTPHeaderField: "Authorization")
+        }
         request.httpBody = try JSONEncoder().encode(WorkspaceSyncRankingRequest(workspaceSecret: secret, requestingMemberID: memberID))
         return try await perform(request)
     }
@@ -109,6 +117,12 @@ struct WorkspaceSyncService: Sendable {
         }
 
         return baseURL.appending(path: "/api/workspaces/\(workspace)/members/\(member)")
+    }
+
+    private static func nonBlank(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private func makeRankingURL(baseURL: String, workspaceID: String) throws -> URL {

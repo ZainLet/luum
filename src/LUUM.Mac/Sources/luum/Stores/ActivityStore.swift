@@ -348,6 +348,11 @@ final class ActivityStore {
             monitoringPreferences.cloudSyncSettings.endpointURL = FirebaseAuthService.resolvedBaseURL()
         }
 
+        let workspaceEndpoint = monitoringPreferences.teamSettings.workspaceEndpointURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if workspaceEndpoint.isEmpty || workspaceEndpoint == "http://localhost:5000" {
+            monitoringPreferences.teamSettings.workspaceEndpointURL = FirebaseAuthService.resolvedBaseURL()
+        }
+
         if session.plan.includes(.cloudBackup) {
             monitoringPreferences.cloudSyncSettings.isEnabled = true
         }
@@ -523,6 +528,7 @@ final class ActivityStore {
     var teamWorkspaceConfigured: Bool {
         !teamSettings.workspaceEndpointURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !teamSettings.workspaceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !(authSession?.idToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) &&
         !(workspaceSecret?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
     }
 
@@ -2649,13 +2655,15 @@ final class ActivityStore {
                 workspaceID: teamSettings.workspaceID,
                 memberID: teamSettings.workspaceMemberID,
                 secret: secret,
+                firebaseToken: authSession?.idToken,
                 payload: payload
             )
             let ranking = try await workspaceSyncService.fetchRanking(
                 baseURL: teamSettings.workspaceEndpointURL,
                 workspaceID: teamSettings.workspaceID,
                 memberID: teamSettings.workspaceMemberID,
-                secret: secret
+                secret: secret,
+                firebaseToken: authSession?.idToken
             )
             workspaceRankingEntries = ranking.entries
             workspaceSyncLastSyncAt = ranking.updatedAt ?? updatedAt

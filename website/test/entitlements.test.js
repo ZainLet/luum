@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { entitlementForUser, includesFeature, normalizedPlan } = require('../api/_entitlements');
+const { sameHash, secretHash, validID } = require('../api/_workspaceSecurity');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const now = 1_780_000_000_000;
@@ -46,4 +47,11 @@ test('enforces plan tiers for Firebase backup', () => {
     assert.equal(includesFeature(active('equipes'), 'teamWorkspace'), true);
     assert.equal(includesFeature(active('equipes'), 'rawActivityBackup'), false);
     assert.equal(includesFeature(active('negocios'), 'rawActivityBackup'), true);
+});
+
+test('validates workspace ids and compares invite secrets by hash', () => {
+    assert.equal(validID('design-team_2026'), true);
+    assert.equal(validID('../other-workspace'), false);
+    assert.equal(sameHash(secretHash('invite-key'), secretHash('invite-key')), true);
+    assert.equal(sameHash(secretHash('invite-key'), secretHash('wrong-key')), false);
 });

@@ -321,7 +321,7 @@ struct TeamSettings: Codable, Hashable, Sendable {
         sharesAnonymousMetrics: false,
         workspaceID: "",
         workspaceMemberID: Self.makeDefaultMemberID(from: Host.current().localizedName ?? "voce"),
-        workspaceEndpointURL: "http://localhost:5000",
+        workspaceEndpointURL: FirebaseAuthService.defaultBaseURL,
         automaticallySyncWorkspace: false
     )
 
@@ -340,7 +340,7 @@ struct TeamSettings: Codable, Hashable, Sendable {
             sharesAnonymousMetrics: sharesAnonymousMetrics,
             workspaceID: cleanWorkspaceID,
             workspaceMemberID: cleanWorkspaceMemberID.isEmpty ? Self.makeDefaultMemberID(from: cleanName) : cleanWorkspaceMemberID,
-            workspaceEndpointURL: cleanEndpointURL.isEmpty ? "http://localhost:5000" : cleanEndpointURL,
+            workspaceEndpointURL: cleanEndpointURL.isEmpty ? FirebaseAuthService.defaultBaseURL : cleanEndpointURL,
             automaticallySyncWorkspace: automaticallySyncWorkspace
         )
     }

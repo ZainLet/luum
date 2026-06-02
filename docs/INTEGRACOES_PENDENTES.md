@@ -70,6 +70,14 @@ Preços confirmados e unificados no site:
 - A API também valida assinatura e plano no Firestore antes de aceitar push ou restore. Essa checagem server-side impede que um binário desktop modificado libere backup ou atividades brutas apenas removendo gates locais.
 - Não salvar tokens OAuth de calendários no Firestore sem criptografia por usuário/dispositivo.
 
+## Workspace e ranking corporativo
+
+- APIs Vercel criadas em `/api/workspaces/{workspaceID}/members/{memberID}` e `/api/workspaces/{workspaceID}/ranking`.
+- O app usa o domínio Vercel por padrão, envia o Firebase ID token e exige plano `equipes` ou `negocios`.
+- A chave compartilhada funciona como convite do workspace: o backend salva apenas SHA-256 no Firestore e compara hashes em tempo constante.
+- O primeiro membro com plano elegível cria o workspace; membros seguintes entram usando o mesmo Workspace ID e chave compartilhada.
+- Snapshots publicados contêm métricas agregadas semanais. Tokens OAuth e atividades brutas não entram no ranking.
+
 
 ## Admin de planos
 
