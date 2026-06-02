@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { entitlementForUser, includesFeature, normalizedPlan } = require('../api/_entitlements');
 const { checkoutEmail } = require('../api/_checkoutSecurity');
+const { profileEmail, profileText } = require('../api/_profileSecurity');
 const { sameHash, secretHash, validID } = require('../api/_workspaceSecurity');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -60,4 +61,11 @@ test('validates workspace ids and compares invite secrets by hash', () => {
 test('uses only the Firebase verified email for Stripe checkout', () => {
     assert.equal(checkoutEmail({ email: ' verified@luum.app ' }), 'verified@luum.app');
     assert.equal(checkoutEmail({}), undefined);
+});
+
+test('uses only the Firebase verified email for the account profile', () => {
+    assert.equal(profileEmail({ email: ' Verified@Luum.App ' }), 'verified@luum.app');
+    assert.equal(profileEmail({ bodyEmail: 'spoofed@example.com' }), null);
+    assert.equal(profileText('', ' Name from form '), 'Name from form');
+    assert.equal(profileText('', 'long name', 4), 'long');
 });

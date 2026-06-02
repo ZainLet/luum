@@ -146,8 +146,7 @@
                             plan,
                             billing,
                             quantity,
-                            uid: user.uid || user.email,
-                            email: user.email
+                            uid: user.uid || user.email
                         })
                     });
 

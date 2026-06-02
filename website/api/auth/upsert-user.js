@@ -1,4 +1,5 @@
 const { admin, getFirestore } = require('../_firebaseAdmin');
+const { profileEmail, profileText } = require('../_profileSecurity');
 
 function addCors(res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -31,9 +32,9 @@ async function upsertUserHandler(req, res) {
 
         const baseProfile = {
             uid: decoded.uid,
-            email: decoded.email || body.email || null,
-            name: decoded.name || body.name || null,
-            photoURL: decoded.picture || body.photoURL || null,
+            email: profileEmail(decoded),
+            name: profileText(decoded.name, body.name),
+            photoURL: profileText(decoded.picture, body.photoURL, 2048),
             lastLogin: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
