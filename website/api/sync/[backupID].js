@@ -66,6 +66,9 @@ async function syncHandler(req, res) {
         if (!backupID) {
             return res.status(400).json({ message: 'backupID obrigatório' });
         }
+        if (backupID !== decoded.uid) {
+            return res.status(403).json({ message: 'O backup deve usar o UID da conta Firebase' });
+        }
 
         const body = jsonBody(req);
         const ref = db

@@ -115,7 +115,7 @@ struct CloudSyncService {
 
         guard !trimmedBaseURL.isEmpty,
               !trimmedBackupID.isEmpty,
-              let base = URL(string: trimmedBaseURL)
+              let base = FirebaseAuthService.officialBackendURL(from: trimmedBaseURL)
         else {
             throw CloudSyncError.invalidBaseURL
         }

@@ -31,6 +31,13 @@ func authCallbackRejectsUIDDifferentFromFirebaseToken() throws {
     }
 }
 
+@Test
+func officialBackendRejectsLocalAndExternalOverrides() {
+    #expect(FirebaseAuthService.officialBackendURL(from: FirebaseAuthService.defaultBaseURL)?.absoluteString == FirebaseAuthService.defaultBaseURL)
+    #expect(FirebaseAuthService.officialBackendURL(from: "http://localhost:5000") == nil)
+    #expect(FirebaseAuthService.officialBackendURL(from: "https://example.com") == nil)
+}
+
 private func makeFirebaseToken(uid: String, email: String) -> String {
     let header = base64URL(Data(#"{"alg":"none","typ":"JWT"}"#.utf8))
     let payload = base64URL(Data(#"{"user_id":"\#(uid)","email":"\#(email)","iat":1700000000,"exp":1700003600}"#.utf8))

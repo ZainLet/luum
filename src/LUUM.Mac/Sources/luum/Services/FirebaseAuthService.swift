@@ -39,25 +39,31 @@ struct FirebaseAuthService {
     var statusBaseURL: String
     private let session: URLSession
 
-    init(statusBaseURL: String = FirebaseAuthService.resolvedBaseURL(), session: URLSession = .shared) {
+    init(statusBaseURL: String = FirebaseAuthService.defaultBaseURL, session: URLSession = .shared) {
         self.statusBaseURL = statusBaseURL
         self.session = session
     }
 
     static func resolvedBaseURL() -> String {
-        if let userDefault = nonBlank(UserDefaults.standard.string(forKey: "LuumBackendBaseURL")) {
-            return userDefault
-        }
-
-        if let environment = nonBlank(ProcessInfo.processInfo.environment["LUUM_BACKEND_BASE_URL"]) {
-            return environment
-        }
-
         return defaultBaseURL
     }
 
     static func loginURL() -> URL? {
-        URL(string: "\(resolvedBaseURL().trimmingCharacters(in: CharacterSet(charactersIn: "/")))/login.html?app=mac")
+        URL(string: "\(defaultBaseURL)/login.html?app=mac")
+    }
+
+    static func officialBackendURL(from candidate: String) -> URL? {
+        guard
+            let official = URL(string: defaultBaseURL),
+            let url = URL(string: candidate.trimmingCharacters(in: .whitespacesAndNewlines)),
+            url.scheme == official.scheme,
+            url.host == official.host,
+            url.port == official.port
+        else {
+            return nil
+        }
+
+        return official
     }
 
     func session(from callbackURL: URL) throws -> LuumAuthSession {

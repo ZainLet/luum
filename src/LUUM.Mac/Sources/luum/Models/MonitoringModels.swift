@@ -319,7 +319,7 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
         privacySettings.retentionDays = min(max(privacySettings.retentionDays, 7), 365)
 
         var cloudSyncSettings = cloudSyncSettings
-        cloudSyncSettings.endpointURL = cloudSyncSettings.endpointURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        cloudSyncSettings.endpointURL = FirebaseAuthService.defaultBaseURL
         cloudSyncSettings.backupID = cloudSyncSettings.backupID.trimmingCharacters(in: .whitespacesAndNewlines)
 
         let normalizedGoals = usageGoals

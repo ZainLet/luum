@@ -339,19 +339,9 @@ final class ActivityStore {
             authStatusMessage = error.localizedDescription
         }
 
-        if monitoringPreferences.cloudSyncSettings.backupID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            monitoringPreferences.cloudSyncSettings.backupID = session.uid
-        }
-
-        let endpoint = monitoringPreferences.cloudSyncSettings.endpointURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        if endpoint.isEmpty || endpoint == "http://localhost:5000" {
-            monitoringPreferences.cloudSyncSettings.endpointURL = FirebaseAuthService.resolvedBaseURL()
-        }
-
-        let workspaceEndpoint = monitoringPreferences.teamSettings.workspaceEndpointURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        if workspaceEndpoint.isEmpty || workspaceEndpoint == "http://localhost:5000" {
-            monitoringPreferences.teamSettings.workspaceEndpointURL = FirebaseAuthService.resolvedBaseURL()
-        }
+        monitoringPreferences.cloudSyncSettings.backupID = session.uid
+        monitoringPreferences.cloudSyncSettings.endpointURL = FirebaseAuthService.defaultBaseURL
+        monitoringPreferences.teamSettings.workspaceEndpointURL = FirebaseAuthService.defaultBaseURL
 
         if session.plan.includes(.cloudBackup) {
             monitoringPreferences.cloudSyncSettings.isEnabled = true

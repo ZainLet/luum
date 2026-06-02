@@ -331,7 +331,6 @@ struct TeamSettings: Codable, Hashable, Sendable {
         let cleanRole = roleLabel.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanWorkspaceID = workspaceID.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanWorkspaceMemberID = workspaceMemberID.trimmingCharacters(in: .whitespacesAndNewlines)
-        let cleanEndpointURL = workspaceEndpointURL.trimmingCharacters(in: .whitespacesAndNewlines)
 
         return TeamSettings(
             organizationName: cleanOrg.isEmpty ? "Minha empresa" : cleanOrg,
@@ -340,7 +339,7 @@ struct TeamSettings: Codable, Hashable, Sendable {
             sharesAnonymousMetrics: sharesAnonymousMetrics,
             workspaceID: cleanWorkspaceID,
             workspaceMemberID: cleanWorkspaceMemberID.isEmpty ? Self.makeDefaultMemberID(from: cleanName) : cleanWorkspaceMemberID,
-            workspaceEndpointURL: cleanEndpointURL.isEmpty ? FirebaseAuthService.defaultBaseURL : cleanEndpointURL,
+            workspaceEndpointURL: FirebaseAuthService.defaultBaseURL,
             automaticallySyncWorkspace: automaticallySyncWorkspace
         )
     }

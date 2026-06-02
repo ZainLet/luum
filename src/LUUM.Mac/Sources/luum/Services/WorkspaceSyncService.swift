@@ -112,7 +112,8 @@ struct WorkspaceSyncService: Sendable {
         let workspace = workspaceID.trimmingCharacters(in: .whitespacesAndNewlines)
         let member = memberID.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard !base.isEmpty, !workspace.isEmpty, !member.isEmpty, let baseURL = URL(string: base) else {
+        guard !base.isEmpty, !workspace.isEmpty, !member.isEmpty,
+              let baseURL = FirebaseAuthService.officialBackendURL(from: base) else {
             throw WorkspaceSyncError.invalidBaseURL
         }
 
@@ -129,7 +130,8 @@ struct WorkspaceSyncService: Sendable {
         let base = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         let workspace = workspaceID.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard !base.isEmpty, !workspace.isEmpty, let baseURL = URL(string: base) else {
+        guard !base.isEmpty, !workspace.isEmpty,
+              let baseURL = FirebaseAuthService.officialBackendURL(from: base) else {
             throw WorkspaceSyncError.invalidBaseURL
         }
 

@@ -857,11 +857,9 @@ struct SettingsView: View {
                 .textFieldStyle(.roundedBorder)
             }
 
-            TextField("Endpoint do workspace", text: Binding(
-                get: { store.teamSettings.workspaceEndpointURL },
-                set: { store.updateTeamWorkspaceEndpointURL($0) }
-            ))
-            .textFieldStyle(.roundedBorder)
+            LabeledContent("API do workspace", value: FirebaseAuthService.defaultBaseURL)
+                .font(.caption)
+                .foregroundStyle(LuumTheme.textMuted)
 
             SecureField(
                 store.hasWorkspaceSecret ? "Chave salva neste Mac. Digite uma nova para trocar." : "Chave do workspace",
@@ -969,17 +967,13 @@ struct SettingsView: View {
             ))
             .toggleStyle(.switch)
 
-            TextField("Endpoint da API", text: Binding(
-                get: { store.cloudSyncSettings.endpointURL },
-                set: { store.updateCloudSyncEndpointURL($0) }
-            ))
-            .textFieldStyle(.roundedBorder)
+            LabeledContent("API oficial", value: FirebaseAuthService.defaultBaseURL)
+                .font(.caption)
+                .foregroundStyle(LuumTheme.textMuted)
 
-            TextField("Backup ID", text: Binding(
-                get: { store.cloudSyncSettings.backupID },
-                set: { store.updateCloudSyncBackupID($0) }
-            ))
-            .textFieldStyle(.roundedBorder)
+            LabeledContent("Backup da conta", value: store.accountEmail.isEmpty ? "Entre com sua conta Luum" : store.accountEmail)
+                .font(.caption)
+                .foregroundStyle(LuumTheme.textMuted)
 
             HStack(spacing: 10) {
                 Button("Sincronizar agora") {
