@@ -64,6 +64,19 @@ func localSessionLocksWithoutRecentServerVerification() {
 }
 
 @Test
+func cancelingSessionLocksAfterPaidPeriodEnds() {
+    var current = makeAuthSession(lastVerifiedAt: Date().addingTimeInterval(-60))
+    current.subscriptionStatus = "canceling"
+    current.expiresAt = Date().addingTimeInterval(3600)
+
+    var expired = current
+    expired.expiresAt = Date().addingTimeInterval(-60)
+
+    #expect(!current.isLocked)
+    #expect(expired.isLocked)
+}
+
+@Test
 func verifiedSessionAppliesActivePlanFromStatusEndpoint() async throws {
     let session = URLSession.mocking([
         MockResponse(

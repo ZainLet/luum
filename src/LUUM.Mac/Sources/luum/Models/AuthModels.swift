@@ -111,7 +111,7 @@ struct LuumAuthSession: Codable, Equatable, Sendable {
     var isLocked: Bool {
         if let lockedReason, !lockedReason.isEmpty { return true }
         if ["canceled", "past_due", "expired", "trial_expired"].contains(subscriptionStatus) { return true }
-        if subscriptionStatus == "active", let expiresAt { return expiresAt < Date() }
+        if ["active", "canceling"].contains(subscriptionStatus), let expiresAt { return expiresAt < Date() }
         if subscriptionStatus == "trial", let trialEndsAt { return trialEndsAt < Date() }
         guard let lastVerifiedAt else { return true }
         if Date().timeIntervalSince(lastVerifiedAt) > Self.offlineGracePeriod { return true }
