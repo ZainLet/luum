@@ -1,11 +1,6 @@
 const { admin, getFirestore } = require('../_firebaseAdmin');
+const { addCors, handleOptions } = require('../_cors');
 const { entitlementForUser, includesFeature } = require('../_entitlements');
-
-function addCors(res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-    res.setHeader('Access-Control-Allow-Methods', 'PUT, POST, OPTIONS');
-}
 
 function jsonBody(req) {
     if (!req.body) return {};
@@ -43,8 +38,8 @@ function payloadSize(payload) {
 }
 
 async function syncHandler(req, res) {
-    addCors(res);
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    addCors(req, res, { methods: 'PUT, POST, OPTIONS' });
+    if (req.method === 'OPTIONS') return handleOptions(req, res, { methods: 'PUT, POST, OPTIONS' });
     if (!['PUT', 'POST'].includes(req.method)) {
         return res.status(405).json({ message: 'Method not allowed' });
     }

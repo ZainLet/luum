@@ -1,11 +1,6 @@
 const { admin, getFirestore } = require('../_firebaseAdmin');
+const { addCors, handleOptions } = require('../_cors');
 const { profileEmail, profileText } = require('../_profileSecurity');
-
-function addCors(res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-}
 
 function jsonBody(req) {
     if (!req.body) return {};
@@ -14,8 +9,8 @@ function jsonBody(req) {
 }
 
 async function upsertUserHandler(req, res) {
-    addCors(res);
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    addCors(req, res, { methods: 'POST, OPTIONS' });
+    if (req.method === 'OPTIONS') return handleOptions(req, res, { methods: 'POST, OPTIONS' });
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {

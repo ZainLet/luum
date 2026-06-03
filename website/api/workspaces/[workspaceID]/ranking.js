@@ -2,6 +2,7 @@ const {
     addCors,
     ensureWorkspace,
     firestoreDate,
+    handleOptions,
     jsonBody,
     requireWorkspaceUser,
     routeValue,
@@ -15,8 +16,8 @@ function number(value) {
 }
 
 async function workspaceRankingHandler(req, res) {
-    addCors(res);
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    addCors(req, res);
+    if (req.method === 'OPTIONS') return handleOptions(req, res);
     if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
 
     try {

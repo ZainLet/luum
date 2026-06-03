@@ -1,15 +1,10 @@
 const { admin, getFirestore } = require('../_firebaseAdmin');
+const { addCors, handleOptions } = require('../_cors');
 const { allowedAdminEmails } = require('../_adminAuth');
 
-function addCors(res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-}
-
 async function adminHealthHandler(req, res) {
-    addCors(res);
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    addCors(req, res, { methods: 'GET, OPTIONS' });
+    if (req.method === 'OPTIONS') return handleOptions(req, res, { methods: 'GET, OPTIONS' });
     if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
     try {

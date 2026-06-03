@@ -1,10 +1,10 @@
 const { admin, getFirestore } = require('./_firebaseAdmin');
+const { addCors, handleOptions } = require('./_cors');
 const { getStripe } = require('./_stripe');
 
 async function cancelSubscriptionHandler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    addCors(req, res, { methods: 'POST, OPTIONS' });
+    if (req.method === 'OPTIONS') return handleOptions(req, res, { methods: 'POST, OPTIONS' });
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {

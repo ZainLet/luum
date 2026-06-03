@@ -1,4 +1,5 @@
 const { getAdminApp } = require('../_firebaseAdmin');
+const { addCors, handleOptions } = require('../_cors');
 const { getStripe, minimumQuantity, missingStripeEnvNames } = require('../_stripe');
 const { getSetting, maskedSettings, saveSettings, SETTINGS } = require('../_integrationSettings');
 const { requireAdmin } = require('../_adminAuth');
@@ -10,12 +11,6 @@ const WEBHOOK_EVENTS = [
     'customer.subscription.updated',
     'customer.subscription.deleted'
 ];
-
-function addCors(res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-}
 
 function jsonBody(req) {
     if (!req.body) return {};
@@ -39,8 +34,8 @@ function cleanPriceUpdates(input = {}) {
 }
 
 async function stripeHealthHandler(req, res) {
-    addCors(res);
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    addCors(req, res, { methods: 'GET, POST, OPTIONS' });
+    if (req.method === 'OPTIONS') return handleOptions(req, res, { methods: 'GET, POST, OPTIONS' });
     if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed' });
 
     try {

@@ -3,6 +3,7 @@ const {
     addCors,
     ensureWorkspace,
     firestoreDate,
+    handleOptions,
     jsonBody,
     requireWorkspaceUser,
     routeValue,
@@ -38,8 +39,8 @@ function sanitizedPayload(payload) {
 }
 
 async function workspaceMemberHandler(req, res) {
-    addCors(res);
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    addCors(req, res);
+    if (req.method === 'OPTIONS') return handleOptions(req, res);
     if (req.method !== 'PUT') return res.status(405).json({ message: 'Method not allowed' });
 
     try {

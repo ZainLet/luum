@@ -1,12 +1,7 @@
 const { getFirestore } = require('../_firebaseAdmin');
+const { addCors, handleOptions } = require('../_cors');
 const { requireAdmin } = require('../_adminAuth');
 const { maskedSettings, saveSettings } = require('../_integrationSettings');
-
-function addCors(res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-}
 
 function jsonBody(req) {
     if (!req.body) return {};
@@ -15,8 +10,8 @@ function jsonBody(req) {
 }
 
 async function integrationsHandler(req, res) {
-    addCors(res);
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    addCors(req, res, { methods: 'GET, POST, OPTIONS' });
+    if (req.method === 'OPTIONS') return handleOptions(req, res, { methods: 'GET, POST, OPTIONS' });
     if (!['GET', 'POST'].includes(req.method)) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
