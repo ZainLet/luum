@@ -131,6 +131,60 @@ func cloudSyncConfiguredRequiresOfficialEndpointFirebaseUIDAndToken() {
     #expect(!ActivityStore.isCloudSyncConfigured(settings, for: nil))
 }
 
+@Test
+func cloudBackupPayloadDecodesLegacyPayloadWithoutAccount() throws {
+    let payload = """
+    {
+      "schemaVersion": 1,
+      "exportedAt": "2026-06-03T00:00:00Z",
+      "deviceName": "Mac",
+      "monitoringPreferences": {},
+      "googleCalendarSnapshot": {
+        "clientID": "",
+        "clientSecret": "",
+        "connections": []
+      },
+      "dailySummaries": [],
+      "rawActivities": null
+    }
+    """.data(using: .utf8)!
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+
+    let decoded = try decoder.decode(CloudBackupPayload.self, from: payload)
+
+    #expect(decoded.account == nil)
+    #expect(decoded.dailySummaries.isEmpty)
+}
+
+@Test
+func cloudBackupPayloadEncodesFirebaseAccountMetadataWithoutTokens() throws {
+    let payload = CloudBackupPayload(
+        schemaVersion: 1,
+        exportedAt: Date(timeIntervalSince1970: 1_700_000_000),
+        deviceName: "Mac",
+        account: CloudAccountSnapshot(
+            uid: "firebase-user",
+            email: "user@luum.app",
+            displayName: "User",
+            plan: .profissional,
+            subscriptionStatus: "active"
+        ),
+        monitoringPreferences: .default,
+        googleCalendarSnapshot: GoogleCalendarSnapshot(clientID: "", clientSecret: "", connections: []),
+        dailySummaries: [],
+        rawActivities: nil
+    )
+    let data = try JSONEncoder().encode(payload)
+    let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+    let account = object?["account"] as? [String: Any]
+
+    #expect(account?["uid"] as? String == "firebase-user")
+    #expect(account?["email"] as? String == "user@luum.app")
+    #expect(account?["idToken"] == nil)
+    #expect(account?["refreshToken"] == nil)
+}
+
 private func makeAuthSession(plan: LuumAccountPlan, lastVerifiedAt: Date?) -> LuumAuthSession {
     LuumAuthSession(
         uid: "firebase-user",

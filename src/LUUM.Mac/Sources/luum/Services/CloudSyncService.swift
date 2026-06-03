@@ -6,14 +6,66 @@ struct CloudDailySummarySnapshot: Codable, Sendable {
     let categoryDurations: [String: TimeInterval]
 }
 
+struct CloudAccountSnapshot: Codable, Equatable, Sendable {
+    let uid: String
+    let email: String
+    let displayName: String?
+    let plan: LuumAccountPlan
+    let subscriptionStatus: String
+}
+
 struct CloudBackupPayload: Codable, Sendable {
     let schemaVersion: Int
     let exportedAt: Date
     let deviceName: String
+    let account: CloudAccountSnapshot?
     let monitoringPreferences: MonitoringPreferencesSnapshot
     let googleCalendarSnapshot: GoogleCalendarSnapshot
     let dailySummaries: [CloudDailySummarySnapshot]
     let rawActivities: [ActivitySample]?
+
+    init(
+        schemaVersion: Int,
+        exportedAt: Date,
+        deviceName: String,
+        account: CloudAccountSnapshot?,
+        monitoringPreferences: MonitoringPreferencesSnapshot,
+        googleCalendarSnapshot: GoogleCalendarSnapshot,
+        dailySummaries: [CloudDailySummarySnapshot],
+        rawActivities: [ActivitySample]?
+    ) {
+        self.schemaVersion = schemaVersion
+        self.exportedAt = exportedAt
+        self.deviceName = deviceName
+        self.account = account
+        self.monitoringPreferences = monitoringPreferences
+        self.googleCalendarSnapshot = googleCalendarSnapshot
+        self.dailySummaries = dailySummaries
+        self.rawActivities = rawActivities
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case exportedAt
+        case deviceName
+        case account
+        case monitoringPreferences
+        case googleCalendarSnapshot
+        case dailySummaries
+        case rawActivities
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+        exportedAt = try container.decode(Date.self, forKey: .exportedAt)
+        deviceName = try container.decode(String.self, forKey: .deviceName)
+        account = try container.decodeIfPresent(CloudAccountSnapshot.self, forKey: .account)
+        monitoringPreferences = try container.decode(MonitoringPreferencesSnapshot.self, forKey: .monitoringPreferences)
+        googleCalendarSnapshot = try container.decode(GoogleCalendarSnapshot.self, forKey: .googleCalendarSnapshot)
+        dailySummaries = try container.decodeIfPresent([CloudDailySummarySnapshot].self, forKey: .dailySummaries) ?? []
+        rawActivities = try container.decodeIfPresent([ActivitySample].self, forKey: .rawActivities)
+    }
 }
 
 struct CloudSyncSnapshotResponse: Codable, Sendable {

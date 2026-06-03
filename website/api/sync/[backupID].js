@@ -1,6 +1,7 @@
 const { admin, getFirestore } = require('../_firebaseAdmin');
 const { addCors, handleOptions } = require('../_cors');
 const { entitlementForUser, includesFeature } = require('../_entitlements');
+const { payloadAccountMatchesFirebaseUID, payloadSize } = require('../_syncPayload');
 
 function jsonBody(req) {
     if (!req.body) return {};
@@ -31,10 +32,6 @@ function swiftReferenceSeconds(date) {
 
 function firestoreDate(value) {
     return value?.toDate?.() || null;
-}
-
-function payloadSize(payload) {
-    return Buffer.byteLength(JSON.stringify(payload), 'utf8');
 }
 
 async function syncHandler(req, res) {
@@ -85,6 +82,9 @@ async function syncHandler(req, res) {
             }
             if (body.payload.rawActivities != null && !includesFeature(entitlement, 'rawActivityBackup')) {
                 return res.status(403).json({ message: 'Atividades brutas exigem o plano Negócios' });
+            }
+            if (!payloadAccountMatchesFirebaseUID(body.payload, decoded.uid)) {
+                return res.status(403).json({ message: 'Conta do backup não confere com o login Firebase' });
             }
 
             await ref.set({

@@ -2934,6 +2934,15 @@ final class ActivityStore {
             schemaVersion: 1,
             exportedAt: Date(),
             deviceName: Host.current().localizedName ?? "Mac",
+            account: authSession.map {
+                CloudAccountSnapshot(
+                    uid: $0.uid,
+                    email: $0.email,
+                    displayName: $0.displayName,
+                    plan: $0.plan,
+                    subscriptionStatus: $0.subscriptionStatus
+                )
+            },
             monitoringPreferences: CloudSyncService.cloudSafePreferences(monitoringPreferences),
             googleCalendarSnapshot: CloudSyncService.cloudSafeGoogleCalendarSnapshot(
                 clientID: googleCalendarClientID,
