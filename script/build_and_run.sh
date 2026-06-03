@@ -107,6 +107,20 @@ PLIST
 
 codesign --force --deep --sign "$CODESIGN_IDENTITY" --timestamp=none "$APP_BUNDLE"
 
+verify_bundle() {
+  plutil -lint "$INFO_PLIST" >/dev/null
+
+  local registered_scheme
+  registered_scheme="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes:0:CFBundleURLSchemes:0' "$INFO_PLIST")"
+  if [[ "$registered_scheme" != "luum" ]]; then
+    echo "Info.plist não registra o callback luum://auth." >&2
+    exit 1
+  fi
+
+  codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE" >/dev/null
+  test -x "$APP_BINARY"
+}
+
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
 }
@@ -127,6 +141,7 @@ case "$MODE" in
     /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
     ;;
   --verify|verify)
+    verify_bundle
     open_app
     sleep 1
     pgrep -x "$APP_NAME" >/dev/null
