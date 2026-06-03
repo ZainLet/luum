@@ -572,6 +572,10 @@ final class ActivityStore {
     }
 
     func startMonitoring() {
+        guard canUse(.coreTracking) else {
+            authStatusMessage = lockMessage(for: .coreTracking)
+            return
+        }
         guard !isMonitoring else { return }
         isMonitoring = true
         monitor.start()
