@@ -4,6 +4,12 @@ const { requireAdmin } = require('../_adminAuth');
 
 const VALID_PLANS = new Set(['essencial', 'profissional', 'equipes', 'negocios']);
 const VALID_STATUSES = new Set(['trial', 'active', 'canceling', 'canceled', 'past_due']);
+const STRIPE_SUBSCRIPTION_FIELDS = [
+    'stripeCustomerId',
+    'stripeSubscriptionId',
+    'stripeSessionId',
+    'stripePriceId'
+];
 
 function jsonBody(req) {
     if (!req.body) return {};
@@ -92,6 +98,8 @@ async function adminUsersHandler(req, res) {
                 status,
                 source: 'manual',
                 seats,
+                quantity: seats,
+                billing: 'manual',
                 currentPeriodEnd,
                 ...(status === 'trial' ? { trialEndsAt: currentPeriodEnd } : {}),
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -102,6 +110,12 @@ async function adminUsersHandler(req, res) {
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             ...(!existingUser.exists ? { createdAt: admin.firestore.FieldValue.serverTimestamp() } : {})
         }, { merge: true });
+        await userRef.update(Object.fromEntries(
+            STRIPE_SUBSCRIPTION_FIELDS.map((field) => [
+                `subscription.${field}`,
+                admin.firestore.FieldValue.delete()
+            ])
+        ));
 
         const currentClaims = userRecord.customClaims || {};
         const nextClaims = {
