@@ -28,7 +28,13 @@ const firebaseConfig = {
     measurementId: "G-Q5T5Z63NQF"
 };
 
-window.LUUM_API_BASE = window.LUUM_API_BASE || "https://luum-app.vercel.app";
+window.LUUM_CONFIG = Object.freeze({
+    firebase: firebaseConfig,
+    apiBase: "https://luum-app.vercel.app",
+    siteBase: "https://luum-app.web.app"
+});
+
+window.LUUM_API_BASE = window.LUUM_API_BASE || window.LUUM_CONFIG.apiBase;
 window.luumApiUrl = function luumApiUrl(path) {
     const base = String(window.LUUM_API_BASE || '').replace(/\/+$/, '');
     const suffix = String(path || '').startsWith('/') ? String(path) : `/${path}`;

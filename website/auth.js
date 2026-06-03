@@ -1,10 +1,10 @@
 (function () {
     const STORAGE_USER_KEY = 'luum_user';
-    const DEFAULT_API_BASE = 'https://luum-app.vercel.app';
 
     function apiUrl(path) {
         if (window.luumApiUrl) return window.luumApiUrl(path);
-        const base = String(window.LUUM_API_BASE || DEFAULT_API_BASE).replace(/\/+$/, '');
+        const base = String(window.LUUM_API_BASE || window.LUUM_CONFIG?.apiBase || '').replace(/\/+$/, '');
+        if (!base) throw new Error('Configuração da API do Luum não carregou.');
         const suffix = String(path || '').startsWith('/') ? String(path) : `/${path}`;
         return `${base}${suffix}`;
     }

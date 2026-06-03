@@ -3,8 +3,9 @@ const { addCors, handleOptions } = require('../_cors');
 const { getStripe, minimumQuantity, missingStripeEnvNames } = require('../_stripe');
 const { getSetting, maskedSettings, saveSettings, SETTINGS } = require('../_integrationSettings');
 const { requireAdmin } = require('../_adminAuth');
+const { PUBLIC_SITE_URL, webhookURL } = require('../_publicConfig');
 
-const WEBHOOK_URL = 'https://luum-app.vercel.app/api/webhook';
+const WEBHOOK_URL = webhookURL('/api/webhook');
 const WEBHOOK_EVENTS = [
     'checkout.session.completed',
     'invoice.payment_succeeded',
@@ -47,7 +48,7 @@ async function stripeHealthHandler(req, res) {
             const body = jsonBody(req);
             const updates = {
                 ...cleanPriceUpdates(body.priceUpdates),
-                PUBLIC_SITE_URL: 'https://luum-app.web.app'
+                PUBLIC_SITE_URL
             };
 
             let webhookCreated = false;

@@ -1,10 +1,7 @@
-const OFFICIAL_ORIGINS = new Set([
-    'https://luum-app.web.app',
-    'https://luum-app.firebaseapp.com',
-    'https://luum-app.vercel.app'
-]);
+const { OFFICIAL_ORIGINS: PUBLIC_ORIGINS, PUBLIC_SITE_URL } = require('./_publicConfig');
 
-const DEFAULT_ORIGIN = 'https://luum-app.web.app';
+const OFFICIAL_ORIGINS = new Set(PUBLIC_ORIGINS);
+const DEFAULT_ORIGIN = PUBLIC_SITE_URL;
 
 function normalizedOrigin(origin) {
     if (!origin) return '';
