@@ -48,7 +48,7 @@
 
         signupBtns.forEach((el) => {
             el.textContent = user ? 'Sair' : 'Comecar Gratis';
-            el.href = user ? '#' : 'cadastro.html';
+            el.href = user ? '#' : 'cadastro.html?redirect=account.html';
             el.className = user ? 'btn btn-secondary js-auth-signup' : 'btn btn-primary js-auth-signup';
             el.onclick = user ? signOut : null;
         });

@@ -156,7 +156,7 @@
         <div class="info">
             <p id="loginInfoText">Ao fazer login, você será redirecionado para sua conta Luum.</p>
             <p style="margin-top: 8px">
-                <a href="cadastro.html">Criar conta</a>
+                <a href="cadastro.html?redirect=account.html" id="signupLink">Criar conta</a>
             </p>
         </div>
     </div>
@@ -271,6 +271,9 @@
             document.getElementById('loginInfoText').textContent = appLogin
                 ? 'Ao fazer login, você será redirecionado de volta para o aplicativo Luum.'
                 : 'Ao fazer login, você será redirecionado para sua conta Luum.';
+            document.getElementById('signupLink').href = appLogin
+                ? 'cadastro.html?app=mac'
+                : 'cadastro.html?redirect=account.html';
 
             // Google
             document.getElementById('googleBtn').addEventListener('click', async () => {
