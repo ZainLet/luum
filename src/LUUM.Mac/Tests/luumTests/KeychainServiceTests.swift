@@ -69,4 +69,28 @@ func legacyEncryptedFallbackMigratesToInstallSecretBackedFormat() throws {
     #expect(migrated.hasPrefix("v2:"))
     #expect(!migrated.contains("legacy-encrypted-secret"))
 }
+
+@Test
+func fallbackUsesStableLegacyEncryptionWhenInstallationSecretCannotPersist() throws {
+    let temporaryDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("luum-keychain-test-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+    let blockedDirectory = temporaryDirectory.appendingPathComponent("blocked", isDirectory: true)
+    try Data("not-a-directory".utf8).write(to: blockedDirectory)
+
+    let secretURL = blockedDirectory.appendingPathComponent(".local-vault-key", isDirectory: false)
+    let account = "test-unwritable-secret-\(UUID().uuidString)"
+    let keychain = KeychainService(installationSecretURL: secretURL)
+    defer { keychain.removeValue(for: account) }
+
+    try keychain.setString("stable-local-secret", for: account)
+
+    let raw = try #require(keychain.rawFallbackStringForTesting(account: account))
+    #expect(raw.hasPrefix("v1:"))
+    #expect(!raw.contains("stable-local-secret"))
+    #expect(keychain.string(for: account) == "stable-local-secret")
+    #expect(KeychainService(installationSecretURL: secretURL).string(for: account) == "stable-local-secret")
+}
 #endif

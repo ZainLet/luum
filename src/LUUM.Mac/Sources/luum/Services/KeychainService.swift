@@ -7,9 +7,14 @@ struct KeychainService {
     private let fallbackVersionPrefix = "v2:"
     private let legacyFallbackVersionPrefix = "v1:"
     private let useSystemKeychain: Bool
+    private let installationSecretURLOverride: URL?
 
-    init(useSystemKeychain: Bool = ProcessInfo.processInfo.environment["LUUM_USE_SYSTEM_KEYCHAIN"] == "1") {
+    init(
+        useSystemKeychain: Bool = ProcessInfo.processInfo.environment["LUUM_USE_SYSTEM_KEYCHAIN"] == "1",
+        installationSecretURL: URL? = nil
+    ) {
         self.useSystemKeychain = useSystemKeychain
+        self.installationSecretURLOverride = installationSecretURL
     }
 
     func setString(_ value: String, for account: String) throws {
@@ -109,8 +114,9 @@ struct KeychainService {
 
     private func setFallbackData(_ data: Data, for account: String) {
         let accountData = Data(account.utf8)
+        let encryption = fallbackEncryptionForWriting()
         guard
-            let sealed = try? AES.GCM.seal(data, using: fallbackEncryptionKey, authenticating: accountData),
+            let sealed = try? AES.GCM.seal(data, using: encryption.key, authenticating: accountData),
             let combined = sealed.combined
         else {
             UserDefaults.standard.removeObject(forKey: fallbackKey(for: account))
@@ -118,7 +124,7 @@ struct KeychainService {
         }
 
         UserDefaults.standard.set(
-            fallbackVersionPrefix + combined.base64EncodedString(),
+            encryption.prefix + combined.base64EncodedString(),
             forKey: fallbackKey(for: account)
         )
     }
@@ -134,9 +140,10 @@ struct KeychainService {
                 return nil
             }
 
+            guard let key = fallbackEncryptionKeyForReading() else { return nil }
             return try? AES.GCM.open(
                 sealed,
-                using: fallbackEncryptionKey,
+                using: key,
                 authenticating: Data(account.utf8)
             )
         }
@@ -163,10 +170,27 @@ struct KeychainService {
         return legacyData
     }
 
-    private var fallbackEncryptionKey: SymmetricKey {
+    private struct FallbackEncryption {
+        let prefix: String
+        let key: SymmetricKey
+    }
+
+    private func fallbackEncryptionForWriting() -> FallbackEncryption {
+        guard let secret = installationSecretForWriting() else {
+            return FallbackEncryption(prefix: legacyFallbackVersionPrefix, key: legacyFallbackEncryptionKey)
+        }
+
+        return FallbackEncryption(prefix: fallbackVersionPrefix, key: fallbackEncryptionKey(secret: secret))
+    }
+
+    private func fallbackEncryptionKeyForReading() -> SymmetricKey? {
+        guard let secret = existingInstallationSecret() else { return nil }
+        return fallbackEncryptionKey(secret: secret)
+    }
+
+    private func fallbackEncryptionKey(secret: Data) -> SymmetricKey {
         // Builds ad-hoc trocam de assinatura e fazem o Keychain pedir senha.
         // Por padrão usamos fallback cifrado local para evitar esse prompt.
-        let secret = installationSecret()
         let material = "\(service)\u{0}\(NSUserName())\u{0}\(NSHomeDirectory())"
         var data = Data(material.utf8)
         data.append(0)
@@ -179,11 +203,21 @@ struct KeychainService {
         return SymmetricKey(data: SHA256.hash(data: Data(material.utf8)))
     }
 
-    private func installationSecret() -> Data {
+    private func existingInstallationSecret() -> Data? {
         let url = installationSecretURL()
         if let data = try? Data(contentsOf: url), data.count >= 32 {
             return data
         }
+
+        return nil
+    }
+
+    private func installationSecretForWriting() -> Data? {
+        if let existing = existingInstallationSecret() {
+            return existing
+        }
+
+        let url = installationSecretURL()
 
         var bytes = [UInt8](repeating: 0, count: 32)
         let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
@@ -201,13 +235,17 @@ struct KeychainService {
             try secret.write(to: url, options: [.atomic])
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         } catch {
-            return secret
+            return nil
         }
 
         return secret
     }
 
     private func installationSecretURL() -> URL {
+        if let installationSecretURLOverride {
+            return installationSecretURLOverride
+        }
+
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first ??
             URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support", isDirectory: true)
         return base
