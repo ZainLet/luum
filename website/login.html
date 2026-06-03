@@ -119,7 +119,7 @@
     <div class="container">
         <img class="logo" src="favicon.png" alt="Luum">
         <h1>Luum</h1>
-        <p class="subtitle">Faça login para continuar no aplicativo</p>
+        <p class="subtitle" id="loginSubtitle">Faça login para continuar</p>
 
         <button class="btn-google" id="googleBtn">
             <svg width="20" height="20" viewBox="0 0 48 48">
@@ -154,7 +154,7 @@
         </div>
 
         <div class="info">
-            <p>Ao fazer login, você será redirecionado de volta para o aplicativo Luum.</p>
+            <p id="loginInfoText">Ao fazer login, você será redirecionado para sua conta Luum.</p>
             <p style="margin-top: 8px">
                 <a href="cadastro.html">Criar conta</a>
             </p>
@@ -198,7 +198,11 @@
 
         function shouldOpenApp() {
             const params = new URLSearchParams(window.location.search);
-            return params.get('app') === 'mac' || !getRedirectTarget();
+            return params.get('app') === 'mac';
+        }
+
+        function postLoginTarget() {
+            return getRedirectTarget() || 'account.html';
         }
 
         async function exchangeTokenAndRedirect(user) {
@@ -223,11 +227,9 @@
                     throw new Error(accountData.error || 'Backend de conta indisponível.');
                 }
 
-                const redirectTarget = getRedirectTarget();
-
-                if (!shouldOpenApp() && redirectTarget) {
+                if (!shouldOpenApp()) {
                     showSuccess('Login bem-sucedido! Redirecionando...');
-                    window.location.href = redirectTarget;
+                    window.location.href = postLoginTarget();
                     return;
                 }
 
@@ -261,6 +263,14 @@
                 disableAuth('Firebase não carregou. Recarregue a página ou verifique sua conexão.');
                 return;
             }
+
+            const appLogin = shouldOpenApp();
+            document.getElementById('loginSubtitle').textContent = appLogin
+                ? 'Faça login para continuar no aplicativo'
+                : 'Faça login para acessar sua conta';
+            document.getElementById('loginInfoText').textContent = appLogin
+                ? 'Ao fazer login, você será redirecionado de volta para o aplicativo Luum.'
+                : 'Ao fazer login, você será redirecionado para sua conta Luum.';
 
             // Google
             document.getElementById('googleBtn').addEventListener('click', async () => {

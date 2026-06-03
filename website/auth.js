@@ -42,7 +42,7 @@
 
         loginBtns.forEach((el) => {
             el.textContent = user ? 'Minha Conta' : 'Entrar';
-            el.href = user ? 'account.html' : 'login.html';
+            el.href = user ? 'account.html' : 'login.html?redirect=account.html';
             el.className = 'btn btn-secondary js-auth-login';
         });
 
