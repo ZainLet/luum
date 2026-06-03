@@ -720,6 +720,13 @@ final class ActivityStore {
     }
 
     func updateNotionCalendarEnabled(_ value: Bool) {
+        if value && !canUse(.advancedIntegrations) {
+            monitoringPreferences.notionCalendarSettings.isEnabled = false
+            notionCalendarStatusMessage = lockMessage(for: .advancedIntegrations)
+            persistMonitoringPreferences()
+            return
+        }
+
         monitoringPreferences.notionCalendarSettings.isEnabled = value
         persistMonitoringPreferences()
 
@@ -797,6 +804,13 @@ final class ActivityStore {
     }
 
     func updateOutlookCalendarEnabled(_ value: Bool) {
+        if value && !canUse(.agendaIntegrations) {
+            monitoringPreferences.outlookCalendarSettings.isEnabled = false
+            outlookCalendarStatusMessage = lockMessage(for: .agendaIntegrations)
+            persistMonitoringPreferences()
+            return
+        }
+
         monitoringPreferences.outlookCalendarSettings.isEnabled = value
         persistMonitoringPreferences()
 
@@ -850,6 +864,13 @@ final class ActivityStore {
     }
 
     func updateClickUpEnabled(_ value: Bool) {
+        if value && !canUse(.agendaIntegrations) {
+            monitoringPreferences.clickUpSettings.isEnabled = false
+            clickUpStatusMessage = lockMessage(for: .agendaIntegrations)
+            persistMonitoringPreferences()
+            return
+        }
+
         monitoringPreferences.clickUpSettings.isEnabled = value
         persistMonitoringPreferences()
 
@@ -928,6 +949,13 @@ final class ActivityStore {
     }
 
     func updateLinearEnabled(_ value: Bool) {
+        if value && !canUse(.agendaIntegrations) {
+            monitoringPreferences.linearSettings.isEnabled = false
+            linearStatusMessage = lockMessage(for: .agendaIntegrations)
+            persistMonitoringPreferences()
+            return
+        }
+
         monitoringPreferences.linearSettings.isEnabled = value
         persistMonitoringPreferences()
 
@@ -1006,6 +1034,13 @@ final class ActivityStore {
     }
 
     func updateZapierEnabled(_ value: Bool) {
+        if value && !canUse(.advancedIntegrations) {
+            monitoringPreferences.zapierSettings.isEnabled = false
+            zapierStatusMessage = lockMessage(for: .advancedIntegrations)
+            persistMonitoringPreferences()
+            return
+        }
+
         monitoringPreferences.zapierSettings.isEnabled = value
         persistMonitoringPreferences()
         zapierStatusMessage = value ? "Zapier pronto para disparar automacoes." : "Integracao com Zapier pausada."
@@ -1017,21 +1052,47 @@ final class ActivityStore {
     }
 
     func updateZapierSendsFocusEvents(_ value: Bool) {
+        if value && !canUse(.advancedIntegrations) {
+            monitoringPreferences.zapierSettings.sendsFocusEvents = false
+            zapierStatusMessage = lockMessage(for: .advancedIntegrations)
+            persistMonitoringPreferences()
+            return
+        }
+
         monitoringPreferences.zapierSettings.sendsFocusEvents = value
         persistMonitoringPreferences()
     }
 
     func updateZapierSendsCalendarSyncEvents(_ value: Bool) {
+        if value && !canUse(.advancedIntegrations) {
+            monitoringPreferences.zapierSettings.sendsCalendarSyncEvents = false
+            zapierStatusMessage = lockMessage(for: .advancedIntegrations)
+            persistMonitoringPreferences()
+            return
+        }
+
         monitoringPreferences.zapierSettings.sendsCalendarSyncEvents = value
         persistMonitoringPreferences()
     }
 
     func updateZapierSendsWorkspaceRankingEvents(_ value: Bool) {
+        if value && !canUse(.advancedIntegrations) {
+            monitoringPreferences.zapierSettings.sendsWorkspaceRankingEvents = false
+            zapierStatusMessage = lockMessage(for: .advancedIntegrations)
+            persistMonitoringPreferences()
+            return
+        }
+
         monitoringPreferences.zapierSettings.sendsWorkspaceRankingEvents = value
         persistMonitoringPreferences()
     }
 
     func sendZapierTestEvent() {
+        guard canUse(.advancedIntegrations) else {
+            zapierStatusMessage = lockMessage(for: .advancedIntegrations)
+            return
+        }
+
         Task { [weak self] in
             await self?.sendZapierEvent(
                 type: "manual_test",
@@ -1059,6 +1120,13 @@ final class ActivityStore {
     }
 
     func updateTeamSharesAnonymousMetrics(_ value: Bool) {
+        if value && !canUse(.teamWorkspace) {
+            monitoringPreferences.teamSettings.sharesAnonymousMetrics = false
+            workspaceSyncStatusMessage = lockMessage(for: .teamWorkspace)
+            persistMonitoringPreferences()
+            return
+        }
+
         monitoringPreferences.teamSettings.sharesAnonymousMetrics = value
         persistMonitoringPreferences()
     }
@@ -1074,11 +1142,18 @@ final class ActivityStore {
     }
 
     func updateTeamWorkspaceEndpointURL(_ value: String) {
-        monitoringPreferences.teamSettings.workspaceEndpointURL = value
+        monitoringPreferences.teamSettings.workspaceEndpointURL = FirebaseAuthService.defaultBaseURL
         persistMonitoringPreferences()
     }
 
     func updateTeamAutomaticallySyncWorkspace(_ value: Bool) {
+        if value && !canUse(.teamWorkspace) {
+            monitoringPreferences.teamSettings.automaticallySyncWorkspace = false
+            workspaceSyncStatusMessage = lockMessage(for: .teamWorkspace)
+            persistMonitoringPreferences()
+            return
+        }
+
         monitoringPreferences.teamSettings.automaticallySyncWorkspace = value
         persistMonitoringPreferences()
     }
@@ -2703,7 +2778,7 @@ final class ActivityStore {
         do {
             let payload = makeWorkspaceMemberPayload(for: day)
             let updatedAt = try await workspaceSyncService.push(
-                baseURL: teamSettings.workspaceEndpointURL,
+                baseURL: FirebaseAuthService.defaultBaseURL,
                 workspaceID: teamSettings.workspaceID,
                 memberID: teamSettings.workspaceMemberID,
                 secret: secret,
@@ -2711,7 +2786,7 @@ final class ActivityStore {
                 payload: payload
             )
             let ranking = try await workspaceSyncService.fetchRanking(
-                baseURL: teamSettings.workspaceEndpointURL,
+                baseURL: FirebaseAuthService.defaultBaseURL,
                 workspaceID: teamSettings.workspaceID,
                 memberID: teamSettings.workspaceMemberID,
                 secret: secret,
@@ -3489,8 +3564,8 @@ final class ActivityStore {
     }
 
     private func sendZapierEvent(type: String, details: [String: String]) async {
-        guard canUse(.agendaIntegrations) else {
-            zapierStatusMessage = lockMessage(for: .agendaIntegrations)
+        guard canUse(.advancedIntegrations) else {
+            zapierStatusMessage = lockMessage(for: .advancedIntegrations)
             return
         }
 
