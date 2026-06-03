@@ -135,6 +135,25 @@ struct KeychainService {
     }
 }
 
+#if DEBUG
+extension KeychainService {
+    func setFallbackStringForTesting(_ value: String, for account: String) {
+        setFallbackData(Data(value.utf8), for: account)
+    }
+
+    func setLegacyFallbackStringForTesting(_ value: String, for account: String) {
+        UserDefaults.standard.set(
+            Data(value.utf8).base64EncodedString(),
+            forKey: fallbackKey(for: account)
+        )
+    }
+
+    func rawFallbackStringForTesting(account: String) -> String? {
+        UserDefaults.standard.string(forKey: fallbackKey(for: account))
+    }
+}
+#endif
+
 struct KeychainServiceError: LocalizedError {
     let status: OSStatus
 
