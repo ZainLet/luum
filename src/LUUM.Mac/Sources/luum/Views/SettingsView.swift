@@ -966,6 +966,7 @@ struct SettingsView: View {
                 set: { store.updateCloudSyncEnabled($0) }
             ))
             .toggleStyle(.switch)
+            .disabled(!store.canUse(.cloudBackup))
 
             LabeledContent("API oficial", value: FirebaseAuthService.defaultBaseURL)
                 .font(.caption)
@@ -980,13 +981,13 @@ struct SettingsView: View {
                     store.syncCloudBackupNow()
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!store.cloudSyncConfigured || store.isSyncingCloud)
+                .disabled(!store.canUse(.cloudBackup) || !store.cloudSyncConfigured || store.isSyncingCloud)
 
                 Button("Restaurar backup") {
                     store.restoreCloudBackup()
                 }
                 .buttonStyle(.bordered)
-                .disabled(!store.cloudSyncConfigured || store.isSyncingCloud)
+                .disabled(!store.canUse(.cloudBackup) || !store.cloudSyncConfigured || store.isSyncingCloud)
             }
 
             Toggle("Sincronizar categorias e regras", isOn: Binding(
@@ -1006,6 +1007,7 @@ struct SettingsView: View {
                 set: { store.updateCloudSyncSyncRawActivities($0) }
             ))
             .toggleStyle(.switch)
+            .disabled(!store.canUse(.rawActivityBackup))
 
             if let cloudSyncStatusMessage = store.cloudSyncStatusMessage {
                 Text(cloudSyncStatusMessage)

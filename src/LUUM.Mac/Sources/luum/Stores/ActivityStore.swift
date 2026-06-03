@@ -342,13 +342,29 @@ final class ActivityStore {
         monitoringPreferences.cloudSyncSettings.backupID = session.uid
         monitoringPreferences.cloudSyncSettings.endpointURL = FirebaseAuthService.defaultBaseURL
         monitoringPreferences.teamSettings.workspaceEndpointURL = FirebaseAuthService.defaultBaseURL
-
-        if session.plan.includes(.cloudBackup) {
-            monitoringPreferences.cloudSyncSettings.isEnabled = true
-        }
+        monitoringPreferences.cloudSyncSettings = Self.cloudSyncSettings(
+            monitoringPreferences.cloudSyncSettings,
+            sanitizedFor: session
+        )
 
         persistMonitoringPreferences()
         scheduleCloudSyncIfNeeded(reason: "auth-session")
+    }
+
+    static func cloudSyncSettings(
+        _ settings: CloudSyncSettings,
+        sanitizedFor session: LuumAuthSession
+    ) -> CloudSyncSettings {
+        var sanitized = settings
+        sanitized.endpointURL = FirebaseAuthService.defaultBaseURL
+        sanitized.backupID = session.uid
+
+        sanitized.isEnabled = !session.isLocked && session.plan.includes(.cloudBackup)
+        if session.isLocked || !session.plan.includes(.rawActivityBackup) {
+            sanitized.syncRawActivities = false
+        }
+
+        return sanitized
     }
 
     var onboardingChecklist: [OnboardingChecklistItem] {
@@ -1089,6 +1105,13 @@ final class ActivityStore {
     }
 
     func updateCloudSyncEnabled(_ value: Bool) {
+        if value && !canUse(.cloudBackup) {
+            monitoringPreferences.cloudSyncSettings.isEnabled = false
+            cloudSyncStatusMessage = lockMessage(for: .cloudBackup)
+            persistMonitoringPreferences()
+            return
+        }
+
         monitoringPreferences.cloudSyncSettings.isEnabled = value
         persistMonitoringPreferences()
         if value {
@@ -1109,6 +1132,13 @@ final class ActivityStore {
     }
 
     func updateCloudSyncSyncRawActivities(_ value: Bool) {
+        if value && !canUse(.rawActivityBackup) {
+            monitoringPreferences.cloudSyncSettings.syncRawActivities = false
+            cloudSyncStatusMessage = lockMessage(for: .rawActivityBackup)
+            persistMonitoringPreferences()
+            return
+        }
+
         monitoringPreferences.cloudSyncSettings.syncRawActivities = value
         persistMonitoringPreferences()
     }
