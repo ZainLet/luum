@@ -5,6 +5,23 @@ import Testing
 @testable import luum
 
 @Test
+func defaultStorageUsesEncryptedFallbackWithoutSystemKeychain() throws {
+    let keychain = KeychainService()
+    let account = "test-default-fallback-\(UUID().uuidString)"
+    defer { keychain.removeValue(for: account) }
+
+    try keychain.setString("no-keychain-prompt", for: account)
+
+    let raw = try #require(keychain.rawFallbackStringForTesting(account: account))
+    #expect(raw.hasPrefix("v1:"))
+    #expect(!raw.contains("no-keychain-prompt"))
+    #expect(keychain.string(for: account) == "no-keychain-prompt")
+
+    keychain.removeValue(for: account)
+    #expect(keychain.rawFallbackStringForTesting(account: account) == nil)
+}
+
+@Test
 func encryptedFallbackRoundTripsAndBindsToAccount() throws {
     let keychain = KeychainService()
     let account = "test-fallback-\(UUID().uuidString)"

@@ -327,7 +327,7 @@ private struct LoginRequiredView: View {
                     .font(.largeTitle.weight(.bold))
                     .foregroundStyle(.white)
 
-                Text("Use a mesma conta Firebase do site para liberar seu plano, backup e integracoes neste Mac. O app salva a sessao localmente com fallback quando o Keychain nao esta disponivel.")
+                Text("Use a mesma conta Firebase do site para liberar seu plano, backup e integracoes neste Mac. O app salva a sessao em um cofre local cifrado para evitar prompts do Keychain em builds ad-hoc.")
                     .font(.body)
                     .foregroundStyle(LuumTheme.textSecondary)
                     .multilineTextAlignment(.center)

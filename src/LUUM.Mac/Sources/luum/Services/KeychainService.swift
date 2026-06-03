@@ -5,6 +5,11 @@ import Security
 struct KeychainService {
     private let service = "com.zainlet.luum"
     private let fallbackVersionPrefix = "v1:"
+    private let useSystemKeychain: Bool
+
+    init(useSystemKeychain: Bool = ProcessInfo.processInfo.environment["LUUM_USE_SYSTEM_KEYCHAIN"] == "1") {
+        self.useSystemKeychain = useSystemKeychain
+    }
 
     func setString(_ value: String, for account: String) throws {
         try setData(Data(value.utf8), for: account)
@@ -25,6 +30,11 @@ struct KeychainService {
     }
 
     func removeValue(for account: String) {
+        guard useSystemKeychain else {
+            UserDefaults.standard.removeObject(forKey: fallbackKey(for: account))
+            return
+        }
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -35,6 +45,11 @@ struct KeychainService {
     }
 
     private func setData(_ data: Data, for account: String) throws {
+        guard useSystemKeychain else {
+            setFallbackData(data, for: account)
+            return
+        }
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -69,6 +84,10 @@ struct KeychainService {
     }
 
     private func data(for account: String) -> Data? {
+        guard useSystemKeychain else {
+            return fallbackData(for: account)
+        }
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -128,8 +147,8 @@ struct KeychainService {
     }
 
     private var fallbackEncryptionKey: SymmetricKey {
-        // Builds ad-hoc podem perder acesso ao Keychain. A chave derivada da conta local
-        // reduz exposição casual em disco, mas não substitui o Keychain em distribuição.
+        // Builds ad-hoc trocam de assinatura e fazem o Keychain pedir senha.
+        // Por padrão usamos fallback cifrado local para evitar esse prompt.
         let material = "\(service)\u{0}\(NSUserName())\u{0}\(NSHomeDirectory())"
         return SymmetricKey(data: SHA256.hash(data: Data(material.utf8)))
     }

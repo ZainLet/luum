@@ -156,7 +156,7 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("Os tokens OAuth ficam guardados no Keychain deste Mac e nao entram no backup em nuvem.")
+            Text("Os tokens OAuth ficam guardados em um cofre local cifrado neste Mac e nao entram no backup em nuvem.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
