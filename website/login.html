@@ -246,57 +246,76 @@
             }
         }
 
-        // Google
-        document.getElementById('googleBtn').addEventListener('click', async () => {
-            try {
-                const provider = new firebase.auth.GoogleAuthProvider();
-                provider.addScope('profile');
-                provider.addScope('email');
-                const result = await firebase.auth().signInWithPopup(provider);
-                await exchangeTokenAndRedirect(result.user);
-            } catch (error) {
-                console.error('Erro Google login:', error);
-                let msg = 'Erro ao fazer login com Google';
-                if (error.code === 'auth/popup-closed-by-user') msg = 'Login cancelado.';
-                else if (error.code === 'auth/popup-blocked') msg = 'Popup bloqueado pelo navegador.';
-                else msg += ': ' + error.message;
-                showError(msg);
+        function firebaseReady() {
+            return typeof firebase !== 'undefined' && firebase.apps?.length && firebase.auth;
+        }
+
+        function disableAuth(message) {
+            document.getElementById('googleBtn').disabled = true;
+            document.getElementById('emailBtn').disabled = true;
+            showError(message);
+        }
+
+        function bootLogin() {
+            if (!firebaseReady()) {
+                disableAuth('Firebase não carregou. Recarregue a página ou verifique sua conexão.');
+                return;
             }
-        });
 
-        // Email
-        document.getElementById('emailForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
-            if (!email || !password) { showError('Preencha email e senha'); return; }
-
-            setLoading(true);
-            try {
-                const result = await firebase.auth().signInWithEmailAndPassword(email, password);
-                await exchangeTokenAndRedirect(result.user);
-            } catch (error) {
-                console.error('Erro email login:', error);
-                let msg = 'Erro ao fazer login';
-                switch (error.code) {
-                    case 'auth/user-not-found': msg = 'Conta não encontrada'; break;
-                    case 'auth/wrong-password': case 'auth/invalid-credential': msg = 'Email ou senha inválidos'; break;
-                    case 'auth/invalid-email': msg = 'Email inválido'; break;
-                    case 'auth/too-many-requests': msg = 'Muitas tentativas. Aguarde e tente novamente'; break;
-                    default: msg = error.message;
+            // Google
+            document.getElementById('googleBtn').addEventListener('click', async () => {
+                try {
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    provider.addScope('profile');
+                    provider.addScope('email');
+                    const result = await firebase.auth().signInWithPopup(provider);
+                    await exchangeTokenAndRedirect(result.user);
+                } catch (error) {
+                    console.error('Erro Google login:', error);
+                    let msg = 'Erro ao fazer login com Google';
+                    if (error.code === 'auth/popup-closed-by-user') msg = 'Login cancelado.';
+                    else if (error.code === 'auth/popup-blocked') msg = 'Popup bloqueado pelo navegador.';
+                    else msg += ': ' + error.message;
+                    showError(msg);
                 }
-                showError(msg);
-                setLoading(false);
-            }
-        });
+            });
 
-        // Se já estiver logado, redireciona direto
-        firebase.auth().onAuthStateChanged(async (user) => {
-            if (user) {
-                console.log('Usuário já logado:', user.email);
-                await exchangeTokenAndRedirect(user);
-            }
-        });
+            // Email
+            document.getElementById('emailForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('email').value.trim();
+                const password = document.getElementById('password').value;
+                if (!email || !password) { showError('Preencha email e senha'); return; }
+
+                setLoading(true);
+                try {
+                    const result = await firebase.auth().signInWithEmailAndPassword(email, password);
+                    await exchangeTokenAndRedirect(result.user);
+                } catch (error) {
+                    console.error('Erro email login:', error);
+                    let msg = 'Erro ao fazer login';
+                    switch (error.code) {
+                        case 'auth/user-not-found': msg = 'Conta não encontrada'; break;
+                        case 'auth/wrong-password': case 'auth/invalid-credential': msg = 'Email ou senha inválidos'; break;
+                        case 'auth/invalid-email': msg = 'Email inválido'; break;
+                        case 'auth/too-many-requests': msg = 'Muitas tentativas. Aguarde e tente novamente'; break;
+                        default: msg = error.message;
+                    }
+                    showError(msg);
+                    setLoading(false);
+                }
+            });
+
+            // Se já estiver logado, redireciona direto
+            firebase.auth().onAuthStateChanged(async (user) => {
+                if (user) {
+                    console.log('Usuário já logado:', user.email);
+                    await exchangeTokenAndRedirect(user);
+                }
+            });
+        }
+
+        bootLogin();
     </script>
 </body>
 </html>

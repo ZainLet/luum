@@ -229,16 +229,38 @@
             return subscription.billing === 'annually' ? meta.annually : meta.monthly;
         }
 
-        // ─── Auth listener ───────────────────────────
-        firebase.auth().onAuthStateChanged(async (user) => {
+        function showAccountLoggedOut(message) {
+            const loading = document.getElementById('loadingState');
+            const dashboard = document.getElementById('accountDashboard');
+            const loggedOut = document.getElementById('loggedOut');
+
+            loading.style.display = 'none';
+            dashboard.style.display = 'none';
+            loggedOut.style.display = 'block';
+            if (message) {
+                const text = loggedOut.querySelector('p');
+                if (text) text.textContent = message;
+            }
+        }
+
+        function firebaseReady() {
+            return typeof firebase !== 'undefined' && firebase.apps?.length && firebase.auth;
+        }
+
+        function bootAccount() {
+            if (!firebaseReady()) {
+                showAccountLoggedOut('Firebase não carregou. Recarregue a página ou verifique sua conexão.');
+                return;
+            }
+
+            // ─── Auth listener ───────────────────────────
+            firebase.auth().onAuthStateChanged(async (user) => {
             const loading = document.getElementById('loadingState');
             const dashboard = document.getElementById('accountDashboard');
             const loggedOut = document.getElementById('loggedOut');
 
             if (!user) {
-                loading.style.display = 'none';
-                dashboard.style.display = 'none';
-                loggedOut.style.display = 'block';
+                showAccountLoggedOut();
                 return;
             }
 
@@ -305,7 +327,10 @@
                     </p>
                     <button onclick="location.reload()" style="margin-top:16px;background:none;border:1px solid var(--border-default);color:var(--text-primary);padding:10px 24px;border-radius:var(--radius-md);cursor:pointer;font-family:inherit;font-size:0.875rem;">Tentar novamente</button>`;
             }
-        });
+            });
+        }
+
+        bootAccount();
 
         // ─── Renderiza conta ────────────────────────
         function renderAccount(user, data, entitlement = {}) {
@@ -385,6 +410,11 @@
         // ─── Logout ─────────────────────────────────
         document.getElementById('logoutBtn').addEventListener('click', (e) => {
             e.preventDefault();
+            if (!firebaseReady()) {
+                window.location.href = 'index.html';
+                return;
+            }
+
             firebase.auth().signOut().then(() => {
                 window.location.href = 'index.html';
             });

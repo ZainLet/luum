@@ -322,42 +322,60 @@
             }
         }
 
-        document.getElementById('signupForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (signingUp) return;
-            signingUp = true;
+        function firebaseReady() {
+            return typeof firebase !== 'undefined' && firebase.apps?.length && firebase.auth;
+        }
 
-            const name = document.getElementById('name').value.trim();
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
-            const confirm = document.getElementById('confirmPassword').value;
-            if (password !== confirm) { showError('Senhas não conferem'); signingUp = false; return; }
-            setLoading(true);
+        function disableSignup(message) {
+            document.getElementById('signupBtn').disabled = true;
+            showError(message);
+        }
 
-            try {
-                const result = await firebase.auth().createUserWithEmailAndPassword(email, password);
-                await result.user.updateProfile({ displayName: name });
-
-                await exchangeTokenAndRedirect(result.user);
-            } catch (error) {
-                const map = {
-                    'auth/email-already-in-use': 'Email já cadastrado',
-                    'auth/weak-password': 'Senha muito fraca (mínimo 6 caracteres)',
-                    'auth/invalid-email': 'Email inválido',
-                    'auth/operation-not-allowed': 'Email/Senha não ativado no Firebase Console'
-                };
-                showError(map[error.code] || error.message);
-                setLoading(false);
-                signingUp = false;
+        function bootSignup() {
+            if (!firebaseReady()) {
+                disableSignup('Firebase não carregou. Recarregue a página ou verifique sua conexão.');
+                return;
             }
-        });
 
-        // Só redireciona se não estiver no meio do cadastro
-        firebase.auth().onAuthStateChanged(async user => {
-            if (user && !signingUp) {
-                await exchangeTokenAndRedirect(user);
-            }
-        });
+            document.getElementById('signupForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (signingUp) return;
+                signingUp = true;
+
+                const name = document.getElementById('name').value.trim();
+                const email = document.getElementById('email').value.trim();
+                const password = document.getElementById('password').value;
+                const confirm = document.getElementById('confirmPassword').value;
+                if (password !== confirm) { showError('Senhas não conferem'); signingUp = false; return; }
+                setLoading(true);
+
+                try {
+                    const result = await firebase.auth().createUserWithEmailAndPassword(email, password);
+                    await result.user.updateProfile({ displayName: name });
+
+                    await exchangeTokenAndRedirect(result.user);
+                } catch (error) {
+                    const map = {
+                        'auth/email-already-in-use': 'Email já cadastrado',
+                        'auth/weak-password': 'Senha muito fraca (mínimo 6 caracteres)',
+                        'auth/invalid-email': 'Email inválido',
+                        'auth/operation-not-allowed': 'Email/Senha não ativado no Firebase Console'
+                    };
+                    showError(map[error.code] || error.message);
+                    setLoading(false);
+                    signingUp = false;
+                }
+            });
+
+            // Só redireciona se não estiver no meio do cadastro
+            firebase.auth().onAuthStateChanged(async user => {
+                if (user && !signingUp) {
+                    await exchangeTokenAndRedirect(user);
+                }
+            });
+        }
+
+        bootSignup();
     </script>
 </body>
 </html>
