@@ -39,6 +39,19 @@ test('rejects expired subscriptions', () => {
     assert.equal(includesFeature(entitlement, 'cloudBackup'), false);
 });
 
+test('permits canceling subscriptions until the paid period ends', () => {
+    const entitlement = entitlementForUser({
+        plan: 'profissional',
+        subscription: { status: 'canceling', currentPeriodEnd: timestamp(now + DAY_MS) }
+    }, now);
+
+    assert.equal(entitlement.locked, false);
+    assert.equal(entitlement.trial, false);
+    assert.equal(entitlement.canceling, true);
+    assert.equal(entitlement.reason, null);
+    assert.equal(includesFeature(entitlement, 'cloudBackup'), true);
+});
+
 test('enforces plan tiers for Firebase backup', () => {
     const active = (plan) => entitlementForUser({
         plan,

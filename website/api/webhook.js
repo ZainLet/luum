@@ -2,6 +2,11 @@
 
 const { admin, getFirestore } = require('./_firebaseAdmin');
 const { getStripe, isStripePlan, requireSetting } = require('./_stripe');
+const {
+    invoiceSubscriptionID,
+    invoiceSubscriptionMetadata,
+    normalizeStripeStatus
+} = require('./_stripeWebhookShape');
 
 function readRawBody(req) {
     return new Promise((resolve, reject) => {
@@ -25,10 +30,6 @@ async function subscriptionSnapshot(stripe, subscriptionId) {
         billing: subscription.metadata?.billing || (item?.price?.recurring?.interval === 'year' ? 'annually' : 'monthly'),
         quantity: item?.quantity || 1
     };
-}
-
-function normalizeStripeStatus(status) {
-    return status === 'active' || status === 'trialing' ? 'active' : status;
 }
 
 async function writeSubscription(db, uid, plan, subscription) {
@@ -87,20 +88,21 @@ async function webhookHandler(req, res) {
 
             case 'invoice.payment_succeeded': {
                 const invoice = event.data.object;
-                const subscriptionId = invoice.subscription;
+                const subscriptionId = invoiceSubscriptionID(invoice);
                 if (!subscriptionId) break;
 
                 const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-                const uid = subscription.metadata?.uid || invoice.subscription_details?.metadata?.uid;
+                const invoiceMetadata = invoiceSubscriptionMetadata(invoice);
+                const uid = subscription.metadata?.uid || invoiceMetadata.uid;
                 if (!uid) break;
 
                 const period = await subscriptionSnapshot(stripe, subscriptionId);
-                await writeSubscription(db, uid, subscription.metadata?.plan, {
+                await writeSubscription(db, uid, subscription.metadata?.plan || invoiceMetadata.plan, {
                     status: period.status,
                     stripeSubscriptionId: subscriptionId,
                     currentPeriodStart: period.currentPeriodStart,
                     currentPeriodEnd: period.currentPeriodEnd,
-                    billing: subscription.metadata?.billing || period.billing,
+                    billing: subscription.metadata?.billing || invoiceMetadata.billing || period.billing,
                     quantity: period.quantity,
                 });
                 break;
