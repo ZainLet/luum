@@ -38,10 +38,10 @@ Domínio oficial usado pelo app desktop: `https://luum-app.vercel.app`. Login, b
 
 Stripe configurado em produção:
 
-- `essencial`: R$ 29,90/mês; anual configurado como R$ 358,80/ano.
-- `profissional`: R$ 49,90/mês; anual configurado como R$ 598,80/ano.
-- `equipes`: R$ 45,00/usuário/mês; anual configurado como R$ 540,00/usuário/ano; mínimo 2 usuários.
-- `negocios`: R$ 65,00/usuário/mês; anual configurado como R$ 780,00/usuário/ano; mínimo 5 usuários.
+- `essencial`: R$ 29,90/mês; anual com 2 meses grátis: R$ 299,00/ano, equivalente a R$ 24,92/mês.
+- `profissional`: R$ 49,90/mês; anual com 2 meses grátis: R$ 499,00/ano, equivalente a R$ 41,58/mês.
+- `equipes`: R$ 45,00/usuário/mês; anual com 2 meses grátis: R$ 450,00/usuário/ano, equivalente a R$ 37,50/usuário/mês; mínimo 2 usuários.
+- `negocios`: R$ 65,00/usuário/mês; anual com 2 meses grátis: R$ 650,00/usuário/ano, equivalente a R$ 54,17/usuário/mês; mínimo 5 usuários.
 
 - Produtos, preços mensais/anuais, `STRIPE_WEBHOOK_SECRET`, `PUBLIC_SITE_URL` e todos os `STRIPE_PRICE_*` foram salvos no cofre criptografado.
 - Revogar qualquer chave `sk_live_` ou `rk_live_` exposta em chat, log ou captura antes de uso. Salvar a substituta diretamente no cofre admin, nunca em arquivos versionados.

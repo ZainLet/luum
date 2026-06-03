@@ -151,11 +151,11 @@ const firestoreReady = Boolean(db);
 //  [x] 3. Ativar Firestore Database
 //  [x] 4. Aplicar regras de segurança
 //  [x] 5. firebaseConfig preenchido (firebase-config.js)
-//  [ ] 6. Stripe Dashboard → criar 4 produtos/preços
-//  [ ] 7. Vercel → configurar STRIPE_PRICE_* e STRIPE_* secrets
+//  [x] 6. Stripe Dashboard → criar produtos/preços mensais e anuais
+//  [x] 7. Vercel/cofre admin → configurar STRIPE_PRICE_* e STRIPE_* secrets
 //  [x] 8. Vercel → configurar FIREBASE_SERVICE_ACCOUNT_JSON e admin inicial
 //  [x] 9. Deploy api/checkout.js + api/webhook.js + api/auth/status.js + api/admin/users.js
-//  [ ] 10. Stripe → configurar webhook → url do api/webhook.js
+//  [x] 10. Stripe → configurar webhook → url do api/webhook.js
 //  [x] 11. Firebase SDK ativo nos HTMLs
 //  [x] 12. App desktop → checkSubscription via /api/auth/status
 //  [x] 13. Acessar admin.html com admin inicial e promover usuários
