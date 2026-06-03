@@ -42,6 +42,7 @@ function entitlementForUser(data = {}, now = Date.now()) {
             locked,
             plan,
             trial: !locked,
+            ...(locked ? {} : { expiresAt: trialEnd, trialEndsAt: trialEnd }),
             daysRemaining: locked ? 0 : Math.ceil((trialEnd - now) / DAY_MS),
             reason: locked ? 'trial_expired' : null
         };

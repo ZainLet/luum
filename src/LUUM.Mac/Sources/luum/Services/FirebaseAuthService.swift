@@ -6,6 +6,7 @@ struct FirebaseSubscriptionStatus: Decodable, Sendable {
     let trial: Bool?
     let canceling: Bool?
     let expiresAt: TimeInterval?
+    let trialEndsAt: TimeInterval?
     let daysRemaining: Int?
     let reason: String?
 }
@@ -131,6 +132,11 @@ struct FirebaseAuthService {
         if let expiresAt = status.expiresAt {
             let seconds = expiresAt > 9_999_999_999 ? expiresAt / 1000 : expiresAt
             updated.expiresAt = Date(timeIntervalSince1970: seconds)
+        }
+
+        if let trialEndsAt = status.trialEndsAt ?? (status.trial == true ? status.expiresAt : nil) {
+            let seconds = trialEndsAt > 9_999_999_999 ? trialEndsAt / 1000 : trialEndsAt
+            updated.trialEndsAt = Date(timeIntervalSince1970: seconds)
         }
 
         return updated

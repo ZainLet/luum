@@ -116,6 +116,27 @@ func verifiedSessionPreservesCancelingSubscriptionState() async throws {
 }
 
 @Test
+func verifiedSessionUsesBackendTrialEnd() async throws {
+    let trialEnd = 1_780_499_999_000.0
+    let session = URLSession.mocking([
+        MockResponse(
+            url: "https://luum-app.vercel.app/api/auth/status",
+            statusCode: 200,
+            body: #"{"locked":false,"plan":"essencial","trial":true,"trialEndsAt":1780499999000,"daysRemaining":3}"#
+        )
+    ])
+    let service = FirebaseAuthService(session: session)
+
+    let verified = try await service.verifiedSession(makeAuthSession(lastVerifiedAt: nil))
+
+    #expect(verified.plan == .essencial)
+    #expect(verified.subscriptionStatus == "trial")
+    #expect(verified.trialEndsAt == Date(timeIntervalSince1970: trialEnd / 1000))
+    #expect(verified.lockedReason == nil)
+    #expect(!verified.isLocked)
+}
+
+@Test
 func verifiedSessionRefreshesFirebaseTokenAfterUnauthorizedStatus() async throws {
     let session = URLSession.mocking([
         MockResponse(

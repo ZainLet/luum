@@ -24,6 +24,8 @@ test('permits cloud backup during an active trial without permitting raw activit
 
     assert.equal(entitlement.locked, false);
     assert.equal(entitlement.trial, true);
+    assert.equal(entitlement.expiresAt, now + DAY_MS);
+    assert.equal(entitlement.trialEndsAt, now + DAY_MS);
     assert.equal(includesFeature(entitlement, 'cloudBackup'), true);
     assert.equal(includesFeature(entitlement, 'rawActivityBackup'), false);
 });
