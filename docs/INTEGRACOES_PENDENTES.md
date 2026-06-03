@@ -58,7 +58,7 @@ Stripe configurado em produção:
 - Sessões locais só mantêm acesso offline por até 24 horas após uma validação real do servidor. Falhas de rede não renovam essa tolerância; rejeições explícitas da API bloqueiam a sessão e exigem novo login.
 - Ao aplicar uma sessão Firebase, o app fixa backup e workspace no domínio oficial, troca o `backupID` para o UID Firebase e desliga backup bruto quando a conta está bloqueada ou não está no plano Negócios.
 - O monitoramento local só inicia depois de uma sessão local ainda válida ou de uma validação real no backend. Logout, sessão bloqueada ou rejeição explícita da API param a captura local.
-- Notificações, lembretes e foco respeitam os gates de plano antes de pedir permissão do macOS, criar regras ou avaliar alertas locais.
+- Notificações, lembretes, metas e perfis de foco respeitam os gates de plano antes de pedir permissão do macOS, criar regras ou avaliar alertas locais.
 - Toggles de integrações premium e workspace também respeitam o plano antes de ficarem ativos; Zapier exige integrações avançadas e ranking corporativo exige plano de equipe. O endpoint do workspace fica fixo no domínio oficial da Vercel.
 - Sem Apple Developer, mantenha assinatura ad-hoc (`codesign --sign -`) para builds locais.
 - Verificação local atual: `./script/build_and_run.sh --verify` compila e assina o app ad-hoc. Nesta máquina, `swift test` compila o bundle de testes com sucesso, mas as Command Line Tools não expõem o runner `xctest`.

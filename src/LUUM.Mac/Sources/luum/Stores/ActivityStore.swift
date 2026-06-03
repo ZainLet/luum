@@ -1285,6 +1285,11 @@ final class ActivityStore {
         period: GoalPeriod,
         direction: GoalDirection
     ) {
+        guard canUse(.focusModes) else {
+            focusModeStatusMessage = lockMessage(for: .focusModes)
+            return
+        }
+
         guard monitoringPreferences.category(for: categoryID) != nil else { return }
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         monitoringPreferences.usageGoals.append(
@@ -1301,6 +1306,11 @@ final class ActivityStore {
     }
 
     func updateUsageGoal(_ goal: UsageGoal) {
+        guard canUse(.focusModes) else {
+            focusModeStatusMessage = lockMessage(for: .focusModes)
+            return
+        }
+
         guard let index = monitoringPreferences.usageGoals.firstIndex(where: { $0.id == goal.id }) else { return }
         guard monitoringPreferences.category(for: goal.categoryID) != nil else { return }
         var normalizedGoal = goal
@@ -1327,6 +1337,11 @@ final class ActivityStore {
         blockedApplications: [String] = [],
         blockedDomains: [String] = []
     ) {
+        guard canUse(.focusModes) else {
+            focusModeStatusMessage = lockMessage(for: .focusModes)
+            return
+        }
+
         let validCategoryIDs = Array(Set(categoryIDs.filter { monitoringPreferences.category(for: $0) != nil })).sorted()
         let validWeekdays = Array(Set(weekdays.filter { (1 ... 7).contains($0) })).sorted()
         guard !validCategoryIDs.isEmpty, !validWeekdays.isEmpty else { return }
@@ -1353,6 +1368,11 @@ final class ActivityStore {
     }
 
     func updateFocusProfile(_ profile: FocusModeProfile) {
+        guard canUse(.focusModes) else {
+            focusModeStatusMessage = lockMessage(for: .focusModes)
+            return
+        }
+
         guard let index = monitoringPreferences.focusProfiles.firstIndex(where: { $0.id == profile.id }) else { return }
         monitoringPreferences.focusProfiles[index] = profile
         persistMonitoringPreferences()
