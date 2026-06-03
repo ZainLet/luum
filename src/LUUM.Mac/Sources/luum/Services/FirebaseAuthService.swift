@@ -4,6 +4,7 @@ struct FirebaseSubscriptionStatus: Decodable, Sendable {
     let locked: Bool
     let plan: String?
     let trial: Bool?
+    let canceling: Bool?
     let expiresAt: TimeInterval?
     let daysRemaining: Int?
     let reason: String?
@@ -121,7 +122,9 @@ struct FirebaseAuthService {
         }
 
         updated.plan = LuumAccountPlan(remoteValue: status.plan ?? (status.trial == true ? "trial" : nil))
-        updated.subscriptionStatus = status.trial == true ? "trial" : (status.locked ? (status.reason ?? "locked") : "active")
+        updated.subscriptionStatus = status.trial == true
+            ? "trial"
+            : (status.locked ? (status.reason ?? "locked") : (status.canceling == true ? "canceling" : "active"))
         updated.lockedReason = status.locked ? status.reason ?? "locked" : nil
         updated.lastVerifiedAt = Date()
 
