@@ -2,6 +2,17 @@
 
 Este arquivo lista o que depende de contas, chaves externas ou decisões que não devem ficar hardcoded no repositório.
 
+## Estado validado em 03/06/2026
+
+- Vercel production atualizado em `https://luum-app.vercel.app` com as APIs de login, admin, checkout, backup, workspace e CORS restrito.
+- Firebase Hosting publicado em `https://luum-app.web.app` com `auth.js?v=5`.
+- `OPTIONS /api/auth/upsert-user` aceita `Origin: https://luum-app.web.app` e rejeita origem desconhecida.
+- `auth.js` compartilhado cria/atualiza `users/{uid}` via `/api/auth/upsert-user` antes de abrir o app com `luum://auth`.
+- App macOS validado localmente com `swift test`, `swift build` e `./script/build_and_run.sh --verify`.
+- Build local do app continua assinado ad-hoc e usa cofre local cifrado por padrão, sem Keychain do macOS, para evitar prompts recorrentes enquanto não houver Apple Developer ID estável.
+
+Ainda precisa de validação manual com uma conta real: entrar no site, abrir o app pelo deeplink, alterar plano no `admin.html` e clicar em validar assinatura no app.
+
 ## Firebase
 
 - Regras `firestore.rules` publicadas em produção. A política versionada permite ao usuário autenticado ler apenas o próprio perfil e bloqueia gravações diretas, backups e o cofre fora do backend Admin.
@@ -67,8 +78,8 @@ Stripe configurado em produção:
 
 ### Roteiro de validação do login e planos
 
-1. Publicar Vercel com `FIREBASE_SERVICE_ACCOUNT_JSON`, `ADMIN_EMAILS`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` e `LUUM_SETTINGS_ENCRYPTION_KEY`.
-2. Abrir `https://luum-app.vercel.app/admin.html` com `oluum.app@gmail.com` e confirmar que `/api/admin/health` mostra Firebase Admin, Firestore e permissão de admin como OK.
+1. Abrir `https://luum-app.vercel.app/admin.html` com `oluum.app@gmail.com` e confirmar que `/api/admin/health` mostra Firebase Admin, Firestore e permissão de admin como OK.
+2. Se `/api/admin/health` acusar configuração ausente, revisar `FIREBASE_SERVICE_ACCOUNT_JSON`, `ADMIN_EMAILS`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` e `LUUM_SETTINGS_ENCRYPTION_KEY` na Vercel e republicar.
 3. Entrar no site com uma conta comum. O login deve chamar `/api/auth/upsert-user` e criar/atualizar `users/{uid}` no Firestore.
 4. No app macOS, clicar em Entrar. O site deve abrir `login.html?app=mac` e retornar para o app com `luum://auth?token=...&refreshToken=...&uid=...`.
 5. No app, confirmar que o status muda para `Plano {nome} validado.`. Sem token ou com UID divergente, o app deve rejeitar o callback.
@@ -128,6 +139,6 @@ Stripe configurado em produção:
 1. Criar uma conta técnica restrita para o backend Vercel no projeto Firebase `luum-app`.
 2. Salvar o JSON diretamente na variável sensível `FIREBASE_SERVICE_ACCOUNT_JSON` da Vercel.
 3. Gerar uma chave aleatória longa e salvar diretamente em `LUUM_SETTINGS_ENCRYPTION_KEY`.
-4. Republicar a Vercel e validar `/api/auth/upsert-user`, `/api/auth/status` e `/api/admin/health`.
-5. Publicar `firestore.rules` e o Hosting Firebase para remover arquivos operacionais da superfície pública.
+4. Republicar a Vercel quando variáveis sensíveis mudarem e validar `/api/auth/upsert-user`, `/api/auth/status` e `/api/admin/health`.
+5. Publicar `firestore.rules` e o Hosting Firebase quando regras ou arquivos estáticos mudarem.
 6. Entrar como `oluum.app@gmail.com` em `admin.html` e preencher integrações adicionais pelo cofre.
