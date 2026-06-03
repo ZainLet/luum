@@ -13,7 +13,7 @@ func defaultStorageUsesEncryptedFallbackWithoutSystemKeychain() throws {
     try keychain.setString("no-keychain-prompt", for: account)
 
     let raw = try #require(keychain.rawFallbackStringForTesting(account: account))
-    #expect(raw.hasPrefix("v1:"))
+    #expect(raw.hasPrefix("v2:"))
     #expect(!raw.contains("no-keychain-prompt"))
     #expect(keychain.string(for: account) == "no-keychain-prompt")
 
@@ -34,7 +34,7 @@ func encryptedFallbackRoundTripsAndBindsToAccount() throws {
     keychain.setFallbackStringForTesting("firebase-session-token", for: account)
 
     let raw = try #require(keychain.rawFallbackStringForTesting(account: account))
-    #expect(raw.hasPrefix("v1:"))
+    #expect(raw.hasPrefix("v2:"))
     #expect(!raw.contains("firebase-session-token"))
     #expect(keychain.string(for: account) == "firebase-session-token")
     #expect(keychain.string(for: otherAccount) == nil)
@@ -50,7 +50,23 @@ func legacyFallbackMigratesToEncryptedFormat() throws {
 
     #expect(keychain.string(for: account) == "legacy-secret")
     let migrated = try #require(keychain.rawFallbackStringForTesting(account: account))
-    #expect(migrated.hasPrefix("v1:"))
+    #expect(migrated.hasPrefix("v2:"))
     #expect(!migrated.contains("legacy-secret"))
+}
+
+@Test
+func legacyEncryptedFallbackMigratesToInstallSecretBackedFormat() throws {
+    let keychain = KeychainService()
+    let account = "test-legacy-v1-fallback-\(UUID().uuidString)"
+    defer { keychain.removeValue(for: account) }
+
+    keychain.setLegacyEncryptedFallbackStringForTesting("legacy-encrypted-secret", for: account)
+    let legacy = try #require(keychain.rawFallbackStringForTesting(account: account))
+    #expect(legacy.hasPrefix("v1:"))
+
+    #expect(keychain.string(for: account) == "legacy-encrypted-secret")
+    let migrated = try #require(keychain.rawFallbackStringForTesting(account: account))
+    #expect(migrated.hasPrefix("v2:"))
+    #expect(!migrated.contains("legacy-encrypted-secret"))
 }
 #endif

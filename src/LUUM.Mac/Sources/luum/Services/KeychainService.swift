@@ -4,7 +4,8 @@ import Security
 
 struct KeychainService {
     private let service = "com.zainlet.luum"
-    private let fallbackVersionPrefix = "v1:"
+    private let fallbackVersionPrefix = "v2:"
+    private let legacyFallbackVersionPrefix = "v1:"
     private let useSystemKeychain: Bool
 
     init(useSystemKeychain: Bool = ProcessInfo.processInfo.environment["LUUM_USE_SYSTEM_KEYCHAIN"] == "1") {
@@ -139,6 +140,22 @@ struct KeychainService {
                 authenticating: Data(account.utf8)
             )
         }
+        if raw.hasPrefix(legacyFallbackVersionPrefix) {
+            let encoded = String(raw.dropFirst(legacyFallbackVersionPrefix.count))
+            guard
+                let combined = Data(base64Encoded: encoded),
+                let sealed = try? AES.GCM.SealedBox(combined: combined),
+                let legacyData = try? AES.GCM.open(
+                    sealed,
+                    using: legacyFallbackEncryptionKey,
+                    authenticating: Data(account.utf8)
+                )
+            else {
+                return nil
+            }
+            setFallbackData(legacyData, for: account)
+            return legacyData
+        }
 
         // Migra o fallback Base64 usado por builds anteriores para armazenamento cifrado.
         guard let legacyData = Data(base64Encoded: raw) else { return nil }
@@ -149,8 +166,53 @@ struct KeychainService {
     private var fallbackEncryptionKey: SymmetricKey {
         // Builds ad-hoc trocam de assinatura e fazem o Keychain pedir senha.
         // Por padrão usamos fallback cifrado local para evitar esse prompt.
+        let secret = installationSecret()
+        let material = "\(service)\u{0}\(NSUserName())\u{0}\(NSHomeDirectory())"
+        var data = Data(material.utf8)
+        data.append(0)
+        data.append(secret)
+        return SymmetricKey(data: SHA256.hash(data: data))
+    }
+
+    private var legacyFallbackEncryptionKey: SymmetricKey {
         let material = "\(service)\u{0}\(NSUserName())\u{0}\(NSHomeDirectory())"
         return SymmetricKey(data: SHA256.hash(data: Data(material.utf8)))
+    }
+
+    private func installationSecret() -> Data {
+        let url = installationSecretURL()
+        if let data = try? Data(contentsOf: url), data.count >= 32 {
+            return data
+        }
+
+        var bytes = [UInt8](repeating: 0, count: 32)
+        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        let secret = status == errSecSuccess
+            ? Data(bytes)
+            : Data(SHA256.hash(data: Data("\(service)\u{0}\(UUID().uuidString)".utf8)))
+
+        do {
+            let directory = url.deletingLastPathComponent()
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
+            try secret.write(to: url, options: [.atomic])
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        } catch {
+            return secret
+        }
+
+        return secret
+    }
+
+    private func installationSecretURL() -> URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first ??
+            URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support", isDirectory: true)
+        return base
+            .appendingPathComponent("Luum", isDirectory: true)
+            .appendingPathComponent(".local-vault-key", isDirectory: false)
     }
 }
 
@@ -163,6 +225,23 @@ extension KeychainService {
     func setLegacyFallbackStringForTesting(_ value: String, for account: String) {
         UserDefaults.standard.set(
             Data(value.utf8).base64EncodedString(),
+            forKey: fallbackKey(for: account)
+        )
+    }
+
+    func setLegacyEncryptedFallbackStringForTesting(_ value: String, for account: String) {
+        let accountData = Data(account.utf8)
+        guard
+            let sealed = try? AES.GCM.seal(
+                Data(value.utf8),
+                using: legacyFallbackEncryptionKey,
+                authenticating: accountData
+            ),
+            let combined = sealed.combined
+        else { return }
+
+        UserDefaults.standard.set(
+            legacyFallbackVersionPrefix + combined.base64EncodedString(),
             forKey: fallbackKey(for: account)
         )
     }
