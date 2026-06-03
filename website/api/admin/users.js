@@ -1,15 +1,10 @@
 const { admin, getFirestore } = require('../_firebaseAdmin');
 const { addCors, handleOptions } = require('../_cors');
 const { requireAdmin } = require('../_adminAuth');
+const { manualSubscriptionSnapshot, stripeSubscriptionDeletePatch } = require('../_manualGrant');
 
 const VALID_PLANS = new Set(['essencial', 'profissional', 'equipes', 'negocios']);
 const VALID_STATUSES = new Set(['trial', 'active', 'canceling', 'canceled', 'past_due']);
-const STRIPE_SUBSCRIPTION_FIELDS = [
-    'stripeCustomerId',
-    'stripeSubscriptionId',
-    'stripeSessionId',
-    'stripePriceId'
-];
 
 function jsonBody(req) {
     if (!req.body) return {};
@@ -86,6 +81,7 @@ async function adminUsersHandler(req, res) {
 
         const userRef = db.collection('users').doc(userRecord.uid);
         const existingUser = await userRef.get();
+        const serverTimestamp = admin.firestore.FieldValue.serverTimestamp();
 
         await userRef.set({
             uid: userRecord.uid,
@@ -94,28 +90,17 @@ async function adminUsersHandler(req, res) {
             plan,
             role,
             seats,
-            subscription: {
+            subscription: manualSubscriptionSnapshot({
                 status,
-                source: 'manual',
                 seats,
-                quantity: seats,
-                billing: 'manual',
                 currentPeriodEnd,
-                ...(status === 'trial' ? { trialEndsAt: currentPeriodEnd } : {}),
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                grantedAt: admin.firestore.FieldValue.serverTimestamp(),
-                grantedBy: adminUser.uid,
-                grantedByEmail: adminUser.email || null
-            },
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            ...(!existingUser.exists ? { createdAt: admin.firestore.FieldValue.serverTimestamp() } : {})
+                adminUser,
+                serverTimestamp
+            }),
+            updatedAt: serverTimestamp,
+            ...(!existingUser.exists ? { createdAt: serverTimestamp } : {})
         }, { merge: true });
-        await userRef.update(Object.fromEntries(
-            STRIPE_SUBSCRIPTION_FIELDS.map((field) => [
-                `subscription.${field}`,
-                admin.firestore.FieldValue.delete()
-            ])
-        ));
+        await userRef.update(stripeSubscriptionDeletePatch(admin.firestore.FieldValue.delete()));
 
         const currentClaims = userRecord.customClaims || {};
         const nextClaims = {
