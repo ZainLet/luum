@@ -35,10 +35,15 @@ window.luumApiUrl = function luumApiUrl(path) {
     return `${base}${suffix}`;
 };
 
-// Inicializa Firebase
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = typeof firebase.firestore === 'function' ? firebase.firestore() : null;
+// Inicializa Firebase quando o SDK carregou. As páginas mostram um fallback claro
+// quando CDN/conexão bloqueiam os scripts do Firebase.
+const firebaseSDKReady = typeof firebase !== 'undefined' && typeof firebase.initializeApp === 'function';
+if (firebaseSDKReady && !firebase.apps?.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+
+const auth = firebaseSDKReady && typeof firebase.auth === 'function' ? firebase.auth() : null;
+const db = firebaseSDKReady && typeof firebase.firestore === 'function' ? firebase.firestore() : null;
 
 // O backend protegido oferece o diagnóstico real em /api/admin/health.
 const firestoreReady = Boolean(db);

@@ -154,7 +154,7 @@
                     window.location.href = data.url;
                 } catch (error) {
                     console.error('[Luum Checkout]', error);
-                    alert('Checkout ainda nao esta configurado. Consulte INTEGRACOES_PENDENTES.md para finalizar Stripe e backend.');
+                    alert(error.message || 'Checkout indisponivel agora. Tente novamente em instantes.');
                 } finally {
                     btn.disabled = false;
                     btn.textContent = originalText;
