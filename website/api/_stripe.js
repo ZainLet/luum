@@ -1,31 +1,5 @@
-const createStripe = require('stripe');
 const { getSetting } = require('./_integrationSettings');
-
-const PRICE_ENV_BY_PLAN = {
-    essencial: {
-        monthly: 'STRIPE_PRICE_ESSENCIAL_MONTHLY',
-        annually: 'STRIPE_PRICE_ESSENCIAL_ANNUALLY'
-    },
-    profissional: {
-        monthly: 'STRIPE_PRICE_PROFISSIONAL_MONTHLY',
-        annually: 'STRIPE_PRICE_PROFISSIONAL_ANNUALLY'
-    },
-    equipes: {
-        monthly: 'STRIPE_PRICE_EQUIPES_MONTHLY',
-        annually: 'STRIPE_PRICE_EQUIPES_ANNUALLY'
-    },
-    negocios: {
-        monthly: 'STRIPE_PRICE_NEGOCIOS_MONTHLY',
-        annually: 'STRIPE_PRICE_NEGOCIOS_ANNUALLY'
-    }
-};
-
-const DEFAULT_MINIMUM_QUANTITY_BY_PLAN = {
-    essencial: 1,
-    profissional: 1,
-    equipes: 2,
-    negocios: 5
-};
+const { DEFAULT_MINIMUM_QUANTITY_BY_PLAN, PRICE_ENV_BY_PLAN, isStripePlan } = require('./_stripePlans');
 
 async function requireSetting(name) {
     const value = await getSetting(name);
@@ -34,6 +8,7 @@ async function requireSetting(name) {
 }
 
 async function getStripe() {
+    const createStripe = require('stripe');
     return createStripe(await requireSetting('STRIPE_SECRET_KEY'));
 }
 
@@ -47,10 +22,6 @@ function minimumQuantity(plan) {
     const fallback = DEFAULT_MINIMUM_QUANTITY_BY_PLAN[plan] || 1;
     const parsed = Number.parseInt(process.env[key] || String(fallback), 10);
     return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-function isStripePlan(plan) {
-    return Object.prototype.hasOwnProperty.call(PRICE_ENV_BY_PLAN, plan);
 }
 
 async function missingStripeEnvNames({ includeWebhook = false } = {}) {

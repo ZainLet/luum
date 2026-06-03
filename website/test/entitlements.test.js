@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { entitlementForUser, includesFeature, normalizedPlan } = require('../api/_entitlements');
 const { checkoutEmail, checkoutSiteURL } = require('../api/_checkoutSecurity');
 const { profileEmail, profileText } = require('../api/_profileSecurity');
-const { isStripePlan } = require('../api/_stripe');
+const { isStripePlan } = require('../api/_stripePlans');
 const { sameHash, secretHash, validID } = require('../api/_workspaceSecurity');
 
 const DAY_MS = 24 * 60 * 60 * 1000;

@@ -36,21 +36,20 @@ Domínio oficial usado pelo app desktop: `https://luum-app.vercel.app`. Login, b
 
 ## Stripe
 
-Preços mensais confirmados e valores anuais ainda pendentes de confirmação final:
+Stripe configurado em produção:
 
-- `essencial`: R$ 29,90/mês; confirmar valor anual antes de criar o Price ID anual.
-- `profissional`: R$ 49,90/mês; confirmar valor anual antes de criar o Price ID anual.
-- `equipes`: R$ 45,00/usuário/mês; mínimo 2 usuários; confirmar valor anual antes de criar o Price ID anual.
-- `negocios`: R$ 65,00/usuário/mês; mínimo 5 usuários; confirmar valor anual antes de criar o Price ID anual.
+- `essencial`: R$ 29,90/mês; anual configurado como R$ 358,80/ano.
+- `profissional`: R$ 49,90/mês; anual configurado como R$ 598,80/ano.
+- `equipes`: R$ 45,00/usuário/mês; anual configurado como R$ 540,00/usuário/ano; mínimo 2 usuários.
+- `negocios`: R$ 65,00/usuário/mês; anual configurado como R$ 780,00/usuário/ano; mínimo 5 usuários.
 
-- Criar produtos e preços no Stripe para `essencial`, `profissional`, `equipes` e `negocios`.
+- Produtos, preços mensais/anuais, `STRIPE_WEBHOOK_SECRET`, `PUBLIC_SITE_URL` e todos os `STRIPE_PRICE_*` foram salvos no cofre criptografado.
 - Revogar qualquer chave `sk_live_` ou `rk_live_` exposta em chat, log ou captura antes de uso. Salvar a substituta diretamente no cofre admin, nunca em arquivos versionados.
 - Para uma chave restrita, liberar somente o necessário ao backend: criação de Checkout Sessions, leitura/escrita de assinaturas e acesso exigido pelo Stripe para clientes. A assinatura do webhook usa uma credencial separada `whsec_`.
-- Preencher os valores Stripe pelo cofre criptografado em `admin.html` ou pelas variáveis `STRIPE_PRICE_*` do deploy para cada plano e ciclo mensal/anual.
-- Diagnóstico criado em `GET /api/admin/stripe-health`; a tela `admin.html` lista envs Stripe ausentes sem revelar valores secretos.
+- Diagnóstico criado em `GET /api/admin/stripe-health`; `POST /api/admin/stripe-health` faz bootstrap admin sem criar função Vercel extra.
 - Checkout de Equipes e Negócios solicita quantidade de assentos e respeita os mínimos configurados.
-- Configurar webhook para `checkout.session.completed`, `invoice.payment_succeeded`, `customer.subscription.updated` e `customer.subscription.deleted`.
-- Validar em produção o cancelamento em `POST /api/cancel-subscription` ou substituir pelo Stripe Customer Portal.
+- Webhook configurado para `checkout.session.completed`, `invoice.payment_succeeded`, `customer.subscription.updated` e `customer.subscription.deleted`.
+- Validar em produção o cancelamento em `POST /api/cancel-subscription` após existir uma assinatura real, ou substituir pelo Stripe Customer Portal.
 - Testar checkout com cartões de teste antes de produção.
 
 ## App macOS
