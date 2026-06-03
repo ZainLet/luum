@@ -325,6 +325,7 @@ final class ActivityStore {
     }
 
     func signOut() {
+        stopMonitoring()
         authSession = nil
         authStatusMessage = "Conta desconectada deste Mac."
         keychainService.removeValue(for: Self.firebaseAuthSessionKey)
@@ -349,6 +350,12 @@ final class ActivityStore {
 
         persistMonitoringPreferences()
         scheduleCloudSyncIfNeeded(reason: "auth-session")
+
+        if canUse(.coreTracking) {
+            startMonitoring()
+        } else {
+            stopMonitoring()
+        }
     }
 
     static func cloudSyncSettings(
@@ -549,8 +556,14 @@ final class ActivityStore {
     }
 
     func bootstrap(selectedDay: Date = Date()) {
-        startMonitoring()
         startMaintenanceLoop()
+
+        if authSession != nil {
+            if canUse(.coreTracking) {
+                startMonitoring()
+            }
+            refreshAccountStatus()
+        }
 
         Task { [weak self] in
             await self?.ensureAgenda(for: selectedDay)
