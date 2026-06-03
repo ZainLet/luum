@@ -9,6 +9,7 @@ Este arquivo lista o que depende de contas, chaves externas ou decisões que nã
 - `OPTIONS /api/auth/upsert-user` aceita `Origin: https://luum-app.web.app` e rejeita origem desconhecida.
 - `auth.js` compartilhado cria/atualiza `users/{uid}` via `/api/auth/upsert-user` antes de abrir o app com `luum://auth`.
 - `login.html?app=mac` é o único fluxo web que abre `luum://auth`; login comum do site redireciona para `account.html`.
+- `cadastro.html?app=mac` preserva o retorno para o app; cadastro comum do site redireciona para `account.html`.
 - App macOS validado localmente com `swift test`, `swift build` e `./script/build_and_run.sh --verify`.
 - Build local do app continua assinado ad-hoc e usa cofre local cifrado por padrão, sem Keychain do macOS, para evitar prompts recorrentes enquanto não houver Apple Developer ID estável.
 
@@ -82,13 +83,14 @@ Stripe configurado em produção:
 1. Abrir `https://luum-app.vercel.app/admin.html` com `oluum.app@gmail.com` e confirmar que `/api/admin/health` mostra Firebase Admin, Firestore e permissão de admin como OK.
 2. Se `/api/admin/health` acusar configuração ausente, revisar `FIREBASE_SERVICE_ACCOUNT_JSON`, `ADMIN_EMAILS`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` e `LUUM_SETTINGS_ENCRYPTION_KEY` na Vercel e republicar.
 3. Entrar no site com uma conta comum. O login deve chamar `/api/auth/upsert-user` e criar/atualizar `users/{uid}` no Firestore.
-4. No site, clicar em Entrar sem `app=mac` deve terminar em `account.html`, sem tentar abrir o app.
-5. No app macOS, clicar em Entrar. O site deve abrir `login.html?app=mac` e retornar para o app com `luum://auth?token=...&refreshToken=...&uid=...`.
-6. No app, confirmar que o status muda para `Plano {nome} validado.`. Sem token ou com UID divergente, o app deve rejeitar o callback.
-7. No `admin.html`, alterar o plano/status do usuário. No app, clicar em `Validar assinatura` e confirmar que telas premium liberam ou bloqueiam conforme o plano.
-8. Testar logout no app. A captura local deve parar e as telas voltam para o bloqueio de login.
-9. Testar offline por menos de 24 horas após uma validação real: o app pode manter recursos do plano localmente. Depois dessa janela, deve pedir nova validação online.
-10. Validar backup: em plano Profissional ou maior, `Sincronizar agora` deve gravar em `/api/sync/{uid}`. Backup bruto só deve ficar disponível no plano Negócios.
+4. No site, clicar em Entrar ou Começar Grátis sem `app=mac` deve terminar em `account.html`, sem tentar abrir o app.
+5. Em `login.html?app=mac`, clicar em `Criar conta` deve manter o fluxo em `cadastro.html?app=mac`; em `cadastro.html?app=mac`, clicar em `Faça login` deve voltar para `login.html?app=mac`.
+6. No app macOS, clicar em Entrar. O site deve abrir `login.html?app=mac` e retornar para o app com `luum://auth?token=...&refreshToken=...&uid=...`.
+7. No app, confirmar que o status muda para `Plano {nome} validado.`. Sem token ou com UID divergente, o app deve rejeitar o callback.
+8. No `admin.html`, alterar o plano/status do usuário. No app, clicar em `Validar assinatura` e confirmar que telas premium liberam ou bloqueiam conforme o plano.
+9. Testar logout no app. A captura local deve parar e as telas voltam para o bloqueio de login.
+10. Testar offline por menos de 24 horas após uma validação real: o app pode manter recursos do plano localmente. Depois dessa janela, deve pedir nova validação online.
+11. Validar backup: em plano Profissional ou maior, `Sincronizar agora` deve gravar em `/api/sync/{uid}`. Backup bruto só deve ficar disponível no plano Negócios.
 
 ## Calendários e integrações
 
