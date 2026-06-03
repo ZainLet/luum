@@ -65,20 +65,16 @@
         }
     }
 
-    function appRedirectURL(user) {
-        const uid = encodeURIComponent(user.uid || user.email || '');
-        return `luum://auth?uid=${uid}`;
-    }
-
     async function redirectToApp(user) {
         const auth = getFirebaseAuth();
-        let redirectURL = appRedirectURL(user);
-
-        if (auth?.currentUser?.getIdToken) {
-            const token = await auth.currentUser.getIdToken(true);
-            redirectURL += `&token=${encodeURIComponent(token)}`;
-            redirectURL += `&refreshToken=${encodeURIComponent(auth.currentUser.refreshToken || '')}`;
+        const currentUser = auth?.currentUser || user;
+        if (!currentUser?.getIdToken || !currentUser.uid) {
+            throw new Error('Sessao Firebase incompleta para abrir o app.');
         }
+
+        const token = await currentUser.getIdToken(true);
+        const refreshToken = currentUser.refreshToken || '';
+        const redirectURL = `luum://auth?token=${encodeURIComponent(token)}&refreshToken=${encodeURIComponent(refreshToken)}&uid=${encodeURIComponent(currentUser.uid)}`;
 
         const fallback = window.setTimeout(() => {
             window.location.href = 'account.html';
