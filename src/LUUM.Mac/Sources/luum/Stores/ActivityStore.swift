@@ -566,9 +566,6 @@ final class ActivityStore {
         startMaintenanceLoop()
 
         if authSession != nil {
-            if canUse(.coreTracking) {
-                startMonitoring()
-            }
             refreshAccountStatus()
         }
 
