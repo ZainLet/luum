@@ -5,7 +5,7 @@ Este arquivo lista o que depende de contas, chaves externas ou decisões que nã
 ## Estado validado em 03/06/2026
 
 - Vercel production atualizado em `https://luum-app.vercel.app` com as APIs de login, admin, checkout, backup, workspace e CORS restrito.
-- Firebase Hosting publicado em `https://luum-app.web.app` com `auth.js?v=5`.
+- Firebase Hosting publicado em `https://luum-app.web.app` com `auth.js?v=6`.
 - `OPTIONS /api/auth/upsert-user` aceita `Origin: https://luum-app.web.app` e rejeita origem desconhecida.
 - `auth.js` compartilhado cria/atualiza `users/{uid}` via `/api/auth/upsert-user` antes de abrir o app com `luum://auth`.
 - App macOS validado localmente com `swift test`, `swift build` e `./script/build_and_run.sh --verify`.
@@ -18,7 +18,7 @@ Ainda precisa de validação manual com uma conta real: entrar no site, abrir o 
 - Regras `firestore.rules` publicadas em produção. A política versionada permite ao usuário autenticado ler apenas o próprio perfil e bloqueia gravações diretas, backups e o cofre fora do backend Admin.
 - Confirmar o projeto final (`luum-app`) e domínios autorizados do Firebase Auth.
 - Endpoint `POST /api/auth/upsert-user` validado em produção para criar/atualizar `users/{uid}` via Admin SDK após login/cadastro.
-- Endpoint `GET /api/auth/status` validado em produção recebendo exclusivamente `Authorization: Bearer {firebase_id_token}` e retornando `locked`, `plan`, `trial`, `expiresAt` e `reason`.
+- Endpoint `GET /api/auth/status` validado em produção recebendo exclusivamente `Authorization: Bearer {firebase_id_token}` e retornando `locked`, `plan`, `trial`, `expiresAt`, `trialEndsAt` e `reason`.
 - Configurar `ADMIN_EMAILS` no backend com o primeiro email administrador, separado por vírgula se houver mais de um.
 - Usar `admin.html` para promover usuários e definir `plan`, `subscription.status`, validade, assentos e `role`.
 - Opcional: manter custom claims `luumAdmin` para admins; a fonte de verdade dos planos deve continuar sendo Firestore/Stripe.
@@ -65,7 +65,7 @@ Stripe configurado em produção:
 
 ## App macOS
 
-- O app já recebe `luum://auth?token=...&refreshToken=...&uid=...`, exige que o UID do callback confira com o token, renova token Firebase expirado, consulta `/api/auth/status`, aplica gates por plano e salva sessão local em cofre cifrado sem acionar o Keychain do macOS em builds ad-hoc.
+- O app já recebe `luum://auth?token=...&refreshToken=...&uid=...`, exige que o UID do callback confira com o token, renova token Firebase expirado, consulta `/api/auth/status`, usa a validade de trial enviada pelo backend, aplica gates por plano e salva sessão local em cofre cifrado sem acionar o Keychain do macOS em builds ad-hoc.
 - Sessões locais só mantêm acesso offline por até 24 horas após uma validação real do servidor. Falhas de rede não renovam essa tolerância; rejeições explícitas da API bloqueiam a sessão e exigem novo login.
 - Ao aplicar uma sessão Firebase, o app fixa backup e workspace no domínio oficial, troca o `backupID` para o UID Firebase e desliga backup bruto quando a conta está bloqueada ou não está no plano Negócios. Mesmo que uma preferência antiga esteja suja em disco, push/restore usam o domínio oficial e o UID da sessão.
 - O monitoramento local só inicia depois de uma sessão local ainda válida ou de uma validação real no backend. Logout, sessão bloqueada ou rejeição explícita da API param a captura local.
