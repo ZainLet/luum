@@ -374,6 +374,15 @@ final class ActivityStore {
         return sanitized
     }
 
+    static func isCloudSyncConfigured(
+        _ settings: CloudSyncSettings,
+        for session: LuumAuthSession?
+    ) -> Bool {
+        settings.endpointURL == FirebaseAuthService.defaultBaseURL &&
+        settings.backupID == session?.uid &&
+        !(session?.idToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }
+
     var onboardingChecklist: [OnboardingChecklistItem] {
         [
             OnboardingChecklistItem(
@@ -550,9 +559,7 @@ final class ActivityStore {
     }
 
     var cloudSyncConfigured: Bool {
-        cloudSyncSettings.endpointURL == FirebaseAuthService.defaultBaseURL &&
-        cloudSyncSettings.backupID == authSession?.uid &&
-        !(authSession?.idToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        Self.isCloudSyncConfigured(cloudSyncSettings, for: authSession)
     }
 
     func bootstrap(selectedDay: Date = Date()) {

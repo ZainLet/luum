@@ -110,6 +110,27 @@ func businessPlanKeepsRawBackupPinnedToFirebaseAccount() {
     #expect(sanitized.backupID == "firebase-user")
 }
 
+@Test
+func cloudSyncConfiguredRequiresOfficialEndpointFirebaseUIDAndToken() {
+    let session = makeAuthSession(plan: .profissional, lastVerifiedAt: Date())
+    let settings = ActivityStore.cloudSyncSettings(.default, sanitizedFor: session)
+
+    #expect(ActivityStore.isCloudSyncConfigured(settings, for: session))
+
+    var wrongEndpoint = settings
+    wrongEndpoint.endpointURL = "https://evil.example"
+    #expect(!ActivityStore.isCloudSyncConfigured(wrongEndpoint, for: session))
+
+    var wrongBackupID = settings
+    wrongBackupID.backupID = "another-user"
+    #expect(!ActivityStore.isCloudSyncConfigured(wrongBackupID, for: session))
+
+    var emptyTokenSession = session
+    emptyTokenSession.idToken = "  "
+    #expect(!ActivityStore.isCloudSyncConfigured(settings, for: emptyTokenSession))
+    #expect(!ActivityStore.isCloudSyncConfigured(settings, for: nil))
+}
+
 private func makeAuthSession(plan: LuumAccountPlan, lastVerifiedAt: Date?) -> LuumAuthSession {
     LuumAuthSession(
         uid: "firebase-user",
