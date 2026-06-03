@@ -550,8 +550,8 @@ final class ActivityStore {
     }
 
     var cloudSyncConfigured: Bool {
-        !cloudSyncSettings.endpointURL.isEmpty &&
-        !cloudSyncSettings.backupID.isEmpty &&
+        cloudSyncSettings.endpointURL == FirebaseAuthService.defaultBaseURL &&
+        cloudSyncSettings.backupID == authSession?.uid &&
         !(authSession?.idToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
     }
 
@@ -1219,12 +1219,12 @@ final class ActivityStore {
     }
 
     func updateCloudSyncEndpointURL(_ value: String) {
-        monitoringPreferences.cloudSyncSettings.endpointURL = value
+        monitoringPreferences.cloudSyncSettings.endpointURL = FirebaseAuthService.defaultBaseURL
         persistMonitoringPreferences()
     }
 
     func updateCloudSyncBackupID(_ value: String) {
-        monitoringPreferences.cloudSyncSettings.backupID = value
+        monitoringPreferences.cloudSyncSettings.backupID = authSession?.uid ?? ""
         persistMonitoringPreferences()
     }
 
@@ -2830,7 +2830,7 @@ final class ActivityStore {
             return
         }
         guard cloudSyncConfigured else {
-            cloudSyncStatusMessage = "Entre na conta Luum ou preencha endpoint, Backup ID e chave para ativar o sync."
+            cloudSyncStatusMessage = "Entre na conta Luum e valide o plano para ativar o backup Firebase."
             return
         }
 
@@ -2839,8 +2839,8 @@ final class ActivityStore {
 
         do {
             let updatedAt = try await cloudSyncService.push(
-                baseURL: monitoringPreferences.cloudSyncSettings.endpointURL,
-                backupID: monitoringPreferences.cloudSyncSettings.backupID,
+                baseURL: FirebaseAuthService.defaultBaseURL,
+                backupID: authSession?.uid ?? "",
                 firebaseToken: authSession?.idToken,
                 payload: makeCloudBackupPayload()
             )
@@ -2853,7 +2853,7 @@ final class ActivityStore {
 
     private func runCloudRestore() async {
         guard cloudSyncConfigured else {
-            cloudSyncStatusMessage = "Configure o sync antes de restaurar."
+            cloudSyncStatusMessage = "Entre na conta Luum e valide o plano antes de restaurar."
             return
         }
         guard canUse(.cloudBackup) else {
@@ -2866,8 +2866,8 @@ final class ActivityStore {
 
         do {
             guard let payload = try await cloudSyncService.pull(
-                baseURL: monitoringPreferences.cloudSyncSettings.endpointURL,
-                backupID: monitoringPreferences.cloudSyncSettings.backupID,
+                baseURL: FirebaseAuthService.defaultBaseURL,
+                backupID: authSession?.uid ?? "",
                 firebaseToken: authSession?.idToken
             ) else {
                 cloudSyncStatusMessage = "Nenhum backup encontrado para esse identificador."
