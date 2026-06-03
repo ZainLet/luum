@@ -229,6 +229,16 @@
             return subscription.billing === 'annually' ? meta.annually : meta.monthly;
         }
 
+        function escapeHTML(value) {
+            return String(value || '').replace(/[&<>"']/g, (char) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[char]);
+        }
+
         function showAccountLoggedOut(message) {
             const loading = document.getElementById('loadingState');
             const dashboard = document.getElementById('accountDashboard');
@@ -243,6 +253,16 @@
             }
         }
 
+        function showAccountError(message) {
+            const loading = document.getElementById('loadingState');
+            loading.style.display = 'block';
+            loading.innerHTML = `
+                <p style="color:#fca5a5;max-width:460px;margin:0 auto;line-height:1.7;">
+                    ${escapeHTML(message || 'Não foi possível carregar sua conta agora.')}
+                </p>
+                <button onclick="location.reload()" style="margin-top:16px;background:none;border:1px solid var(--border-default);color:var(--text-primary);padding:10px 24px;border-radius:var(--radius-md);cursor:pointer;font-family:inherit;font-size:0.875rem;">Tentar novamente</button>`;
+        }
+
         function firebaseReady() {
             return typeof firebase !== 'undefined' && firebase.apps?.length && firebase.auth;
         }
@@ -255,78 +275,72 @@
 
             // ─── Auth listener ───────────────────────────
             firebase.auth().onAuthStateChanged(async (user) => {
-            const loading = document.getElementById('loadingState');
-            const dashboard = document.getElementById('accountDashboard');
-            const loggedOut = document.getElementById('loggedOut');
+                const loading = document.getElementById('loadingState');
+                const dashboard = document.getElementById('accountDashboard');
+                const loggedOut = document.getElementById('loggedOut');
 
-            if (!user) {
-                showAccountLoggedOut();
-                return;
-            }
-
-            currentUser = user;
-            loading.style.display = 'block';
-            dashboard.style.display = 'none';
-            loggedOut.style.display = 'none';
-
-            try {
-                const token = await user.getIdToken();
-                const accountResponse = await fetch(luumApiUrl('/api/auth/upsert-user'), {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        name: user.displayName,
-                        photoURL: user.photoURL
-                    })
-                });
-                const accountData = await accountResponse.json().catch(() => ({}));
-                if (!accountResponse.ok) {
-                    throw new Error(accountData.error || 'Backend de conta indisponível.');
+                if (!user) {
+                    showAccountLoggedOut();
+                    return;
                 }
 
-                const statusResponse = await fetch(luumApiUrl('/api/auth/status'), {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const entitlement = await statusResponse.json().catch(() => ({}));
-                if (!statusResponse.ok) {
-                    throw new Error(entitlement.error || 'Não foi possível validar sua assinatura.');
-                }
+                currentUser = user;
+                loading.style.display = 'block';
+                dashboard.style.display = 'none';
+                loggedOut.style.display = 'none';
 
-                let data = {};
-
-                // Tenta buscar metadados do Firestore; plano/status vêm da API oficial.
                 try {
-                    const doc = await firebase.firestore()
-                        .collection('users')
-                        .doc(user.uid)
-                        .get();
-                    if (doc.exists) data = doc.data();
-                } catch (fsErr) {
-                    console.warn('[Account] Firestore indisponível, usando fallback:', fsErr.message);
-                    data = {
-                        name: user.displayName || user.email?.split('@')[0] || 'Usuário',
-                        email: user.email,
-                        plan: 'essencial',
-                        subscription: { status: 'trial' }
-                    };
-                }
+                    const token = await user.getIdToken();
+                    const accountResponse = await fetch(luumApiUrl('/api/auth/upsert-user'), {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            name: user.displayName,
+                            photoURL: user.photoURL
+                        })
+                    });
+                    const accountData = await accountResponse.json().catch(() => ({}));
+                    if (!accountResponse.ok) {
+                        throw new Error(accountData.error || 'Backend de conta indisponível.');
+                    }
 
-                renderAccount(user, data, entitlement);
-                loading.style.display = 'none';
-                dashboard.style.display = 'block';
-            } catch (err) {
-                console.error('[Account] Erro:', err);
-                loading.innerHTML = `
-                    <p style="color:#fca5a5;max-width:400px;margin:0 auto;line-height:1.7;">
-                        Firestore não encontrado. 
-                        <a href="https://console.firebase.google.com/project/luum-app/firestore" 
-                           target="_blank" style="color:var(--purple-500);">Criar banco no Console</a>
-                    </p>
-                    <button onclick="location.reload()" style="margin-top:16px;background:none;border:1px solid var(--border-default);color:var(--text-primary);padding:10px 24px;border-radius:var(--radius-md);cursor:pointer;font-family:inherit;font-size:0.875rem;">Tentar novamente</button>`;
-            }
+                    const statusResponse = await fetch(luumApiUrl('/api/auth/status'), {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const entitlement = await statusResponse.json().catch(() => ({}));
+                    if (!statusResponse.ok) {
+                        throw new Error(entitlement.error || 'Não foi possível validar sua assinatura.');
+                    }
+
+                    let data = {};
+
+                    // Tenta buscar metadados do Firestore; plano/status vêm da API oficial.
+                    try {
+                        const doc = await firebase.firestore()
+                            .collection('users')
+                            .doc(user.uid)
+                            .get();
+                        if (doc.exists) data = doc.data();
+                    } catch (fsErr) {
+                        console.warn('[Account] Firestore indisponível, usando fallback:', fsErr.message);
+                        data = {
+                            name: user.displayName || user.email?.split('@')[0] || 'Usuário',
+                            email: user.email,
+                            plan: 'essencial',
+                            subscription: { status: 'trial' }
+                        };
+                    }
+
+                    renderAccount(user, data, entitlement);
+                    loading.style.display = 'none';
+                    dashboard.style.display = 'block';
+                } catch (err) {
+                    console.error('[Account] Erro:', err);
+                    showAccountError(err.message);
+                }
             });
         }
 
@@ -423,6 +437,10 @@
         // ─── Cancelar ───────────────────────────────
         async function confirmCancel() {
             if (!confirm('Tem certeza que deseja cancelar sua assinatura? Você perderá acesso no fim do ciclo atual.')) return;
+            if (!currentUser) {
+                alert('Entre novamente para cancelar sua assinatura.');
+                return;
+            }
 
             try {
                 const token = await currentUser.getIdToken();
