@@ -15,12 +15,15 @@ function readRawBody(req) {
 async function subscriptionSnapshot(stripe, subscriptionId) {
     if (!subscriptionId) return {};
     const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const item = subscription.items?.data?.[0];
     return {
         status: subscription.cancel_at_period_end
             ? 'canceling'
             : normalizeStripeStatus(subscription.status),
         currentPeriodStart: admin.firestore.Timestamp.fromMillis(subscription.current_period_start * 1000),
         currentPeriodEnd: admin.firestore.Timestamp.fromMillis(subscription.current_period_end * 1000),
+        billing: subscription.metadata?.billing || (item?.price?.recurring?.interval === 'year' ? 'annually' : 'monthly'),
+        quantity: item?.quantity || 1
     };
 }
 
@@ -76,6 +79,8 @@ async function webhookHandler(req, res) {
                     stripeSessionId: session.id,
                     currentPeriodStart: period.currentPeriodStart,
                     currentPeriodEnd: period.currentPeriodEnd,
+                    billing: session.metadata?.billing || period.billing,
+                    quantity: period.quantity,
                 });
                 break;
             }
@@ -95,6 +100,8 @@ async function webhookHandler(req, res) {
                     stripeSubscriptionId: subscriptionId,
                     currentPeriodStart: period.currentPeriodStart,
                     currentPeriodEnd: period.currentPeriodEnd,
+                    billing: subscription.metadata?.billing || period.billing,
+                    quantity: period.quantity,
                 });
                 break;
             }
@@ -109,6 +116,8 @@ async function webhookHandler(req, res) {
                     stripeSubscriptionId: sub.id,
                     currentPeriodStart: admin.firestore.Timestamp.fromMillis(sub.current_period_start * 1000),
                     currentPeriodEnd: admin.firestore.Timestamp.fromMillis(sub.current_period_end * 1000),
+                    billing: sub.metadata?.billing || (sub.items?.data?.[0]?.price?.recurring?.interval === 'year' ? 'annually' : 'monthly'),
+                    quantity: sub.items?.data?.[0]?.quantity || 1,
                 });
                 break;
             }

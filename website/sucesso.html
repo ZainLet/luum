@@ -121,19 +121,21 @@
         <div class="success-card">
             <div class="success-icon">&#10003;</div>
             <h1>Assinatura confirmada!</h1>
-            <p>Bem-vindo ao <span class="highlight">Luum</span>. Sua assinatura foi ativada com sucesso.</p>
-            <p style="font-size:0.875rem;color:var(--text-muted);">Seu plano já está liberado no aplicativo.</p>
+            <p>Bem-vindo ao <span class="highlight">Luum</span>. Sua assinatura foi recebida com sucesso.</p>
+            <p id="statusLine" style="font-size:0.875rem;color:var(--text-muted);">Validando seu plano no backend...</p>
 
             <div class="success-note">
                 <h4>Próximos passos</h4>
                 <ol>
-                    <li>Abra o aplicativo Luum no seu computador</li>
-                    <li>Faça login com a mesma conta que usou na compra</li>
-                    <li>Pronto! Todas as funcionalidades do seu plano estão liberadas</li>
+                    <li>O Stripe confirma o pagamento para o backend do Luum</li>
+                    <li>O app usa a mesma conta Firebase para validar seu plano</li>
+                    <li>Se o app já estiver aberto, clique em Validar plano ou entre novamente</li>
                 </ol>
             </div>
 
             <div class="success-actions">
+                <button id="openAppBtn" class="btn btn-primary" type="button" style="display:none;">Abrir app Luum</button>
+                <a href="account.html" class="btn btn-secondary">Minha conta</a>
                 <a href="index.html" class="btn btn-secondary">Voltar ao site</a>
             </div>
         </div>
@@ -144,37 +146,77 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
     <script src="firebase-config.js"></script>
     <script>
-        // Verifica status da assinatura no Firestore
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function setStatusLine(message, tone = 'muted') {
+            const statusLine = document.getElementById('statusLine');
+            statusLine.textContent = message;
+            statusLine.style.color = tone === 'ok' ? 'var(--green-400)' : 'var(--text-muted)';
+        }
+
+        async function authUser() {
+            return new Promise(resolve => {
+                const unsub = firebase.auth().onAuthStateChanged(user => {
+                    unsub();
+                    resolve(user);
+                });
+            });
+        }
+
+        async function openMacApp(user) {
+            const idToken = await user.getIdToken(true);
+            const refreshToken = user.refreshToken || '';
+            window.location.href = `luum://auth?token=${encodeURIComponent(idToken)}&refreshToken=${encodeURIComponent(refreshToken)}&uid=${encodeURIComponent(user.uid)}`;
+        }
+
+        async function fetchEntitlement(user) {
+            const idToken = await user.getIdToken(true);
+            const response = await fetch(luumApiUrl('/api/auth/status'), {
+                headers: { Authorization: `Bearer ${idToken}` }
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || 'Não foi possível validar sua assinatura.');
+            return data;
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             const params = new URLSearchParams(window.location.search);
             const sessionId = params.get('session_id');
 
-            if (sessionId && typeof firebase !== 'undefined') {
-                try {
-                    // Aguarda o Firebase Auth carregar
-                    await new Promise(resolve => {
-                        const unsub = firebase.auth().onAuthStateChanged(user => {
-                            unsub();
-                            resolve(user);
-                        });
-                    });
+            if (!sessionId || typeof firebase === 'undefined') {
+                setStatusLine('Acesse Minha conta para conferir seu plano.');
+                return;
+            }
 
-                    const user = firebase.auth().currentUser;
-                    if (user) {
-                        // Força atualização dos dados (o webhook já deve ter atualizado)
-                        const doc = await firebase.firestore()
-                            .collection('users')
-                            .doc(user.uid)
-                            .get();
-
-                        if (doc.exists) {
-                            const data = doc.data();
-                            console.log('[Sucesso] Plano:', data.plan, 'Status:', data.subscription?.status);
-                        }
-                    }
-                } catch (err) {
-                    console.log('[Sucesso] Erro ao verificar:', err.message);
+            try {
+                const user = await authUser();
+                if (!user) {
+                    setStatusLine('Entre com a mesma conta usada na compra para validar seu plano.');
+                    return;
                 }
+
+                document.getElementById('openAppBtn').style.display = 'inline-flex';
+                document.getElementById('openAppBtn').addEventListener('click', () => {
+                    openMacApp(user).catch(err => setStatusLine(err.message));
+                });
+
+                let entitlement = null;
+                for (let attempt = 0; attempt < 6; attempt += 1) {
+                    entitlement = await fetchEntitlement(user);
+                    if (!entitlement.locked && !entitlement.trial) break;
+                    await sleep(1800);
+                }
+
+                if (entitlement && !entitlement.locked && !entitlement.trial) {
+                    setStatusLine(`Plano ${entitlement.plan || ''} validado. O app já pode liberar sua assinatura.`, 'ok');
+                } else {
+                    setStatusLine('Pagamento recebido. Se o plano ainda não aparecer, aguarde alguns segundos e clique em Minha conta.');
+                }
+            } catch (err) {
+                console.log('[Sucesso] Erro ao verificar:', err.message);
+                setStatusLine('Pagamento recebido. Não foi possível validar agora; confira em Minha conta.');
             }
         });
     </script>

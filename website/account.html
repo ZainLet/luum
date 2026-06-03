@@ -194,10 +194,10 @@
     <script>
         // ─── Mapeamento de planos ────────────────────
         const planMeta = {
-            essencial: { name: 'Essencial', price: 'R$ 29,90/mês', icon: 'E' },
-            profissional: { name: 'Profissional', price: 'R$ 49,90/mês', icon: 'P' },
-            equipes: { name: 'Equipes (Startup)', price: 'R$ 45,00/usuário/mês', icon: 'S' },
-            negocios: { name: 'Negócios', price: 'R$ 65,00/usuário/mês', icon: 'N' },
+            essencial: { name: 'Essencial', monthly: 'R$ 29,90/mês', annually: 'R$ 299,00/ano', icon: 'E' },
+            profissional: { name: 'Profissional', monthly: 'R$ 49,90/mês', annually: 'R$ 499,00/ano', icon: 'P' },
+            equipes: { name: 'Equipes (Startup)', monthly: 'R$ 45,00/usuário/mês', annually: 'R$ 450,00/usuário/ano', icon: 'S' },
+            negocios: { name: 'Negócios', monthly: 'R$ 65,00/usuário/mês', annually: 'R$ 650,00/usuário/ano', icon: 'N' },
         };
 
         const statusConfig = {
@@ -223,6 +223,10 @@
             if (!entitlement.locked) return 'active';
             if (entitlement.reason === 'past_due') return 'past_due';
             return 'canceled';
+        }
+
+        function planPrice(meta, subscription = {}) {
+            return subscription.billing === 'annually' ? meta.annually : meta.monthly;
         }
 
         // ─── Auth listener ───────────────────────────
@@ -358,7 +362,7 @@
                     : (end ? Math.max(0, Math.ceil((end - now) / (24 * 60 * 60 * 1000))) : 0);
                 renewalEl.textContent = end ? new Date(end).toLocaleDateString('pt-BR') : '—';
                 daysEl.textContent = days > 0 ? `${days} dia(s) restantes` : 'Vencida';
-                priceEl.textContent = meta.price;
+                priceEl.textContent = planPrice(meta, sub);
                 document.getElementById('planSubtext').textContent = statusKey === 'canceling' ? 'Acesso ativo até o fim do ciclo' : (days <= 7 ? 'Próximo do vencimento' : 'Assinatura ativa');
 
                 document.getElementById('cancelBtn').style.display = statusKey === 'canceling' ? 'none' : 'inline-flex';
@@ -369,7 +373,7 @@
                 // Cancelado / past_due
                 renewalEl.textContent = '—';
                 daysEl.textContent = statusKey === 'canceled' ? 'Assinatura cancelada' : 'Pagamento pendente';
-                priceEl.textContent = meta.price;
+                priceEl.textContent = planPrice(meta, sub);
                 document.getElementById('planSubtext').textContent = '';
 
                 document.getElementById('cancelBtn').style.display = 'none';
