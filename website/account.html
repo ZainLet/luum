@@ -210,6 +210,21 @@
 
         let currentUser = null;
 
+        function timestampMillis(value) {
+            if (!value) return 0;
+            if (typeof value.toMillis === 'function') return value.toMillis();
+            if (typeof value === 'number') return value;
+            return 0;
+        }
+
+        function subscriptionStatusFromEntitlement(entitlement = {}) {
+            if (entitlement.trial) return 'trial';
+            if (entitlement.canceling) return 'canceling';
+            if (!entitlement.locked) return 'active';
+            if (entitlement.reason === 'past_due') return 'past_due';
+            return 'canceled';
+        }
+
         // ─── Auth listener ───────────────────────────
         firebase.auth().onAuthStateChanged(async (user) => {
             const loading = document.getElementById('loadingState');
@@ -229,9 +244,34 @@
             loggedOut.style.display = 'none';
 
             try {
+                const token = await user.getIdToken();
+                const accountResponse = await fetch(luumApiUrl('/api/auth/upsert-user'), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: user.displayName,
+                        photoURL: user.photoURL
+                    })
+                });
+                const accountData = await accountResponse.json().catch(() => ({}));
+                if (!accountResponse.ok) {
+                    throw new Error(accountData.error || 'Backend de conta indisponível.');
+                }
+
+                const statusResponse = await fetch(luumApiUrl('/api/auth/status'), {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const entitlement = await statusResponse.json().catch(() => ({}));
+                if (!statusResponse.ok) {
+                    throw new Error(entitlement.error || 'Não foi possível validar sua assinatura.');
+                }
+
                 let data = {};
 
-                // Tenta buscar do Firestore — se falhar, usa fallback
+                // Tenta buscar metadados do Firestore; plano/status vêm da API oficial.
                 try {
                     const doc = await firebase.firestore()
                         .collection('users')
@@ -248,7 +288,7 @@
                     };
                 }
 
-                renderAccount(user, data);
+                renderAccount(user, data, entitlement);
                 loading.style.display = 'none';
                 dashboard.style.display = 'block';
             } catch (err) {
@@ -264,11 +304,11 @@
         });
 
         // ─── Renderiza conta ────────────────────────
-        function renderAccount(user, data) {
+        function renderAccount(user, data, entitlement = {}) {
             const sub = data.subscription || {};
-            const plan = data.plan || 'essencial';
+            const plan = entitlement.plan || data.plan || 'essencial';
             const meta = planMeta[plan] || planMeta.essencial;
-            const statusKey = sub.status || 'trial';
+            const statusKey = subscriptionStatusFromEntitlement(entitlement);
             const cfg = statusConfig[statusKey] || statusConfig.trial;
 
             // Avatar
@@ -292,16 +332,17 @@
 
             // Renovação
             const now = Date.now();
-            const end = sub.currentPeriodEnd?.toMillis();
-            const createdAt = data.createdAt?.toMillis() || now;
+            const end = entitlement.expiresAt || timestampMillis(sub.currentPeriodEnd);
+            const trialEnd = timestampMillis(sub.trialEndsAt) || (timestampMillis(data.createdAt) ? timestampMillis(data.createdAt) + 7 * 24 * 60 * 60 * 1000 : now);
 
             let renewalEl = document.getElementById('planRenewal');
             let daysEl = document.getElementById('planDaysLeft');
             let priceEl = document.getElementById('planPrice');
 
             if (statusKey === 'trial') {
-                const trialEnd = createdAt + 7 * 24 * 60 * 60 * 1000;
-                const days = Math.max(0, Math.ceil((trialEnd - now) / (24 * 60 * 60 * 1000)));
+                const days = Number.isFinite(entitlement.daysRemaining)
+                    ? entitlement.daysRemaining
+                    : Math.max(0, Math.ceil((trialEnd - now) / (24 * 60 * 60 * 1000)));
                 renewalEl.textContent = days > 0 ? new Date(trialEnd).toLocaleDateString('pt-BR') : 'Expirado';
                 daysEl.textContent = days > 0 ? `${days} dia(s) restantes` : 'Trial expirou';
                 priceEl.textContent = 'Grátis';
@@ -312,7 +353,9 @@
                 document.getElementById('reactivateBtn').style.display = 'none';
 
             } else if (statusKey === 'active' || statusKey === 'canceling') {
-                const days = end ? Math.max(0, Math.ceil((end - now) / (24 * 60 * 60 * 1000))) : 0;
+                const days = Number.isFinite(entitlement.daysRemaining)
+                    ? entitlement.daysRemaining
+                    : (end ? Math.max(0, Math.ceil((end - now) / (24 * 60 * 60 * 1000))) : 0);
                 renewalEl.textContent = end ? new Date(end).toLocaleDateString('pt-BR') : '—';
                 daysEl.textContent = days > 0 ? `${days} dia(s) restantes` : 'Vencida';
                 priceEl.textContent = meta.price;
