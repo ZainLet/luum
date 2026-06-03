@@ -598,6 +598,11 @@ final class ActivityStore {
     }
 
     func requestNotificationAuthorization() {
+        guard canUse(.reminders) else {
+            notificationPermissionMessage = lockMessage(for: .reminders)
+            return
+        }
+
         Task { [weak self] in
             await self?.reminderEngine.requestAuthorization()
         }
@@ -1409,6 +1414,11 @@ final class ActivityStore {
         weekdays: [Int],
         message: String
     ) {
+        guard canUse(.reminders) else {
+            lastReminderStatusMessage = lockMessage(for: .reminders)
+            return
+        }
+
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty else { return }
         guard monitoringPreferences.category(for: categoryID) != nil else { return }
@@ -1431,6 +1441,11 @@ final class ActivityStore {
     }
 
     func updateReminder(_ reminder: ReminderProfile) {
+        guard canUse(.reminders) else {
+            lastReminderStatusMessage = lockMessage(for: .reminders)
+            return
+        }
+
         guard let index = monitoringPreferences.reminderProfiles.firstIndex(where: { $0.id == reminder.id }) else { return }
         guard monitoringPreferences.category(for: reminder.categoryID) != nil else { return }
 
@@ -3045,16 +3060,31 @@ final class ActivityStore {
 
     private func evaluateReminders() {
         reminderEvaluationTask?.cancel()
+        let canEvaluateReminders = canUse(.reminders)
+        let canEvaluateFocusModes = canUse(.focusModes)
+
+        guard canEvaluateReminders || canEvaluateFocusModes else {
+            lastReminderStatusMessage = nil
+            focusModeStatusMessage = nil
+            focusShieldStatusMessage = nil
+            currentFocusBlockMatch = nil
+            return
+        }
+
         let filteredSamples = samples.filter { !$0.isHidden && !isIgnored(sample: $0) }
         reminderEvaluationTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(350))
             guard let self else { return }
-            await self.reminderEngine.evaluate(
-                samples: filteredSamples,
-                preferences: self.monitoringPreferences,
-                classifier: self.classifier
-            )
-            await self.evaluateFocusModes(using: filteredSamples)
+            if canEvaluateReminders {
+                await self.reminderEngine.evaluate(
+                    samples: filteredSamples,
+                    preferences: self.monitoringPreferences,
+                    classifier: self.classifier
+                )
+            }
+            if canEvaluateFocusModes {
+                await self.evaluateFocusModes(using: filteredSamples)
+            }
         }
     }
 
