@@ -72,7 +72,7 @@
             throw new Error('Sessao Firebase incompleta para abrir o app.');
         }
 
-        const token = await currentUser.getIdToken(true);
+        const token = await upsertAccount(currentUser);
         const refreshToken = currentUser.refreshToken || '';
         const redirectURL = `luum://auth?token=${encodeURIComponent(token)}&refreshToken=${encodeURIComponent(refreshToken)}&uid=${encodeURIComponent(currentUser.uid)}`;
 
@@ -85,6 +85,26 @@
         }, { once: true });
 
         window.location.href = redirectURL;
+    }
+
+    async function upsertAccount(user) {
+        const token = await user.getIdToken(true);
+        const response = await fetch(apiUrl('/api/auth/upsert-user'), {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: user.email || '',
+                name: user.displayName || ''
+            })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data.error || 'Backend de conta indisponivel.');
+        }
+        return token;
     }
 
     async function currentCheckoutUser() {
@@ -201,7 +221,7 @@
         if (googleBtn) {
             googleBtn.addEventListener('click', async () => {
                 const auth = getFirebaseAuth();
-                if (!auth || !firebase.GoogleAuthProvider) return;
+                if (!auth || !firebase.auth?.GoogleAuthProvider) return;
 
                 const provider = new firebase.auth.GoogleAuthProvider();
                 const credential = await auth.signInWithPopup(provider);
