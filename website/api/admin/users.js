@@ -1,5 +1,6 @@
 const { admin, getFirestore } = require('../_firebaseAdmin');
 const { addCors, handleOptions } = require('../_cors');
+const { claimsForAdminRole } = require('../_adminClaims');
 const { requireAdmin } = require('../_adminAuth');
 const {
     normalizeAdminPlan,
@@ -107,12 +108,10 @@ async function adminUsersHandler(req, res) {
         }, { merge: true });
         await userRef.update(stripeSubscriptionDeletePatch(admin.firestore.FieldValue.delete()));
 
-        const currentClaims = userRecord.customClaims || {};
-        const nextClaims = {
-            ...currentClaims,
-            luumAdmin: role === 'admin'
-        };
-        await admin.auth().setCustomUserClaims(userRecord.uid, nextClaims);
+        await admin.auth().setCustomUserClaims(
+            userRecord.uid,
+            claimsForAdminRole(userRecord.customClaims || {}, role)
+        );
 
         const snap = await db.collection('users').doc(userRecord.uid).get();
         const refreshed = await admin.auth().getUser(userRecord.uid);

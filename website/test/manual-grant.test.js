@@ -11,6 +11,7 @@ const {
     normalizeAdminStatus,
     normalizeSeats
 } = require('../api/_adminGrantInput');
+const { claimsForAdminRole } = require('../api/_adminClaims');
 
 test('manual grant snapshot is clearly separated from Stripe billing', () => {
     const snapshot = manualSubscriptionSnapshot({
@@ -67,4 +68,16 @@ test('admin grant input accepts Portuguese labels without accepting unknown valu
     assert.equal(normalizeAdminRole('owner'), '');
     assert.equal(normalizeSeats('5'), 5);
     assert.equal(normalizeSeats('0'), null);
+});
+
+test('admin role changes clear legacy admin claims when demoting users', () => {
+    assert.deepEqual(
+        claimsForAdminRole({ theme: 'dark' }, 'admin'),
+        { theme: 'dark', luumAdmin: true }
+    );
+
+    assert.deepEqual(
+        claimsForAdminRole({ luumAdmin: true, admin: true, theme: 'dark' }, 'user'),
+        { luumAdmin: false, admin: false, theme: 'dark' }
+    );
 });
