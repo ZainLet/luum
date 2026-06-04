@@ -226,6 +226,10 @@ final class ActivityStore {
         monitoringPreferences.teamSettings
     }
 
+    var businessSettings: BusinessWorkspaceSettings {
+        monitoringPreferences.businessSettings
+    }
+
     var privacySettings: PrivacySettings {
         monitoringPreferences.privacySettings
     }
@@ -1271,6 +1275,72 @@ final class ActivityStore {
         Task { [weak self] in
             await self?.runWorkspaceSync(for: day, force: true)
         }
+    }
+
+    func addBusinessClient(name: String, domain: String = "") {
+        let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty else { return }
+
+        monitoringPreferences.businessSettings.clients.append(
+            WorkClientProfile(name: cleanName, domain: domain)
+        )
+        persistMonitoringPreferences()
+    }
+
+    func updateBusinessClient(_ client: WorkClientProfile) {
+        guard let index = monitoringPreferences.businessSettings.clients.firstIndex(where: { $0.id == client.id }) else { return }
+        monitoringPreferences.businessSettings.clients[index] = client
+        persistMonitoringPreferences()
+    }
+
+    func removeBusinessClient(id: UUID) {
+        monitoringPreferences.businessSettings.clients.removeAll { $0.id == id }
+        monitoringPreferences.businessSettings.projects.removeAll { $0.clientID == id }
+        persistMonitoringPreferences()
+    }
+
+    func addBusinessProject(clientID: UUID, title: String) {
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanTitle.isEmpty,
+              monitoringPreferences.businessSettings.clients.contains(where: { $0.id == clientID })
+        else { return }
+
+        monitoringPreferences.businessSettings.projects.append(
+            WorkProjectProfile(clientID: clientID, title: cleanTitle)
+        )
+        persistMonitoringPreferences()
+    }
+
+    func updateBusinessProject(_ project: WorkProjectProfile) {
+        guard monitoringPreferences.businessSettings.clients.contains(where: { $0.id == project.clientID }),
+              let index = monitoringPreferences.businessSettings.projects.firstIndex(where: { $0.id == project.id })
+        else { return }
+
+        monitoringPreferences.businessSettings.projects[index] = project
+        persistMonitoringPreferences()
+    }
+
+    func removeBusinessProject(id: UUID) {
+        monitoringPreferences.businessSettings.projects.removeAll { $0.id == id }
+        persistMonitoringPreferences()
+    }
+
+    func addBusinessTask(projectID: UUID, title: String) {
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanTitle.isEmpty,
+              let index = monitoringPreferences.businessSettings.projects.firstIndex(where: { $0.id == projectID })
+        else { return }
+
+        monitoringPreferences.businessSettings.projects[index].tasks.append(
+            WorkTaskProfile(title: cleanTitle)
+        )
+        persistMonitoringPreferences()
+    }
+
+    func removeBusinessTask(projectID: UUID, taskID: UUID) {
+        guard let index = monitoringPreferences.businessSettings.projects.firstIndex(where: { $0.id == projectID }) else { return }
+        monitoringPreferences.businessSettings.projects[index].tasks.removeAll { $0.id == taskID }
+        persistMonitoringPreferences()
     }
 
     func updatePrivacyStorePageTitles(_ value: Bool) {

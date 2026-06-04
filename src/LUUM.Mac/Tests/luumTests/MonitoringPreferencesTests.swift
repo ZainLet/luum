@@ -123,6 +123,58 @@ func extractsNotionDataSourceIDsFromFullURLs() {
 
     #expect(normalizedID == "12345678-90ab-cdef-1234-567890abcdef")
 }
+
+@Test
+func normalizesBusinessWorkspaceHierarchy() {
+    let client = WorkClientProfile(
+        name: "  Cliente Alpha  ",
+        domain: " Alpha.COM ",
+        contract: ClientContractProfile(
+            billingModel: .retainer,
+            period: .monthly,
+            retainerAmount: -100,
+            defaultHourlyRate: 250
+        )
+    )
+    let missingClientProject = WorkProjectProfile(clientID: UUID(), title: "Projeto perdido")
+    let validProject = WorkProjectProfile(
+        clientID: client.id,
+        title: "  Implantacao  ",
+        hourlyRate: 180,
+        tasks: [
+            WorkTaskProfile(title: "  Setup  "),
+            WorkTaskProfile(title: " "),
+        ]
+    )
+
+    let snapshot = MonitoringPreferencesSnapshot(
+        categories: ActivityCategory.builtInCategories,
+        categoryRules: [],
+        ignoredApplications: [],
+        ignoredDomains: [],
+        reminderProfiles: [],
+        usageGoals: [],
+        focusProfiles: [],
+        businessSettings: BusinessWorkspaceSettings(
+            clients: [client, WorkClientProfile(name: " ")],
+            projects: [missingClientProject, validProject],
+            defaultExpenseCategories: [.software, .software],
+            defaultExpenseTypes: [.delivery, .delivery],
+            defaultRevenueCategories: [.consulting, .consulting]
+        ),
+        privacySettings: .default,
+        cloudSyncSettings: .default,
+        hasCompletedOnboarding: false
+    ).normalized()
+
+    #expect(snapshot.businessSettings.clients.count == 1)
+    #expect(snapshot.businessSettings.clients[0].name == "Cliente Alpha")
+    #expect(snapshot.businessSettings.clients[0].domain == "alpha.com")
+    #expect(snapshot.businessSettings.clients[0].contract.retainerAmount == 0)
+    #expect(snapshot.businessSettings.projects.count == 1)
+    #expect(snapshot.businessSettings.projects[0].title == "Implantacao")
+    #expect(snapshot.businessSettings.projects[0].tasks.map(\.title) == ["Setup"])
+}
 #elseif canImport(XCTest)
 import XCTest
 @testable import luum
@@ -242,6 +294,57 @@ final class MonitoringPreferencesTests: XCTestCase {
         let normalizedID = NotionCalendarSettings.normalizedDatabaseID(rawURL)
 
         XCTAssertEqual(normalizedID, "12345678-90ab-cdef-1234-567890abcdef")
+    }
+
+    func testNormalizesBusinessWorkspaceHierarchy() {
+        let client = WorkClientProfile(
+            name: "  Cliente Alpha  ",
+            domain: " Alpha.COM ",
+            contract: ClientContractProfile(
+                billingModel: .retainer,
+                period: .monthly,
+                retainerAmount: -100,
+                defaultHourlyRate: 250
+            )
+        )
+        let missingClientProject = WorkProjectProfile(clientID: UUID(), title: "Projeto perdido")
+        let validProject = WorkProjectProfile(
+            clientID: client.id,
+            title: "  Implantacao  ",
+            hourlyRate: 180,
+            tasks: [
+                WorkTaskProfile(title: "  Setup  "),
+                WorkTaskProfile(title: " "),
+            ]
+        )
+
+        let snapshot = MonitoringPreferencesSnapshot(
+            categories: ActivityCategory.builtInCategories,
+            categoryRules: [],
+            ignoredApplications: [],
+            ignoredDomains: [],
+            reminderProfiles: [],
+            usageGoals: [],
+            focusProfiles: [],
+            businessSettings: BusinessWorkspaceSettings(
+                clients: [client, WorkClientProfile(name: " ")],
+                projects: [missingClientProject, validProject],
+                defaultExpenseCategories: [.software, .software],
+                defaultExpenseTypes: [.delivery, .delivery],
+                defaultRevenueCategories: [.consulting, .consulting]
+            ),
+            privacySettings: .default,
+            cloudSyncSettings: .default,
+            hasCompletedOnboarding: false
+        ).normalized()
+
+        XCTAssertEqual(snapshot.businessSettings.clients.count, 1)
+        XCTAssertEqual(snapshot.businessSettings.clients[0].name, "Cliente Alpha")
+        XCTAssertEqual(snapshot.businessSettings.clients[0].domain, "alpha.com")
+        XCTAssertEqual(snapshot.businessSettings.clients[0].contract.retainerAmount, 0)
+        XCTAssertEqual(snapshot.businessSettings.projects.count, 1)
+        XCTAssertEqual(snapshot.businessSettings.projects[0].title, "Implantacao")
+        XCTAssertEqual(snapshot.businessSettings.projects[0].tasks.map(\.title), ["Setup"])
     }
 }
 #endif

@@ -4,6 +4,7 @@ private enum LUUMSection: String, CaseIterable, Identifiable {
     case overview
     case search
     case agenda
+    case clients
     case apps
     case websites
     case team
@@ -22,6 +23,8 @@ private enum LUUMSection: String, CaseIterable, Identifiable {
             "Busca"
         case .agenda:
             "Agenda"
+        case .clients:
+            "Clientes"
         case .apps:
             "Apps"
         case .websites:
@@ -47,6 +50,8 @@ private enum LUUMSection: String, CaseIterable, Identifiable {
             .search
         case .agenda:
             .agendaIntegrations
+        case .clients:
+            .reports
         case .apps, .websites, .categories:
             .classification
         case .team:
@@ -68,6 +73,8 @@ private enum LUUMSection: String, CaseIterable, Identifiable {
             "magnifyingglass"
         case .agenda:
             "calendar.badge.clock"
+        case .clients:
+            "briefcase.fill"
         case .apps:
             "app.connected.to.app.below.fill"
         case .websites:
@@ -107,7 +114,7 @@ struct ContentView: View {
     }
 
     private var primarySections: [LUUMSection] {
-        [.overview, .search, .agenda, .apps, .websites, .team]
+        [.overview, .search, .agenda, .clients, .apps, .websites, .team]
     }
 
     private var controlSections: [LUUMSection] {
@@ -227,6 +234,8 @@ struct ContentView: View {
             }
         case .agenda:
             AgendaView(store: store, selectedDay: selectedDay, agenda: agenda)
+        case .clients:
+            BusinessWorkspaceView(store: store)
         case .apps:
             QuickClassificationView(
                 store: store,

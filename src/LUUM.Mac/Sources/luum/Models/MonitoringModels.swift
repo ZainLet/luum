@@ -131,6 +131,7 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
     var linearSettings: LinearSettings
     var zapierSettings: ZapierSettings
     var teamSettings: TeamSettings
+    var businessSettings: BusinessWorkspaceSettings
     var privacySettings: PrivacySettings
     var cloudSyncSettings: CloudSyncSettings
     var hasCompletedOnboarding: Bool
@@ -150,6 +151,7 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
             linearSettings: .default,
             zapierSettings: .default,
             teamSettings: .default,
+            businessSettings: .default,
             privacySettings: .default,
             cloudSyncSettings: .default,
             hasCompletedOnboarding: false
@@ -170,6 +172,7 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
         case linearSettings
         case zapierSettings
         case teamSettings
+        case businessSettings
         case privacySettings
         case cloudSyncSettings
         case hasCompletedOnboarding
@@ -189,6 +192,7 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
         linearSettings: LinearSettings = .default,
         zapierSettings: ZapierSettings = .default,
         teamSettings: TeamSettings = .default,
+        businessSettings: BusinessWorkspaceSettings = .default,
         privacySettings: PrivacySettings = .default,
         cloudSyncSettings: CloudSyncSettings = .default,
         hasCompletedOnboarding: Bool = false
@@ -206,6 +210,7 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
         self.linearSettings = linearSettings
         self.zapierSettings = zapierSettings
         self.teamSettings = teamSettings
+        self.businessSettings = businessSettings
         self.privacySettings = privacySettings
         self.cloudSyncSettings = cloudSyncSettings
         self.hasCompletedOnboarding = hasCompletedOnboarding
@@ -226,6 +231,7 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
         linearSettings = try container.decodeIfPresent(LinearSettings.self, forKey: .linearSettings) ?? .default
         zapierSettings = try container.decodeIfPresent(ZapierSettings.self, forKey: .zapierSettings) ?? .default
         teamSettings = try container.decodeIfPresent(TeamSettings.self, forKey: .teamSettings) ?? .default
+        businessSettings = try container.decodeIfPresent(BusinessWorkspaceSettings.self, forKey: .businessSettings) ?? .default
         privacySettings = try container.decodeIfPresent(PrivacySettings.self, forKey: .privacySettings) ?? .default
         cloudSyncSettings = try container.decodeIfPresent(CloudSyncSettings.self, forKey: .cloudSyncSettings) ?? .default
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
@@ -246,6 +252,7 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
         try container.encode(linearSettings, forKey: .linearSettings)
         try container.encode(zapierSettings, forKey: .zapierSettings)
         try container.encode(teamSettings, forKey: .teamSettings)
+        try container.encode(businessSettings, forKey: .businessSettings)
         try container.encode(privacySettings, forKey: .privacySettings)
         try container.encode(cloudSyncSettings, forKey: .cloudSyncSettings)
         try container.encode(hasCompletedOnboarding, forKey: .hasCompletedOnboarding)
@@ -378,6 +385,7 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
             linearSettings: linearSettings.normalized(),
             zapierSettings: zapierSettings.normalized(),
             teamSettings: teamSettings.normalized(),
+            businessSettings: businessSettings.normalized(),
             privacySettings: privacySettings,
             cloudSyncSettings: cloudSyncSettings,
             hasCompletedOnboarding: hasCompletedOnboarding
