@@ -2,7 +2,7 @@
 
 Este arquivo lista o que depende de contas, chaves externas ou decisões que não devem ficar hardcoded no repositório.
 
-## Estado validado em 03/06/2026
+## Estado validado em 04/06/2026
 
 - Vercel production atualizado em `https://luum-app.vercel.app` com as APIs de login, admin, checkout, backup, workspace e CORS restrito.
 - Firebase Hosting publicado em `https://luum-app.web.app` com `auth.js?v=7`.
