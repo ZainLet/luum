@@ -332,6 +332,10 @@ final class ActivityStore {
     }
 
     private func applyAuthSession(_ session: LuumAuthSession, message: String) {
+        persistAuthSession(session, message: message, scheduleCloudSync: true)
+    }
+
+    private func persistAuthSession(_ session: LuumAuthSession, message: String, scheduleCloudSync: Bool) {
         authSession = session
         authStatusMessage = message
         do {
@@ -349,13 +353,25 @@ final class ActivityStore {
         )
 
         persistMonitoringPreferences()
-        scheduleCloudSyncIfNeeded(reason: "auth-session")
+        if scheduleCloudSync {
+            scheduleCloudSyncIfNeeded(reason: "auth-session")
+        }
 
         if canUse(.coreTracking) {
             startMonitoring()
         } else {
             stopMonitoring()
         }
+    }
+
+    private func verifiedAuthSessionForProtectedRequest() async throws -> LuumAuthSession {
+        guard let authSession else {
+            throw FirebaseAuthServiceError.statusRejected("missing_session")
+        }
+
+        let verified = try await authService.verifiedSession(authSession)
+        persistAuthSession(verified, message: "Plano \(verified.plan.title) validado.", scheduleCloudSync: false)
+        return verified
     }
 
     static func cloudSyncSettings(
@@ -2768,13 +2784,6 @@ final class ActivityStore {
     }
 
     private func runWorkspaceSync(for day: Date, force: Bool) async {
-        guard canUse(.teamWorkspace) else {
-            if force {
-                workspaceSyncStatusMessage = lockMessage(for: .teamWorkspace)
-            }
-            return
-        }
-
         guard teamSettings.sharesAnonymousMetrics else {
             if force {
                 workspaceSyncStatusMessage = "Ative o compartilhamento de metricas para usar o ranking corporativo."
@@ -2800,13 +2809,18 @@ final class ActivityStore {
         defer { isSyncingWorkspace = false }
 
         do {
+            let verified = try await verifiedAuthSessionForProtectedRequest()
+            guard !verified.isLocked, verified.plan.includes(.teamWorkspace) else {
+                workspaceSyncStatusMessage = lockMessage(for: .teamWorkspace)
+                return
+            }
             let payload = makeWorkspaceMemberPayload(for: day)
             let updatedAt = try await workspaceSyncService.push(
                 baseURL: FirebaseAuthService.defaultBaseURL,
                 workspaceID: teamSettings.workspaceID,
                 memberID: teamSettings.workspaceMemberID,
                 secret: secret,
-                firebaseToken: authSession?.idToken,
+                firebaseToken: verified.idToken,
                 payload: payload
             )
             let ranking = try await workspaceSyncService.fetchRanking(
@@ -2814,7 +2828,7 @@ final class ActivityStore {
                 workspaceID: teamSettings.workspaceID,
                 memberID: teamSettings.workspaceMemberID,
                 secret: secret,
-                firebaseToken: authSession?.idToken
+                firebaseToken: verified.idToken
             )
             workspaceRankingEntries = ranking.entries
             workspaceSyncLastSyncAt = ranking.updatedAt ?? updatedAt
@@ -2829,23 +2843,24 @@ final class ActivityStore {
 
     private func runCloudSync() async {
         guard monitoringPreferences.cloudSyncSettings.isEnabled else { return }
-        guard canUse(.cloudBackup) else {
-            cloudSyncStatusMessage = lockMessage(for: .cloudBackup)
-            return
-        }
-        guard cloudSyncConfigured else {
-            cloudSyncStatusMessage = "Entre na conta Luum e valide o plano para ativar o backup Firebase."
-            return
-        }
 
         isSyncingCloud = true
         defer { isSyncingCloud = false }
 
         do {
+            let verified = try await verifiedAuthSessionForProtectedRequest()
+            guard !verified.isLocked, verified.plan.includes(.cloudBackup) else {
+                cloudSyncStatusMessage = lockMessage(for: .cloudBackup)
+                return
+            }
+            guard cloudSyncConfigured else {
+                cloudSyncStatusMessage = "Entre na conta Luum e valide o plano para ativar o backup Firebase."
+                return
+            }
             let updatedAt = try await cloudSyncService.push(
                 baseURL: FirebaseAuthService.defaultBaseURL,
-                backupID: authSession?.uid ?? "",
-                firebaseToken: authSession?.idToken,
+                backupID: verified.uid,
+                firebaseToken: verified.idToken,
                 payload: makeCloudBackupPayload()
             )
             cloudSyncLastSyncAt = updatedAt
@@ -2856,23 +2871,23 @@ final class ActivityStore {
     }
 
     private func runCloudRestore() async {
-        guard cloudSyncConfigured else {
-            cloudSyncStatusMessage = "Entre na conta Luum e valide o plano antes de restaurar."
-            return
-        }
-        guard canUse(.cloudBackup) else {
-            cloudSyncStatusMessage = lockMessage(for: .cloudBackup)
-            return
-        }
-
         isSyncingCloud = true
         defer { isSyncingCloud = false }
 
         do {
+            let verified = try await verifiedAuthSessionForProtectedRequest()
+            guard !verified.isLocked, verified.plan.includes(.cloudBackup) else {
+                cloudSyncStatusMessage = lockMessage(for: .cloudBackup)
+                return
+            }
+            guard cloudSyncConfigured else {
+                cloudSyncStatusMessage = "Entre na conta Luum e valide o plano antes de restaurar."
+                return
+            }
             guard let payload = try await cloudSyncService.pull(
                 baseURL: FirebaseAuthService.defaultBaseURL,
-                backupID: authSession?.uid ?? "",
-                firebaseToken: authSession?.idToken
+                backupID: verified.uid,
+                firebaseToken: verified.idToken
             ) else {
                 cloudSyncStatusMessage = "Nenhum backup encontrado para esse identificador."
                 return
