@@ -135,6 +135,7 @@ struct ClassificationEngine {
                 "terminal",
                 "warp",
                 "iterm",
+                "opencode",
                 "figma",
                 "sketch",
                 "docker",
@@ -142,19 +143,57 @@ struct ClassificationEngine {
                 "tableplus",
                 "sequel ace",
                 "datagrip",
+                "filezilla",
                 "simulator",
                 "notion",
                 "clickup",
                 "linear",
+                "google docs",
+                "google sheets",
+                "google slides",
+                "windows app",
                 "adobe premiere pro",
+                "adobe premiere",
                 "adobe photoshop",
                 "adobe illustrator",
                 "adobe after effects",
+                "adobe media encoder",
                 "adobe lightroom",
                 "final cut pro",
                 "davinci resolve",
                 "blender",
                 "canva",
+                "obs",
+                "mister horse product manager",
+                "dagger",
+                "spell book",
+                "blinkl.io",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.work.id,
+            matchTarget: .bundleIdentifier,
+            patterns: [
+                "com.microsoft.vscode",
+                "com.todesktop.230313mzl4w4u92",
+                "com.openai.codex",
+                "ai.opencode.desktop",
+                "com.figma.desktop",
+                "org.filezilla-project.filezilla",
+                "com.google.drivefs.shortcuts.docs",
+                "com.google.drivefs.shortcuts.sheets",
+                "com.google.drivefs.shortcuts.slides",
+                "com.microsoft.rdc.macos",
+                "com.adobe.premierepro",
+                "com.adobe.photoshop",
+                "com.adobe.aftereffects",
+                "com.adobe.ame.application",
+                "org.blenderfoundation.blender",
+                "com.obsproject.obs-studio",
+                "com.misterhorse.productmanager",
+                "knights.of.the.editing.table.dagger",
+                "knights.of.the.editing.table.spellbook",
+                "io.blinkl.ea",
             ]
         )
         + rules(
@@ -171,6 +210,21 @@ struct ClassificationEngine {
                 "iina",
                 "plex",
                 "netflix",
+                "qbittorrent",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.entertainment.id,
+            matchTarget: .bundleIdentifier,
+            patterns: [
+                "com.spotify.client",
+                "com.valvesoftware.steam",
+                "org.qbittorrent.qbittorrent",
+                "com.apple.music",
+                "com.apple.tv",
+                "com.apple.podcasts",
+                "com.apple.chess",
+                "com.apple.games",
             ]
         )
         + rules(
@@ -181,12 +235,27 @@ struct ClassificationEngine {
                 "discord",
                 "zoom",
                 "microsoft teams",
+                "gather",
                 "mail",
                 "messages",
                 "telegram",
                 "whatsapp",
                 "facetime",
                 "spark",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.communication.id,
+            matchTarget: .bundleIdentifier,
+            patterns: [
+                "com.tinyspeck.slackmacgap",
+                "com.hnc.discord",
+                "com.gather.gather",
+                "com.gather.gatherv2",
+                "net.whatsapp.whatsapp",
+                "com.apple.mail",
+                "com.apple.mobilesms",
+                "com.apple.facetime",
             ]
         )
         + rules(
@@ -199,6 +268,15 @@ struct ClassificationEngine {
                 "bear",
                 "notability",
                 "goodnotes",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.learning.id,
+            matchTarget: .bundleIdentifier,
+            patterns: [
+                "md.obsidian",
+                "com.apple.ibooksx",
+                "com.apple.dictionary",
             ]
         )
         + rules(
@@ -219,6 +297,31 @@ struct ClassificationEngine {
                 "microsoft powerpoint",
                 "raycast",
                 "1password",
+                "bitwarden",
+                "google drive",
+                "rize",
+                "tailscale",
+                "rar extractor",
+                "unarchiver",
+                "appcleaner",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.utilities.id,
+            matchTarget: .bundleIdentifier,
+            patterns: [
+                "com.bitwarden.desktop",
+                "com.google.drivefs",
+                "io.rize",
+                "io.tailscale.ipn.macsys",
+                "net.freemacsoft.appcleaner",
+                "com.ababe.rarextractorfree",
+                "com.apple.preview",
+                "com.apple.ical",
+                "com.apple.notes",
+                "com.apple.reminders",
+                "com.apple.calculator",
+                "com.apple.passwords",
             ]
         )
 
@@ -235,6 +338,34 @@ struct ClassificationEngine {
         "com.apple.systempreferences",
         "com.apple.systemsettings",
         "system settings",
+        "com.apple.activitymonitor",
+        "activity monitor",
+        "com.apple.console",
+        "console",
+        "com.apple.diskutility",
+        "disk utility",
+        "com.apple.systemprofiler",
+        "system information",
+        "com.apple.screenshot.launcher",
+        "screenshot",
+        "com.apple.printcenter",
+        "print center",
+        "com.apple.migrateassistant",
+        "migration assistant",
+        "com.apple.bootcampassistant",
+        "boot camp assistant",
+        "com.apple.audio.audiomidisetup",
+        "audio midi setup",
+        "com.apple.bluetoothfileexchange",
+        "bluetooth file exchange",
+        "com.apple.colorsyncutility",
+        "colorsync utility",
+        "com.apple.digitalcolormeter",
+        "digital color meter",
+        "com.apple.airport.airportutility",
+        "airport utility",
+        "com.apple.voiceoverutility",
+        "voiceover utility",
         "windowserver",
         "loginwindow",
         "spotlight",

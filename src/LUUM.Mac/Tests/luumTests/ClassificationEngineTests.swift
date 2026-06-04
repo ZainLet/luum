@@ -44,6 +44,32 @@ func categorizesProfessionalCreativeApplicationsByDefault() {
 }
 
 @Test
+func categorizesInstalledWorkspaceAppsByBundleIdentifier() {
+    let engine = ClassificationEngine()
+
+    let category = engine.classify(
+        applicationName: "Google Docs",
+        bundleIdentifier: "com.google.drivefs.shortcuts.docs",
+        webURL: nil
+    )
+
+    #expect(category == .work)
+}
+
+@Test
+func categorizesInstalledCommunicationAppsByBundleIdentifier() {
+    let engine = ClassificationEngine()
+
+    let category = engine.classify(
+        applicationName: "GatherV2",
+        bundleIdentifier: "com.gather.GatherV2",
+        webURL: nil
+    )
+
+    #expect(category == .communication)
+}
+
+@Test
 func categorizesProductivityUtilitiesByDefault() {
     let engine = ClassificationEngine()
 
@@ -57,12 +83,39 @@ func categorizesProductivityUtilitiesByDefault() {
 }
 
 @Test
+func categorizesInstalledUtilitiesByBundleIdentifier() {
+    let engine = ClassificationEngine()
+
+    let category = engine.classify(
+        applicationName: "Bitwarden",
+        bundleIdentifier: "com.bitwarden.desktop",
+        webURL: nil
+    )
+
+    #expect(category == .utilities)
+}
+
+@Test
 func ignoresSystemApplicationsByDefault() {
     let engine = ClassificationEngine()
 
     let ignored = engine.isIgnored(
         applicationName: "System Settings",
         bundleIdentifier: "com.apple.systemsettings",
+        webURL: nil,
+        preferences: .default
+    )
+
+    #expect(ignored == true)
+}
+
+@Test
+func ignoresTechnicalAppleUtilitiesByDefault() {
+    let engine = ClassificationEngine()
+
+    let ignored = engine.isIgnored(
+        applicationName: "Activity Monitor",
+        bundleIdentifier: "com.apple.ActivityMonitor",
         webURL: nil,
         preferences: .default
     )
@@ -282,6 +335,30 @@ final class ClassificationEngineTests: XCTestCase {
         XCTAssertEqual(category, .work)
     }
 
+    func testCategorizesInstalledWorkspaceAppsByBundleIdentifier() {
+        let engine = ClassificationEngine()
+
+        let category = engine.classify(
+            applicationName: "Google Docs",
+            bundleIdentifier: "com.google.drivefs.shortcuts.docs",
+            webURL: nil
+        )
+
+        XCTAssertEqual(category, .work)
+    }
+
+    func testCategorizesInstalledCommunicationAppsByBundleIdentifier() {
+        let engine = ClassificationEngine()
+
+        let category = engine.classify(
+            applicationName: "GatherV2",
+            bundleIdentifier: "com.gather.GatherV2",
+            webURL: nil
+        )
+
+        XCTAssertEqual(category, .communication)
+    }
+
     func testCategorizesProductivityUtilitiesByDefault() {
         let engine = ClassificationEngine()
 
@@ -294,12 +371,37 @@ final class ClassificationEngineTests: XCTestCase {
         XCTAssertEqual(category, .utilities)
     }
 
+    func testCategorizesInstalledUtilitiesByBundleIdentifier() {
+        let engine = ClassificationEngine()
+
+        let category = engine.classify(
+            applicationName: "Bitwarden",
+            bundleIdentifier: "com.bitwarden.desktop",
+            webURL: nil
+        )
+
+        XCTAssertEqual(category, .utilities)
+    }
+
     func testIgnoresSystemApplicationsByDefault() {
         let engine = ClassificationEngine()
 
         let ignored = engine.isIgnored(
             applicationName: "System Settings",
             bundleIdentifier: "com.apple.systemsettings",
+            webURL: nil,
+            preferences: .default
+        )
+
+        XCTAssertTrue(ignored)
+    }
+
+    func testIgnoresTechnicalAppleUtilitiesByDefault() {
+        let engine = ClassificationEngine()
+
+        let ignored = engine.isIgnored(
+            applicationName: "Activity Monitor",
+            bundleIdentifier: "com.apple.ActivityMonitor",
             webURL: nil,
             preferences: .default
         )
