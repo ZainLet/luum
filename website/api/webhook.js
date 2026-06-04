@@ -5,7 +5,8 @@ const { getStripe, isStripePlan, requireSetting } = require('./_stripe');
 const {
     invoiceSubscriptionID,
     invoiceSubscriptionMetadata,
-    normalizeStripeStatus
+    normalizeStripeStatus,
+    planPatch
 } = require('./_stripeWebhookShape');
 
 function readRawBody(req) {
@@ -32,17 +33,24 @@ async function subscriptionSnapshot(stripe, subscriptionId) {
     };
 }
 
-async function writeSubscription(db, uid, plan, subscription) {
+function subscriptionDocumentPatch(plan, subscription) {
     if (plan && !isStripePlan(plan)) {
-        throw new Error('Plano Stripe inválido');
+        console.warn('[Webhook] Ignorando plano Stripe inválido:', plan);
     }
 
-    await db.collection('users').doc(uid).set({
-        ...(plan ? { plan } : {}),
+    const patch = {
+        ...planPatch(plan, isStripePlan),
         subscription: {
             ...subscription,
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         }
+    };
+    return patch;
+}
+
+async function writeSubscription(db, uid, plan, subscription) {
+    await db.collection('users').doc(uid).set({
+        ...subscriptionDocumentPatch(plan, subscription)
     }, { merge: true });
 }
 

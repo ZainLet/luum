@@ -3,7 +3,8 @@ const assert = require('node:assert/strict');
 const {
     invoiceSubscriptionID,
     invoiceSubscriptionMetadata,
-    normalizeStripeStatus
+    normalizeStripeStatus,
+    planPatch
 } = require('../api/_stripeWebhookShape');
 
 test('normalizes Stripe trialing subscriptions as active for app entitlement', () => {
@@ -48,4 +49,17 @@ test('reads subscription metadata from current invoice parent snapshot', () => {
             billing: 'annually'
         }
     );
+});
+
+test('webhook patch only writes official plan values', () => {
+    const isValidPlan = (plan) => ['essencial', 'profissional', 'equipes', 'negocios'].includes(plan);
+
+    const valid = planPatch('profissional', isValidPlan);
+    assert.equal(valid.plan, 'profissional');
+
+    const invalid = planPatch('enterprise-unlimited', isValidPlan);
+    assert.equal(Object.prototype.hasOwnProperty.call(invalid, 'plan'), false);
+
+    const missing = planPatch(undefined, isValidPlan);
+    assert.equal(Object.prototype.hasOwnProperty.call(missing, 'plan'), false);
 });

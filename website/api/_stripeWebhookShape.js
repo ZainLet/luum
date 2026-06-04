@@ -16,8 +16,15 @@ function invoiceSubscriptionMetadata(invoice) {
         {};
 }
 
+function planPatch(plan, isValidPlan) {
+    if (!plan) return {};
+    if (typeof isValidPlan !== 'function' || !isValidPlan(plan)) return {};
+    return { plan };
+}
+
 module.exports = {
     invoiceSubscriptionID,
     invoiceSubscriptionMetadata,
-    normalizeStripeStatus
+    normalizeStripeStatus,
+    planPatch
 };
