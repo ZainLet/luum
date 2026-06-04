@@ -2,15 +2,21 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
 
-    // Apenas utilizadores autenticados podem aceder à sua própria informação.
-    match /usuarios/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-
-      // Cada sub-coleção pertence ao utilizador.
-      match /{document=**} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+      match /backups/{backupId} {
+        allow read, write: if false;
       }
+    }
+
+    match /config/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
