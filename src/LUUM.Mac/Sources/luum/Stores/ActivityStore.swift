@@ -357,6 +357,10 @@ final class ActivityStore {
         authRefreshTask = nil
         authRefreshGeneration += 1
         isCheckingAuth = false
+        cloudSyncTask?.cancel()
+        cloudSyncTask = nil
+        isSyncingCloud = false
+        isSyncingWorkspace = false
         stopMonitoring()
         authSession = nil
         authStatusMessage = "Conta desconectada deste Mac."
@@ -397,17 +401,18 @@ final class ActivityStore {
     }
 
     private func verifiedAuthSessionForProtectedRequest() async throws -> LuumAuthSession {
-        guard let authSession else {
+        guard let sessionToValidate = authSession else {
             throw FirebaseAuthServiceError.statusRejected("missing_session")
         }
 
         do {
-            let verified = try await authService.verifiedSession(authSession)
+            let verified = try await authService.verifiedSession(sessionToValidate)
+            guard isCurrentAuthSession(sessionToValidate) else { throw CancellationError() }
             persistAuthSession(verified, message: "Plano \(verified.plan.title) validado.", scheduleCloudSync: false)
             return verified
         } catch {
             if Self.isExplicitAuthRejection(error) {
-                rejectAuthSession(authSession)
+                rejectAuthSession(sessionToValidate)
             }
             throw error
         }
@@ -419,8 +424,17 @@ final class ActivityStore {
 
     private func isCurrentAuthRefresh(_ generation: Int, for session: LuumAuthSession) -> Bool {
         guard generation == authRefreshGeneration else { return false }
+        return isCurrentAuthSession(session)
+    }
+
+    private func isCurrentAuthSession(_ session: LuumAuthSession) -> Bool {
         guard let current = authSession else { return false }
         return current.uid == session.uid && current.idToken == session.idToken
+    }
+
+    private func isCurrentVerifiedSession(_ verified: LuumAuthSession) -> Bool {
+        guard let current = authSession else { return false }
+        return current.uid == verified.uid && current.idToken == verified.idToken
     }
 
     private func rejectAuthSession(_ session: LuumAuthSession) {
@@ -2883,6 +2897,7 @@ final class ActivityStore {
                 firebaseToken: verified.idToken,
                 payload: payload
             )
+            guard isCurrentVerifiedSession(verified) else { return }
             let ranking = try await workspaceSyncService.fetchRanking(
                 baseURL: FirebaseAuthService.defaultBaseURL,
                 workspaceID: teamSettings.workspaceID,
@@ -2890,12 +2905,15 @@ final class ActivityStore {
                 secret: secret,
                 firebaseToken: verified.idToken
             )
+            guard isCurrentVerifiedSession(verified) else { return }
             workspaceRankingEntries = ranking.entries
             workspaceSyncLastSyncAt = ranking.updatedAt ?? updatedAt
             workspaceSyncStatusMessage = workspaceRankingEntries.isEmpty
                 ? "Workspace sincronizado sem membros suficientes para ranking."
                 : "Workspace sincronizado com \(workspaceRankingEntries.count) membro(s)."
             await sendZapierWorkspaceEventIfNeeded(memberCount: workspaceRankingEntries.count)
+        } catch is CancellationError {
+            return
         } catch {
             workspaceSyncStatusMessage = error.localizedDescription
         }
@@ -2923,8 +2941,11 @@ final class ActivityStore {
                 firebaseToken: verified.idToken,
                 payload: makeCloudBackupPayload()
             )
+            guard isCurrentVerifiedSession(verified) else { return }
             cloudSyncLastSyncAt = updatedAt
             cloudSyncStatusMessage = "Backup sincronizado com sucesso."
+        } catch is CancellationError {
+            return
         } catch {
             cloudSyncStatusMessage = error.localizedDescription
         }
@@ -2952,6 +2973,7 @@ final class ActivityStore {
                 cloudSyncStatusMessage = "Nenhum backup encontrado para esse identificador."
                 return
             }
+            guard isCurrentVerifiedSession(verified) else { return }
 
             monitoringPreferences = mergeRestoredMonitoringPreferences(payload.monitoringPreferences)
             googleCalendarClientID = payload.googleCalendarSnapshot.clientID
@@ -2969,6 +2991,8 @@ final class ActivityStore {
             schedulePersistence()
             invalidateSummaries()
             cloudSyncStatusMessage = "Backup restaurado com sucesso."
+        } catch is CancellationError {
+            return
         } catch {
             cloudSyncStatusMessage = error.localizedDescription
         }
