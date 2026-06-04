@@ -313,10 +313,7 @@ final class ActivityStore {
                             : "Sem conexao com a API. Usando sessao local validada por ate 24 horas."
                         self.applyAuthSession(offline, message: message)
                     } else {
-                        var rejected = authSession
-                        rejected.lockedReason = "auth_validation_failed"
-                        rejected.lastVerifiedAt = nil
-                        self.applyAuthSession(rejected, message: "A sessao nao foi aceita pela API. Entre novamente para liberar o app.")
+                        self.rejectAuthSession(authSession)
                     }
                     self.isCheckingAuth = false
                 }
@@ -369,9 +366,27 @@ final class ActivityStore {
             throw FirebaseAuthServiceError.statusRejected("missing_session")
         }
 
-        let verified = try await authService.verifiedSession(authSession)
-        persistAuthSession(verified, message: "Plano \(verified.plan.title) validado.", scheduleCloudSync: false)
-        return verified
+        do {
+            let verified = try await authService.verifiedSession(authSession)
+            persistAuthSession(verified, message: "Plano \(verified.plan.title) validado.", scheduleCloudSync: false)
+            return verified
+        } catch {
+            if !(error is URLError) {
+                rejectAuthSession(authSession)
+            }
+            throw error
+        }
+    }
+
+    private func rejectAuthSession(_ session: LuumAuthSession) {
+        var rejected = session
+        rejected.lockedReason = "auth_validation_failed"
+        rejected.lastVerifiedAt = nil
+        persistAuthSession(
+            rejected,
+            message: "A sessao nao foi aceita pela API. Entre novamente para liberar o app.",
+            scheduleCloudSync: false
+        )
     }
 
     static func cloudSyncSettings(
