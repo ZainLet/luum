@@ -1,11 +1,12 @@
 # LUUM
 
-O `luum` e um app de monitoramento de tempo com cliente macOS em SwiftUI e backend opcional em ASP.NET Core + Firestore para backup e sincronizacao.
+O `luum` e um app de monitoramento de tempo com cliente macOS em SwiftUI, site no Firebase Hosting e backend oficial em rotas Vercel para login, planos, backup, workspace e Stripe.
 
 ## Estrutura
 
 - `/src/LUUM.Mac`: app macOS com monitoramento de apps, URLs, agenda e lembretes.
-- `/src/LUUM.API`: API local para backup em Firestore e futuras automacoes.
+- `/website`: site estatico, paginas de login/admin/conta e APIs Vercel em `website/api`.
+- `/src/LUUM.API`: API local legada para desenvolvimento e experimentos com Firestore.
 - `/src/LUUM.Client`: painel web legado em Blazor.
 - `/src/LUUM.DesktopHelper`: helper legado para Windows.
 
@@ -19,7 +20,7 @@ O app monitora:
 - lembretes por categoria
 - timeline diaria com edicao manual
 - Google Agenda com varias contas e varios calendarios por conta
-- backup opcional em Firestore
+- backup Firebase via backend Vercel com plano Profissional ou maior
 
 ### Navegadores suportados
 
@@ -70,9 +71,23 @@ Para assinar com uma identidade local de desenvolvedor:
 APPLE_CODESIGN_IDENTITY="Developer ID Application: Seu Nome" ./script/build_and_run.sh
 ```
 
-## API local e Firestore Emulator
+## Backend oficial e desenvolvimento local
 
-Pre-requisitos:
+O backend oficial usado pelo site e pelo app macOS fica em:
+
+```text
+https://luum-app.vercel.app
+```
+
+O app desktop fixa esse dominio para login, status de plano, backup e workspace. Isso evita que preferencias locais redirecionem o Firebase ID token para uma API falsa.
+
+O site estatico fica em:
+
+```text
+https://luum-app.web.app
+```
+
+Para testar a API local legada e o Firestore Emulator:
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download)
 - [Firebase CLI](https://firebase.google.com/docs/cli)
@@ -89,4 +104,4 @@ Para subir API + Firestore Emulator em um comando so:
 ./script/run_local_sync_stack.sh
 ```
 
-O `luum` usa esse endpoint local para o backup em Firestore quando voce ativa `Preferencias > Backup Firestore`.
+O app macOS de produção não usa esse endpoint local para plano ou backup Firebase. Ele valida conta em `/api/auth/status` na Vercel e salva backup em `/api/sync/{uid}` com `Authorization: Bearer {firebase_id_token}`.

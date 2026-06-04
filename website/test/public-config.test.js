@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const {
     API_BASE_URL,
     OFFICIAL_ORIGINS,
@@ -31,4 +33,13 @@ test('uses centralized origins for CORS allowlist', () => {
     assert.equal(allowedOrigin(PUBLIC_SITE_URL), PUBLIC_SITE_URL);
     assert.equal(allowedOrigin(API_BASE_URL), API_BASE_URL);
     assert.equal(allowedOrigin('https://example.com'), '');
+});
+
+test('public Firebase config documents Vercel as the only desktop backend', () => {
+    const firebaseConfig = fs.readFileSync(path.join(__dirname, '..', 'firebase-config.js'), 'utf8');
+
+    assert.match(firebaseConfig, /backend oficial fica na Vercel/);
+    assert.match(firebaseConfig, /api\/auth\/status/);
+    assert.match(firebaseConfig, /Nunca coloque chave privada Firebase no app macOS/);
+    assert.doesNotMatch(firebaseConfig, /Admin SDK diretamente/);
 });
