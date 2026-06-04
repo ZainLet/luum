@@ -32,6 +32,23 @@ enum FirebaseAuthServiceError: LocalizedError {
             "A assinatura nao esta liberada: \(reason)."
         }
     }
+
+    var isExplicitAuthRejection: Bool {
+        switch self {
+        case .missingToken, .invalidToken:
+            true
+        case let .statusRejected(reason):
+            [
+                "HTTP 401",
+                "HTTP 403",
+                "refresh HTTP 400",
+                "refresh HTTP 401",
+                "refresh HTTP 403",
+            ].contains(reason)
+        case .invalidCallback, .invalidStatusEndpoint:
+            false
+        }
+    }
 }
 
 struct FirebaseAuthService {

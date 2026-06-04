@@ -312,8 +312,14 @@ final class ActivityStore {
                             ? "Conecte-se a internet e valide seu plano para liberar o app."
                             : "Sem conexao com a API. Usando sessao local validada por ate 24 horas."
                         self.applyAuthSession(offline, message: message)
-                    } else {
+                    } else if Self.isExplicitAuthRejection(error) {
                         self.rejectAuthSession(authSession)
+                    } else {
+                        let offline = authSession
+                        let message = offline.isLocked
+                            ? "Nao foi possivel validar o plano agora. Tente novamente em instantes."
+                            : "A API de assinatura respondeu de forma temporaria. Usando sessao local validada por ate 24 horas."
+                        self.applyAuthSession(offline, message: message)
                     }
                     self.isCheckingAuth = false
                 }
@@ -371,11 +377,15 @@ final class ActivityStore {
             persistAuthSession(verified, message: "Plano \(verified.plan.title) validado.", scheduleCloudSync: false)
             return verified
         } catch {
-            if !(error is URLError) {
+            if Self.isExplicitAuthRejection(error) {
                 rejectAuthSession(authSession)
             }
             throw error
         }
+    }
+
+    private static func isExplicitAuthRejection(_ error: Error) -> Bool {
+        (error as? FirebaseAuthServiceError)?.isExplicitAuthRejection ?? false
     }
 
     private func rejectAuthSession(_ session: LuumAuthSession) {

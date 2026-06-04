@@ -53,6 +53,16 @@ func officialBackendRejectsLocalAndExternalOverrides() {
 }
 
 @Test
+func authErrorClassifiesExplicitRejectionsSeparatelyFromTemporaryFailures() {
+    #expect(FirebaseAuthServiceError.statusRejected("HTTP 401").isExplicitAuthRejection)
+    #expect(FirebaseAuthServiceError.statusRejected("HTTP 403").isExplicitAuthRejection)
+    #expect(FirebaseAuthServiceError.statusRejected("refresh HTTP 400").isExplicitAuthRejection)
+    #expect(!FirebaseAuthServiceError.statusRejected("HTTP 500").isExplicitAuthRejection)
+    #expect(!FirebaseAuthServiceError.statusRejected("refresh HTTP 500").isExplicitAuthRejection)
+    #expect(!FirebaseAuthServiceError.invalidStatusEndpoint.isExplicitAuthRejection)
+}
+
+@Test
 func localSessionLocksWithoutRecentServerVerification() {
     let verifiedRecently = makeAuthSession(lastVerifiedAt: Date().addingTimeInterval(-60))
     let staleVerification = makeAuthSession(lastVerifiedAt: Date().addingTimeInterval(-(LuumAuthSession.offlineGracePeriod + 60)))
