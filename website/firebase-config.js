@@ -144,7 +144,7 @@ const firestoreReady = Boolean(db);
 //  ─── FORMA B (via API) ───
 //  App desktop chama o endpoint /api/auth/status:
 //
-//     fetch('https://sua-api.com/api/auth/status', {
+//     fetch(luumApiUrl('/api/auth/status'), {
 //       headers: { 'Authorization': 'Bearer ' + firebaseToken }
 //     })
 //     .then(r => r.json())

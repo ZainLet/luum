@@ -187,8 +187,19 @@
         const loginForm = document.getElementById('loginForm');
         const signupForm = document.getElementById('signupForm');
         const googleBtn = document.getElementById('googleSignIn');
+        const loginFieldsReady = Boolean(
+            loginForm &&
+            document.getElementById('email') &&
+            document.getElementById('password')
+        );
+        const signupFieldsReady = Boolean(
+            signupForm &&
+            document.getElementById('signupName') &&
+            document.getElementById('signupEmail') &&
+            document.getElementById('signupPassword')
+        );
 
-        if (loginForm) {
+        if (loginFieldsReady) {
             loginForm.addEventListener('submit', async (event) => {
                 event.preventDefault();
                 const auth = getFirebaseAuth();
@@ -202,7 +213,7 @@
             });
         }
 
-        if (signupForm) {
+        if (signupFieldsReady) {
             signupForm.addEventListener('submit', async (event) => {
                 event.preventDefault();
                 const auth = getFirebaseAuth();
