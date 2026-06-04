@@ -13,6 +13,7 @@ Este arquivo lista o que depende de contas, chaves externas ou decisões que nã
 - `cadastro.html?app=mac` preserva o retorno para o app; cadastro comum do site redireciona para `account.html`.
 - App macOS validado localmente com `swift test`, `swift build` e `./script/build_and_run.sh --verify`.
 - Build local do app continua assinado ad-hoc e usa cofre local cifrado por padrão, sem Keychain do macOS, para evitar prompts recorrentes enquanto não houver Apple Developer ID estável.
+- IA de classificação adicionada no app macOS: usa Gemini configurável em Preferências, salva a chave no cofre local cifrado e aplica regras apenas quando o usuário aciona a sugestão em Apps/Sites.
 
 Progresso aproximado para finalizar o produto:
 
@@ -103,6 +104,8 @@ Stripe configurado em produção:
 
 ## Calendários e integrações
 
+- IA de classificação: em `Preferências > IA de classificação`, ative o recurso, cole a chave Gemini e mantenha `gemini-2.5-flash` ou troque o modelo ali. No código, os defaults ficam em `AIClassificationSettings.default` e a chamada fica em `AIClassificationService`.
+- Para ficar 100% produção, mover a chamada Gemini direta do app para uma rota Vercel, por exemplo `/api/ai/classify`, com `GEMINI_API_KEY` salva na Vercel. Assim o binário macOS nunca contém nem usa diretamente a chave do provedor.
 - Google Calendar: criar OAuth Client tipo Desktop app, autorizar redirect local do fluxo nativo e colar o Client ID no app. Client secret é opcional no app desktop e, se usado, fica no cofre local cifrado.
 - Outlook: registrar app no Azure/Microsoft Entra, gerar token Microsoft Graph com permissões de calendário e colar no app.
 - Notion: criar integração interna, copiar token, compartilhar as data sources com ela e informar os IDs/URLs no app.

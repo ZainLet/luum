@@ -50,6 +50,8 @@ final class ActivityStore {
     private(set) var workspaceSyncLastSyncAt: Date?
     private(set) var workspaceRankingEntries: [TeamRankingEntry] = []
     private(set) var isSyncingWorkspace = false
+    private(set) var aiClassificationStatusMessage: String?
+    private(set) var isClassifyingWithAI = false
 
     let classifier = ClassificationEngine()
 
@@ -68,6 +70,7 @@ final class ActivityStore {
     @ObservationIgnored private let cloudSyncService: CloudSyncService
     @ObservationIgnored private let workspaceSyncService: WorkspaceSyncService
     @ObservationIgnored private let authService: FirebaseAuthService
+    @ObservationIgnored private let aiClassificationService: AIClassificationService
     @ObservationIgnored private let sessionGapTolerance: TimeInterval = 15
     @ObservationIgnored private var calendarTokensByConnectionID: [String: GoogleCalendarTokens] = [:]
     @ObservationIgnored private var summaryCache: [Date: DailySummary] = [:]
@@ -102,7 +105,8 @@ final class ActivityStore {
         keychainService: KeychainService = KeychainService(),
         cloudSyncService: CloudSyncService = CloudSyncService(),
         workspaceSyncService: WorkspaceSyncService = WorkspaceSyncService(),
-        authService: FirebaseAuthService = FirebaseAuthService()
+        authService: FirebaseAuthService = FirebaseAuthService(),
+        aiClassificationService: AIClassificationService = AIClassificationService()
     ) {
         self.persistence = persistence
         self.monitor = monitor ?? ActivityMonitor()
@@ -119,6 +123,7 @@ final class ActivityStore {
         self.cloudSyncService = cloudSyncService
         self.workspaceSyncService = workspaceSyncService
         self.authService = authService
+        self.aiClassificationService = aiClassificationService
 
         let monitoringPreferences = monitoringPreferencesPersistence.load().normalized()
         let calendarSnapshot = googleCalendarPersistence.load()
@@ -136,6 +141,7 @@ final class ActivityStore {
         self.zapierStatusMessage = monitoringPreferences.zapierSettings.isEnabled ? "Zapier pronto para disparar automacoes." : nil
         self.cloudSyncStatusMessage = nil
         self.workspaceSyncStatusMessage = nil
+        self.aiClassificationStatusMessage = nil
         self.authSession = keychainService.codable(LuumAuthSession.self, for: Self.firebaseAuthSessionKey)
         self.authStatusMessage = self.authSession.map { "Conectado como \($0.accountLabel) • plano \($0.plan.title)" }
 
@@ -176,6 +182,18 @@ final class ActivityStore {
 
     var categoryRules: [CategoryRule] {
         monitoringPreferences.categoryRules
+    }
+
+    var aiClassificationSettings: AIClassificationSettings {
+        monitoringPreferences.aiClassificationSettings
+    }
+
+    var hasAIClassificationAPIKey: Bool {
+        !(keychainService.string(for: Self.aiClassificationAPIKeyKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }
+
+    var aiClassificationConfigured: Bool {
+        aiClassificationSettings.isEnabled && hasAIClassificationAPIKey
     }
 
     var ignoredApplications: [String] {
@@ -1199,6 +1217,55 @@ final class ActivityStore {
                     "source": "luum-settings",
                 ]
             )
+        }
+    }
+
+    func updateAIClassificationEnabled(_ value: Bool) {
+        monitoringPreferences.aiClassificationSettings.isEnabled = value
+        aiClassificationStatusMessage = value
+            ? "IA de classificacao ativada. Salve uma chave Gemini para usar nas listas de apps e sites."
+            : "IA de classificacao desativada."
+        persistMonitoringPreferences()
+    }
+
+    func updateAIClassificationEndpointURL(_ value: String) {
+        monitoringPreferences.aiClassificationSettings.endpointURL = value
+        persistMonitoringPreferences()
+    }
+
+    func updateAIClassificationModel(_ value: String) {
+        monitoringPreferences.aiClassificationSettings.model = value
+        persistMonitoringPreferences()
+    }
+
+    func updateAIClassificationMinimumConfidence(_ value: Double) {
+        monitoringPreferences.aiClassificationSettings.minimumConfidence = value
+        persistMonitoringPreferences()
+    }
+
+    func updateAIClassificationAPIKey(_ value: String) {
+        do {
+            if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                keychainService.removeValue(for: Self.aiClassificationAPIKeyKey)
+                aiClassificationStatusMessage = "Chave da IA removida deste Mac."
+            } else {
+                try keychainService.setString(value, for: Self.aiClassificationAPIKeyKey)
+                aiClassificationStatusMessage = "Chave da IA salva no cofre local cifrado."
+            }
+        } catch {
+            aiClassificationStatusMessage = "Nao foi possivel salvar a chave da IA."
+        }
+    }
+
+    func classifyApplicationWithAI(_ item: UsageBreakdownItem) {
+        Task { [weak self] in
+            await self?.runAIClassification(kind: .application, item: item)
+        }
+    }
+
+    func classifyDomainWithAI(_ item: UsageBreakdownItem) {
+        Task { [weak self] in
+            await self?.runAIClassification(kind: .domain, item: item)
         }
     }
 
@@ -2989,6 +3056,67 @@ final class ActivityStore {
         }
     }
 
+    private func runAIClassification(kind: AIClassificationRequest.TargetKind, item: UsageBreakdownItem) async {
+        guard !isClassifyingWithAI else { return }
+
+        guard canUse(.classification) else {
+            aiClassificationStatusMessage = lockMessage(for: .classification)
+            return
+        }
+
+        let settings = aiClassificationSettings
+        guard settings.isEnabled else {
+            aiClassificationStatusMessage = "Ative a IA de classificacao nas preferencias."
+            return
+        }
+
+        guard let apiKey = keychainService.string(for: Self.aiClassificationAPIKeyKey),
+              !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            aiClassificationStatusMessage = "Salve uma chave Gemini em Preferencias para usar a IA."
+            return
+        }
+
+        isClassifyingWithAI = true
+        aiClassificationStatusMessage = "IA analisando \(item.label)..."
+        defer { isClassifyingWithAI = false }
+
+        do {
+            let result = try await aiClassificationService.classify(
+                request: AIClassificationRequest(
+                    kind: kind,
+                    label: item.label,
+                    secondaryLabel: item.secondaryLabel,
+                    currentCategory: item.category,
+                    categories: categories
+                ),
+                settings: settings,
+                apiKey: apiKey
+            )
+
+            guard let category = category(for: result.categoryID) else {
+                throw AIClassificationServiceError.unknownCategory(result.categoryID)
+            }
+
+            switch kind {
+            case .application:
+                assignCategory(toApplication: item.label, categoryID: category.id)
+            case .domain:
+                assignCategory(toDomain: item.label, categoryID: category.id)
+            }
+
+            let confidence = Int((result.confidence * 100).rounded())
+            let reason = result.reason.trimmingCharacters(in: .whitespacesAndNewlines)
+            aiClassificationStatusMessage = reason.isEmpty
+                ? "IA classificou \(item.label) como \(category.title) (\(confidence)%)."
+                : "IA classificou \(item.label) como \(category.title) (\(confidence)%): \(reason)"
+        } catch is CancellationError {
+            return
+        } catch {
+            aiClassificationStatusMessage = error.localizedDescription
+        }
+    }
+
     private func runCloudSync() async {
         guard monitoringPreferences.cloudSyncSettings.isEnabled else { return }
 
@@ -3802,6 +3930,7 @@ final class ActivityStore {
     private static let outlookCalendarTokenKey = "outlook-calendar-token"
     private static let clickUpTokenKey = "clickup-api-token"
     private static let linearTokenKey = "linear-api-key"
+    private static let aiClassificationAPIKeyKey = "ai-classification-api-key"
     private static let teamWorkspaceSecretKey = "team-workspace-secret"
 
     private static func googleCalendarTokenKey(_ connectionID: String) -> String {

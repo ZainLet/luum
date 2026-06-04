@@ -1,6 +1,7 @@
 import Foundation
 
 enum IntegrationKind: String, CaseIterable, Identifiable, Sendable {
+    case aiClassification
     case googleCalendar
     case notionCalendar
     case outlookCalendar
@@ -13,6 +14,8 @@ enum IntegrationKind: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
+        case .aiClassification:
+            "IA de Classificacao"
         case .googleCalendar:
             "Google Calendar"
         case .notionCalendar:
@@ -32,6 +35,8 @@ enum IntegrationKind: String, CaseIterable, Identifiable, Sendable {
 
     var subtitle: String {
         switch self {
+        case .aiClassification:
+            "Sugestoes automaticas para apps e sites"
         case .googleCalendar:
             "Multiplas contas e calendarios"
         case .notionCalendar:
@@ -51,6 +56,8 @@ enum IntegrationKind: String, CaseIterable, Identifiable, Sendable {
 
     var systemImage: String {
         switch self {
+        case .aiClassification:
+            "sparkles"
         case .googleCalendar:
             "calendar.badge.clock"
         case .notionCalendar:
@@ -66,6 +73,36 @@ enum IntegrationKind: String, CaseIterable, Identifiable, Sendable {
         case .firebaseSync:
             "cloud.fill"
         }
+    }
+}
+
+struct AIClassificationSettings: Codable, Hashable, Sendable {
+    var isEnabled: Bool
+    var providerName: String
+    var endpointURL: String
+    var model: String
+    var minimumConfidence: Double
+
+    static let `default` = AIClassificationSettings(
+        isEnabled: false,
+        providerName: "Gemini",
+        endpointURL: "https://generativelanguage.googleapis.com/v1beta",
+        model: "gemini-2.5-flash",
+        minimumConfidence: 0.62
+    )
+
+    func normalized() -> AIClassificationSettings {
+        let cleanProvider = providerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanEndpoint = endpointURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanModel = model.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return AIClassificationSettings(
+            isEnabled: isEnabled,
+            providerName: cleanProvider.isEmpty ? Self.default.providerName : cleanProvider,
+            endpointURL: cleanEndpoint.isEmpty ? Self.default.endpointURL : cleanEndpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/")),
+            model: cleanModel.isEmpty ? Self.default.model : cleanModel,
+            minimumConfidence: min(max(minimumConfidence, 0.1), 0.99)
+        )
     }
 }
 
