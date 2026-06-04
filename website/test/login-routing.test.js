@@ -46,3 +46,13 @@ test('desktop deeplink is opened only by the explicit app signup route', () => {
     assert.match(signup, /function postSignupTarget\(\) \{\s*return getRedirectTarget\(\) \|\| 'account\.html';\s*\}/);
     assert.match(signup, /document\.getElementById\('loginLink'\)\.href = shouldOpenApp\(\)\s*\?\s*'login\.html\?app=mac'\s*:\s*'login\.html\?redirect=account\.html';/);
 });
+
+test('shared auth script only handles explicitly marked generic forms', () => {
+    const auth = read('auth.js');
+    const signup = read('cadastro.html');
+
+    assert.match(auth, /loginForm\.dataset\.luumSharedAuth === 'true'/);
+    assert.match(auth, /signupForm\.dataset\.luumSharedAuth === 'true'/);
+    assert.match(auth, /googleBtn\?\.dataset\.luumSharedAuth === 'true'/);
+    assert.doesNotMatch(signup, /data-luum-shared-auth="true"/);
+});

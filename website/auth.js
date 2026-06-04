@@ -189,11 +189,13 @@
         const googleBtn = document.getElementById('googleSignIn');
         const loginFieldsReady = Boolean(
             loginForm &&
+            loginForm.dataset.luumSharedAuth === 'true' &&
             document.getElementById('email') &&
             document.getElementById('password')
         );
         const signupFieldsReady = Boolean(
             signupForm &&
+            signupForm.dataset.luumSharedAuth === 'true' &&
             document.getElementById('signupName') &&
             document.getElementById('signupEmail') &&
             document.getElementById('signupPassword')
@@ -229,7 +231,7 @@
             });
         }
 
-        if (googleBtn) {
+        if (googleBtn?.dataset.luumSharedAuth === 'true') {
             googleBtn.addEventListener('click', async () => {
                 const auth = getFirebaseAuth();
                 if (!auth || !firebase.auth?.GoogleAuthProvider) return;
