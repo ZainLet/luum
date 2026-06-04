@@ -278,7 +278,7 @@
             if (redirecting) return;
             redirecting = true;
             try {
-                const idToken = await user.getIdToken();
+                const idToken = await user.getIdToken(true);
                 const accountResponse = await fetch(luumApiUrl('/api/auth/upsert-user'), {
                     method: 'POST',
                     headers: {

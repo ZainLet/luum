@@ -34,6 +34,7 @@ test('desktop deeplink is opened only by the explicit app login route', () => {
 
     assert.match(login, /return params\.get\('app'\) === 'mac';/);
     assert.doesNotMatch(login, /\|\| !getRedirectTarget\(\)/);
+    assert.match(login, /user\.getIdToken\(true\)/);
     assert.match(login, /function postLoginTarget\(\) \{\s*return getRedirectTarget\(\) \|\| 'account\.html';\s*\}/);
     assert.match(login, /document\.getElementById\('signupLink'\)\.href = appLogin\s*\?\s*'cadastro\.html\?app=mac'\s*:\s*'cadastro\.html\?redirect=account\.html';/);
 });
@@ -43,6 +44,7 @@ test('desktop deeplink is opened only by the explicit app signup route', () => {
 
     assert.match(signup, /return params\.get\('app'\) === 'mac';/);
     assert.doesNotMatch(signup, /\|\| !getRedirectTarget\(\)/);
+    assert.match(signup, /user\.getIdToken\(true\)/);
     assert.match(signup, /function postSignupTarget\(\) \{\s*return getRedirectTarget\(\) \|\| 'account\.html';\s*\}/);
     assert.match(signup, /document\.getElementById\('loginLink'\)\.href = shouldOpenApp\(\)\s*\?\s*'login\.html\?app=mac'\s*:\s*'login\.html\?redirect=account\.html';/);
 });
