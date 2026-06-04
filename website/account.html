@@ -375,8 +375,12 @@
 
             // Renovação
             const now = Date.now();
-            const end = entitlement.expiresAt || timestampMillis(sub.currentPeriodEnd);
-            const trialEnd = timestampMillis(sub.trialEndsAt) || (timestampMillis(data.createdAt) ? timestampMillis(data.createdAt) + 7 * 24 * 60 * 60 * 1000 : now);
+            const end = timestampMillis(entitlement.expiresAt) || timestampMillis(sub.currentPeriodEnd);
+            const trialEnd =
+                timestampMillis(entitlement.trialEndsAt) ||
+                timestampMillis(entitlement.expiresAt) ||
+                timestampMillis(sub.trialEndsAt) ||
+                (timestampMillis(data.createdAt) ? timestampMillis(data.createdAt) + 7 * 24 * 60 * 60 * 1000 : now);
 
             let renewalEl = document.getElementById('planRenewal');
             let daysEl = document.getElementById('planDaysLeft');
