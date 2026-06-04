@@ -290,6 +290,7 @@ final class ActivityStore {
     }
 
     func refreshAccountStatus() {
+        guard !isCheckingAuth else { return }
         guard let authSession else {
             authStatusMessage = "Entre com sua conta Luum para validar o plano."
             return
