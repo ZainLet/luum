@@ -86,7 +86,7 @@ struct AIClassificationSettings: Codable, Hashable, Sendable {
     static let `default` = AIClassificationSettings(
         isEnabled: false,
         providerName: "Gemini",
-        endpointURL: "https://generativelanguage.googleapis.com/v1beta",
+        endpointURL: "\(FirebaseAuthService.defaultBaseURL)/api/ai/classify",
         model: "gemini-2.5-flash",
         minimumConfidence: 0.62
     )

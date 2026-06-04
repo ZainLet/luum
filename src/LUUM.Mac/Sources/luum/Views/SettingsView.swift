@@ -515,7 +515,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Use Gemini para sugerir categorias de apps e sites na tela de classificacao rapida. A IA cria regras somente quando voce aciona o botao.")
+                    Text("Use a IA server-side do Luum para sugerir categorias de apps e sites na tela de classificacao rapida. A IA cria regras somente quando voce aciona o botao.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -564,7 +564,7 @@ struct SettingsView: View {
             }
 
             SecureField(
-                store.hasAIClassificationAPIKey ? "Chave Gemini salva neste Mac. Digite uma nova para trocar." : "Chave Gemini",
+                store.hasAIClassificationAPIKey ? "Chave Gemini local salva. Digite uma nova para trocar." : "Chave Gemini local opcional",
                 text: $aiClassificationAPIKeyDraft
             )
             .textFieldStyle(.roundedBorder)
@@ -592,7 +592,7 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("Para producao, o ideal e trocar a chamada direta por um endpoint Vercel seu. Assim a chave Gemini fica no servidor e o app envia apenas o contexto do app/site.")
+            Text("O endpoint padrao usa a Vercel do Luum e exige login Firebase. A chave local so e usada se voce trocar o endpoint para Gemini direto; em producao, prefira GEMINI_API_KEY na Vercel.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1189,7 +1189,9 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Ativo",
-                    detail: "\(store.aiClassificationSettings.providerName) \(store.aiClassificationSettings.model)",
+                    detail: AIClassificationService.isLuumBackendEndpoint(store.aiClassificationSettings.endpointURL)
+                        ? "Backend seguro com Firebase"
+                        : "\(store.aiClassificationSettings.providerName) \(store.aiClassificationSettings.model)",
                     tint: LuumTheme.secondaryAccent
                 )
             }
@@ -1198,7 +1200,9 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Parcial",
-                    detail: "Chave Gemini pendente",
+                    detail: AIClassificationService.isLuumBackendEndpoint(store.aiClassificationSettings.endpointURL)
+                        ? "Entre no Luum para liberar"
+                        : "Chave Gemini local pendente",
                     tint: LuumTheme.hotPink
                 )
             }

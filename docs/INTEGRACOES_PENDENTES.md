@@ -106,9 +106,9 @@ Stripe configurado em produção:
 
 ## Calendários e integrações
 
-- IA de classificação: em `Preferências > IA de classificação`, ative o recurso. Para teste local rápido, cole uma chave Gemini no app; ela fica no cofre local cifrado. No código, os defaults ficam em `AIClassificationSettings.default` e a chamada local fica em `AIClassificationService`.
-- Produção segura: usar `POST /api/ai/classify` na Vercel com `GEMINI_API_KEY` salva nas variáveis do deploy. A rota exige Firebase ID token, valida plano no Firestore e chama Gemini server-side, impedindo que a chave do provedor fique exposta no binário macOS.
-- Para deixar a IA 100% server-side no app, trocar o alvo de chamada em `AIClassificationService`/`ActivityStore.runAIClassification` para enviar `{ kind, label, secondaryLabel, currentCategoryID, categories }` para `https://luum-app.vercel.app/api/ai/classify` com `Authorization: Bearer {firebase_id_token}`.
+- IA de classificação: em `Preferências > IA de classificação`, ative o recurso. O endpoint padrão do app já é `https://luum-app.vercel.app/api/ai/classify`, usando Firebase ID token e `GEMINI_API_KEY` na Vercel.
+- Para teste local rápido, ainda é possível trocar o endpoint para Gemini direto e colar uma chave Gemini no app; ela fica no cofre local cifrado. Em produção, prefira sempre a rota Vercel para não expor chave no binário macOS.
+- No código, os defaults ficam em `AIClassificationSettings.default`, a escolha entre backend Luum e Gemini direto fica em `AIClassificationService`, e o envio do Firebase ID token acontece em `ActivityStore.runAIClassification`.
 - Google Calendar: criar OAuth Client tipo Desktop app, autorizar redirect local do fluxo nativo e colar o Client ID no app. Client secret é opcional no app desktop e, se usado, fica no cofre local cifrado.
 - Outlook: registrar app no Azure/Microsoft Entra, gerar token Microsoft Graph com permissões de calendário e colar no app.
 - Notion: criar integração interna, copiar token, compartilhar as data sources com ela e informar os IDs/URLs no app.

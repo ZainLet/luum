@@ -22,6 +22,7 @@ struct AIClassificationResult: Equatable, Sendable {
 enum AIClassificationServiceError: LocalizedError, Equatable {
     case disabled
     case missingAPIKey
+    case missingFirebaseAuth
     case invalidEndpoint
     case rejected(String)
     case invalidResponse
@@ -34,6 +35,8 @@ enum AIClassificationServiceError: LocalizedError, Equatable {
             "Ative a IA de classificacao nas preferencias."
         case .missingAPIKey:
             "Salve uma chave Gemini para usar classificacao por IA."
+        case .missingFirebaseAuth:
+            "Entre no Luum para usar classificacao por IA pelo backend seguro."
         case .invalidEndpoint:
             "Endpoint da IA invalido."
         case let .rejected(reason):
@@ -58,13 +61,11 @@ struct AIClassificationService {
     func classify(
         request: AIClassificationRequest,
         settings: AIClassificationSettings,
-        apiKey: String
+        apiKey: String?,
+        firebaseToken: String?
     ) async throws -> AIClassificationResult {
         let settings = settings.normalized()
         guard settings.isEnabled else { throw AIClassificationServiceError.disabled }
-
-        let cleanKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleanKey.isEmpty else { throw AIClassificationServiceError.missingAPIKey }
 
         guard
             var components = URLComponents(string: settings.endpointURL),
@@ -74,6 +75,18 @@ struct AIClassificationService {
         else {
             throw AIClassificationServiceError.invalidEndpoint
         }
+
+        if Self.isLuumBackendEndpoint(components) {
+            return try await classifyViaLuumBackend(
+                request: request,
+                settings: settings,
+                endpointComponents: components,
+                firebaseToken: firebaseToken
+            )
+        }
+
+        let cleanKey = apiKey?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !cleanKey.isEmpty else { throw AIClassificationServiceError.missingAPIKey }
 
         let basePath = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         components.path = "/" + ([basePath, "models/\(settings.model):generateContent"].filter { !$0.isEmpty }.joined(separator: "/"))
@@ -97,6 +110,81 @@ struct AIClassificationService {
         guard let text = geminiResponse.text, let result = Self.result(from: text) else {
             throw AIClassificationServiceError.invalidResponse
         }
+
+        let validCategoryIDs = Set(request.categories.map(\.id))
+        guard validCategoryIDs.contains(result.categoryID) else {
+            throw AIClassificationServiceError.unknownCategory(result.categoryID)
+        }
+
+        let confidence = min(max(result.confidence, 0), 1)
+        guard confidence >= settings.minimumConfidence else {
+            throw AIClassificationServiceError.lowConfidence(confidence)
+        }
+
+        return AIClassificationResult(
+            categoryID: result.categoryID,
+            confidence: confidence,
+            reason: result.reason.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+    }
+
+    static func isLuumBackendEndpoint(_ endpointURL: String) -> Bool {
+        guard let components = URLComponents(string: endpointURL.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            return false
+        }
+        return isLuumBackendEndpoint(components)
+    }
+
+    private static func isLuumBackendEndpoint(_ components: URLComponents) -> Bool {
+        guard
+            components.scheme == "https",
+            components.host == URL(string: FirebaseAuthService.defaultBaseURL)?.host
+        else {
+            return false
+        }
+
+        return components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")) == "api/ai/classify"
+    }
+
+    private func classifyViaLuumBackend(
+        request: AIClassificationRequest,
+        settings: AIClassificationSettings,
+        endpointComponents: URLComponents,
+        firebaseToken: String?
+    ) async throws -> AIClassificationResult {
+        let cleanToken = firebaseToken?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !cleanToken.isEmpty else { throw AIClassificationServiceError.missingFirebaseAuth }
+        guard let url = endpointComponents.url else { throw AIClassificationServiceError.invalidEndpoint }
+
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue("Bearer \(cleanToken)", forHTTPHeaderField: "Authorization")
+        urlRequest.httpBody = try JSONEncoder().encode(
+            LuumAIClassifyRequest(
+                kind: request.kind.rawValue,
+                label: request.label,
+                secondaryLabel: request.secondaryLabel,
+                currentCategoryID: request.currentCategory?.id,
+                categories: request.categories.map {
+                    LuumAIClassifyCategory(id: $0.id, title: $0.title)
+                }
+            )
+        )
+
+        let (data, response) = try await session.data(for: urlRequest)
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
+        guard (200 ..< 300).contains(statusCode) else {
+            let message = String(data: data, encoding: .utf8) ?? "HTTP \(statusCode)"
+            throw AIClassificationServiceError.rejected("HTTP \(statusCode): \(message)")
+        }
+
+        let decoded = try JSONDecoder().decode(AIClassificationResultPayload.self, from: data)
+        let result = AIClassificationResult(
+            categoryID: decoded.categoryID,
+            confidence: decoded.confidence,
+            reason: decoded.reason
+        )
 
         let validCategoryIDs = Set(request.categories.map(\.id))
         guard validCategoryIDs.contains(result.categoryID) else {
@@ -181,6 +269,19 @@ private struct GeminiGenerateContentRequest: Encodable {
             responseMimeType: "application/json"
         )
     }
+}
+
+private struct LuumAIClassifyRequest: Encodable {
+    let kind: String
+    let label: String
+    let secondaryLabel: String?
+    let currentCategoryID: String?
+    let categories: [LuumAIClassifyCategory]
+}
+
+private struct LuumAIClassifyCategory: Encodable {
+    let id: String
+    let title: String
 }
 
 private struct GeminiContent: Encodable, Decodable {

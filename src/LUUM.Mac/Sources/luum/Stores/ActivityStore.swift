@@ -193,7 +193,11 @@ final class ActivityStore {
     }
 
     var aiClassificationConfigured: Bool {
-        aiClassificationSettings.isEnabled && hasAIClassificationAPIKey
+        guard aiClassificationSettings.isEnabled else { return false }
+        if AIClassificationService.isLuumBackendEndpoint(aiClassificationSettings.endpointURL) {
+            return authSession != nil
+        }
+        return hasAIClassificationAPIKey
     }
 
     var ignoredApplications: [String] {
@@ -3070,11 +3074,28 @@ final class ActivityStore {
             return
         }
 
-        guard let apiKey = keychainService.string(for: Self.aiClassificationAPIKeyKey),
-              !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else {
-            aiClassificationStatusMessage = "Salve uma chave Gemini em Preferencias para usar a IA."
-            return
+        let usesLuumBackend = AIClassificationService.isLuumBackendEndpoint(settings.endpointURL)
+        let apiKey = keychainService.string(for: Self.aiClassificationAPIKeyKey)
+        let verifiedSession: LuumAuthSession?
+
+        if usesLuumBackend {
+            do {
+                let verified = try await verifiedAuthSessionForProtectedRequest()
+                guard verified.includes(.classification) else {
+                    aiClassificationStatusMessage = lockMessage(for: .classification)
+                    return
+                }
+                verifiedSession = verified
+            } catch {
+                aiClassificationStatusMessage = error.localizedDescription
+                return
+            }
+        } else {
+            guard !(apiKey?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) else {
+                aiClassificationStatusMessage = "Salve uma chave Gemini em Preferencias para usar a IA."
+                return
+            }
+            verifiedSession = nil
         }
 
         isClassifyingWithAI = true
@@ -3091,8 +3112,13 @@ final class ActivityStore {
                     categories: categories
                 ),
                 settings: settings,
-                apiKey: apiKey
+                apiKey: apiKey,
+                firebaseToken: verifiedSession?.idToken
             )
+
+            if let verifiedSession, !isCurrentVerifiedSession(verifiedSession) {
+                return
+            }
 
             guard let category = category(for: result.categoryID) else {
                 throw AIClassificationServiceError.unknownCategory(result.categoryID)
