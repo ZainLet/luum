@@ -260,8 +260,8 @@ final class ActivityStore {
     }
 
     func canUse(_ feature: LuumFeature) -> Bool {
-        guard let authSession, !authSession.isLocked else { return false }
-        return authSession.plan.includes(feature)
+        guard let authSession else { return false }
+        return authSession.includes(feature)
     }
 
     func lockMessage(for feature: LuumFeature) -> String {
@@ -456,8 +456,8 @@ final class ActivityStore {
         sanitized.endpointURL = FirebaseAuthService.defaultBaseURL
         sanitized.backupID = session.uid
 
-        sanitized.isEnabled = !session.isLocked && session.plan.includes(.cloudBackup)
-        if session.isLocked || !session.plan.includes(.rawActivityBackup) {
+        sanitized.isEnabled = session.includes(.cloudBackup)
+        if !session.includes(.rawActivityBackup) {
             sanitized.syncRawActivities = false
         }
 
@@ -2884,7 +2884,7 @@ final class ActivityStore {
 
         do {
             let verified = try await verifiedAuthSessionForProtectedRequest()
-            guard !verified.isLocked, verified.plan.includes(.teamWorkspace) else {
+            guard verified.includes(.teamWorkspace) else {
                 workspaceSyncStatusMessage = lockMessage(for: .teamWorkspace)
                 return
             }
@@ -2927,7 +2927,7 @@ final class ActivityStore {
 
         do {
             let verified = try await verifiedAuthSessionForProtectedRequest()
-            guard !verified.isLocked, verified.plan.includes(.cloudBackup) else {
+            guard verified.includes(.cloudBackup) else {
                 cloudSyncStatusMessage = lockMessage(for: .cloudBackup)
                 return
             }
@@ -2957,7 +2957,7 @@ final class ActivityStore {
 
         do {
             let verified = try await verifiedAuthSessionForProtectedRequest()
-            guard !verified.isLocked, verified.plan.includes(.cloudBackup) else {
+            guard verified.includes(.cloudBackup) else {
                 cloudSyncStatusMessage = lockMessage(for: .cloudBackup)
                 return
             }

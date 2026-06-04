@@ -118,6 +118,15 @@ struct LuumAuthSession: Codable, Equatable, Sendable {
         return false
     }
 
+    func includes(_ feature: LuumFeature) -> Bool {
+        if isLocked { return false }
+        if subscriptionStatus == "trial",
+           feature == .teamWorkspace || feature == .rawActivityBackup {
+            return false
+        }
+        return plan.includes(feature)
+    }
+
     var lockExplanation: String? {
         if let lockedReason = Self.nonBlank(lockedReason) {
             return "Sua assinatura esta bloqueada: \(lockedReason)."

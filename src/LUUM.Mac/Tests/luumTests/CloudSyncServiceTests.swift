@@ -132,6 +132,28 @@ func lockedAuthSessionDoesNotEnableCloudOrRawBackup() {
 }
 
 @Test
+func trialSessionMirrorsBackendEntitlementRestrictions() {
+    let session = makeAuthSession(
+        plan: .negocios,
+        subscriptionStatus: "trial",
+        lastVerifiedAt: Date()
+    )
+
+    #expect(session.includes(.cloudBackup))
+    #expect(session.includes(.advancedIntegrations))
+    #expect(!session.includes(.teamWorkspace))
+    #expect(!session.includes(.rawActivityBackup))
+
+    var settings = CloudSyncSettings.default
+    settings.isEnabled = true
+    settings.syncRawActivities = true
+
+    let sanitized = ActivityStore.cloudSyncSettings(settings, sanitizedFor: session)
+    #expect(sanitized.isEnabled)
+    #expect(!sanitized.syncRawActivities)
+}
+
+@Test
 func businessPlanKeepsRawBackupPinnedToFirebaseAccount() {
     var settings = CloudSyncSettings.default
     settings.endpointURL = "https://evil.example"
@@ -224,7 +246,11 @@ func cloudBackupPayloadEncodesFirebaseAccountMetadataWithoutTokens() throws {
     #expect(account?["refreshToken"] == nil)
 }
 
-private func makeAuthSession(plan: LuumAccountPlan, lastVerifiedAt: Date?) -> LuumAuthSession {
+private func makeAuthSession(
+    plan: LuumAccountPlan,
+    subscriptionStatus: String = "active",
+    lastVerifiedAt: Date?
+) -> LuumAuthSession {
     LuumAuthSession(
         uid: "firebase-user",
         email: "user@luum.app",
@@ -232,7 +258,7 @@ private func makeAuthSession(plan: LuumAccountPlan, lastVerifiedAt: Date?) -> Lu
         idToken: "token",
         refreshToken: "refresh",
         plan: plan,
-        subscriptionStatus: "active",
+        subscriptionStatus: subscriptionStatus,
         lockedReason: nil,
         expiresAt: Date().addingTimeInterval(3600),
         trialEndsAt: nil,
