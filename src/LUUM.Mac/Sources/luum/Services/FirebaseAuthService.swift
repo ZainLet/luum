@@ -181,7 +181,7 @@ struct FirebaseAuthService {
 
     private func fetchSubscriptionStatus(idToken: String) async throws -> FirebaseSubscriptionStatus {
         let trimmed = statusBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        guard let baseURL = URL(string: trimmed) else { throw FirebaseAuthServiceError.invalidStatusEndpoint }
+        guard let baseURL = Self.officialBackendURL(from: trimmed) else { throw FirebaseAuthServiceError.invalidStatusEndpoint }
         let url = baseURL.appending(path: "/api/auth/status")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"

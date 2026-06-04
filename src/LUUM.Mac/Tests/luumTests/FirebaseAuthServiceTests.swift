@@ -53,6 +53,27 @@ func officialBackendRejectsLocalAndExternalOverrides() {
 }
 
 @Test
+func verifiedSessionRejectsNonOfficialStatusEndpointBeforeSendingToken() async throws {
+    let session = URLSession.mocking([
+        MockResponse(
+            url: "https://example.com/api/auth/status",
+            statusCode: 200,
+            body: #"{"locked":false,"plan":"negocios","trial":false}"#
+        )
+    ])
+    let service = FirebaseAuthService(statusBaseURL: "https://example.com", session: session)
+
+    do {
+        _ = try await service.verifiedSession(makeAuthSession(lastVerifiedAt: nil))
+        Issue.record("Endpoint externo nao deveria receber token Firebase.")
+    } catch FirebaseAuthServiceError.invalidStatusEndpoint {
+        #expect(MockURLProtocol.responses.count == 1)
+    } catch {
+        Issue.record("Erro inesperado: \(error)")
+    }
+}
+
+@Test
 func authErrorClassifiesExplicitRejectionsSeparatelyFromTemporaryFailures() {
     #expect(FirebaseAuthServiceError.statusRejected("HTTP 401").isExplicitAuthRejection)
     #expect(FirebaseAuthServiceError.statusRejected("HTTP 403").isExplicitAuthRejection)
@@ -71,6 +92,8 @@ func localSessionLocksWithoutRecentServerVerification() {
     #expect(!verifiedRecently.isLocked)
     #expect(staleVerification.isLocked)
     #expect(neverVerified.isLocked)
+    #expect(staleVerification.lockExplanation?.contains("validacao local expirou") == true)
+    #expect(neverVerified.lockExplanation?.contains("Valide seu plano") == true)
 }
 
 @Test
@@ -84,6 +107,7 @@ func cancelingSessionLocksAfterPaidPeriodEnds() {
 
     #expect(!current.isLocked)
     #expect(expired.isLocked)
+    #expect(expired.lockExplanation?.contains("periodo de acesso terminou") == true)
 }
 
 @Test

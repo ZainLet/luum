@@ -267,8 +267,8 @@ final class ActivityStore {
             return "Entre com sua conta Firebase do Luum para liberar o app neste Mac."
         }
 
-        if let reason = authSession?.lockedReason {
-            return "Sua assinatura esta bloqueada: \(reason)."
+        if let explanation = authSession?.lockExplanation {
+            return explanation
         }
 
         return "O recurso \(feature.title) exige um plano maior. Seu plano atual e \(accountPlan.title)."

@@ -118,6 +118,38 @@ struct LuumAuthSession: Codable, Equatable, Sendable {
         return false
     }
 
+    var lockExplanation: String? {
+        if let lockedReason = Self.nonBlank(lockedReason) {
+            return "Sua assinatura esta bloqueada: \(lockedReason)."
+        }
+
+        if ["canceled", "expired", "trial_expired"].contains(subscriptionStatus) {
+            return "Seu acesso expirou. Reative seu plano pelo site para liberar o app."
+        }
+
+        if subscriptionStatus == "past_due" {
+            return "Seu pagamento esta pendente. Atualize a assinatura pelo site para liberar o app."
+        }
+
+        if ["active", "canceling"].contains(subscriptionStatus), let expiresAt, expiresAt < Date() {
+            return "Seu periodo de acesso terminou. Revalide ou reative seu plano pelo site."
+        }
+
+        if subscriptionStatus == "trial", let trialEndsAt, trialEndsAt < Date() {
+            return "Seu trial terminou. Assine pelo site para continuar usando o app."
+        }
+
+        guard let lastVerifiedAt else {
+            return "Valide seu plano com o Firebase para liberar este recurso neste Mac."
+        }
+
+        if Date().timeIntervalSince(lastVerifiedAt) > Self.offlineGracePeriod {
+            return "Sua validacao local expirou. Revalide seu plano com o Firebase para liberar este recurso."
+        }
+
+        return nil
+    }
+
     var accountLabel: String {
         Self.nonBlank(displayName) ?? Self.nonBlank(email) ?? uid
     }
