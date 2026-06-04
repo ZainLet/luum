@@ -1,6 +1,6 @@
 const { admin, getFirestore } = require('../_firebaseAdmin');
 const { addCors, handleOptions } = require('../_cors');
-const { profileEmail, profileText } = require('../_profileSecurity');
+const { profileEmail, profileOnboarding, profileText } = require('../_profileSecurity');
 
 function jsonBody(req) {
     if (!req.body) return {};
@@ -29,12 +29,14 @@ async function upsertUserHandler(req, res) {
         const body = jsonBody(req);
         const ref = db.collection('users').doc(decoded.uid);
         const snap = await ref.get();
+        const onboarding = profileOnboarding(body.onboarding);
 
         const baseProfile = {
             uid: decoded.uid,
             email: profileEmail(decoded),
             name: profileText(decoded.name, body.name),
             photoURL: profileText(decoded.picture, body.photoURL, 2048),
+            ...(onboarding ? { onboarding, quiz: onboarding } : {}),
             lastLogin: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };

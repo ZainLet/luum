@@ -127,6 +127,91 @@ test('upsert user creates a Firebase account document with trial entitlement', a
     assert.deepEqual(writes[0].options, { merge: true });
 });
 
+test('upsert user stores sanitized onboarding without trusting profile body fields', async () => {
+    const writes = [];
+    installFirebaseAdminMock({
+        decoded: {
+            uid: 'signup-user',
+            email: 'signup@luum.app',
+            name: 'Verified Signup',
+            picture: 'https://example.com/verified.png'
+        },
+        userExists: false,
+        userData: { uid: 'signup-user', plan: 'essencial' },
+        onSet: (data, options) => writes.push({ data, options })
+    });
+
+    const handler = require('../api/auth/upsert-user');
+    const res = response();
+    await handler({
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: {
+            email: 'spoofed@example.com',
+            name: 'Body Name',
+            photoURL: 'https://example.com/body.png',
+            onboarding: {
+                cargo: 'Founder',
+                time: '2-5',
+                ferramentas: ['Notion', 'Notion', 'ClickUp', '  '],
+                objetivo: 'Faturar mais horas'
+            }
+        }
+    }, res);
+
+    assert.equal(res.code, 200);
+    assert.equal(writes[0].data.email, 'signup@luum.app');
+    assert.equal(writes[0].data.name, 'Verified Signup');
+    assert.equal(writes[0].data.photoURL, 'https://example.com/verified.png');
+    assert.deepEqual(writes[0].data.onboarding, {
+        cargo: 'Founder',
+        time: '2-5',
+        ferramentas: ['Notion', 'ClickUp'],
+        objetivo: 'Faturar mais horas'
+    });
+    assert.deepEqual(writes[0].data.quiz, writes[0].data.onboarding);
+});
+
+test('upsert existing user keeps plan and subscription untouched', async () => {
+    const writes = [];
+    installFirebaseAdminMock({
+        decoded: {
+            uid: 'paid-user',
+            email: 'paid@luum.app',
+            name: 'Paid User'
+        },
+        userExists: true,
+        userData: {
+            uid: 'paid-user',
+            plan: 'negocios',
+            subscription: { status: 'active' },
+            role: 'admin'
+        },
+        onSet: (data, options) => writes.push({ data, options })
+    });
+
+    const handler = require('../api/auth/upsert-user');
+    const res = response();
+    await handler({
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: { name: 'Body Name' }
+    }, res);
+
+    assert.equal(res.code, 200);
+    assert.equal(writes.length, 1);
+    assert.equal(Object.prototype.hasOwnProperty.call(writes[0].data, 'plan'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(writes[0].data, 'subscription'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(writes[0].data, 'role'), false);
+    assert.deepEqual(writes[0].options, { merge: true });
+});
+
 test('auth status returns entitlement from the verified Firebase uid document', async () => {
     const now = Date.now();
     installFirebaseAdminMock({
