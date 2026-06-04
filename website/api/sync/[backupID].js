@@ -1,7 +1,12 @@
 const { admin, getFirestore } = require('../_firebaseAdmin');
 const { addCors, handleOptions } = require('../_cors');
 const { entitlementForUser, includesFeature } = require('../_entitlements');
-const { payloadAccountMatchesFirebaseUID, payloadForEntitlement, payloadSize } = require('../_syncPayload');
+const {
+    payloadAccountMatchesFirebaseUID,
+    payloadForEntitlement,
+    payloadSize,
+    sanitizedPayloadForStorage
+} = require('../_syncPayload');
 
 function jsonBody(req) {
     if (!req.body) return {};
@@ -86,11 +91,12 @@ async function syncHandler(req, res) {
             if (!payloadAccountMatchesFirebaseUID(body.payload, decoded.uid)) {
                 return res.status(403).json({ message: 'Conta do backup não confere com o login Firebase' });
             }
+            const payload = sanitizedPayloadForStorage(body.payload);
 
             await ref.set({
                 uid: decoded.uid,
                 backupID,
-                payload: body.payload,
+                payload,
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                 source: 'macos'
             }, { merge: true });

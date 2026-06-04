@@ -23,9 +23,36 @@ function payloadForEntitlement(payload, entitlement, includesFeature) {
     };
 }
 
+function sanitizedPayloadForStorage(payload) {
+    if (!payload || typeof payload !== 'object') return payload;
+
+    const sanitized = JSON.parse(JSON.stringify(payload));
+
+    if (sanitized.monitoringPreferences?.zapierSettings) {
+        sanitized.monitoringPreferences.zapierSettings.webhookURL = '';
+    }
+
+    if (sanitized.googleCalendarSnapshot) {
+        sanitized.googleCalendarSnapshot.clientSecret = '';
+
+        if (Array.isArray(sanitized.googleCalendarSnapshot.connections)) {
+            sanitized.googleCalendarSnapshot.connections = sanitized.googleCalendarSnapshot.connections.map((connection) => ({
+                ...connection,
+                agendaDay: null,
+                agendaItems: [],
+                legacyTokens: null,
+                tokens: null
+            }));
+        }
+    }
+
+    return sanitized;
+}
+
 module.exports = {
     payloadForEntitlement,
     payloadAccountMatchesFirebaseUID,
     payloadAccountUID,
-    payloadSize
+    payloadSize,
+    sanitizedPayloadForStorage
 };

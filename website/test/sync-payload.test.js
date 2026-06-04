@@ -4,7 +4,8 @@ const {
     payloadAccountMatchesFirebaseUID,
     payloadAccountUID,
     payloadForEntitlement,
-    payloadSize
+    payloadSize,
+    sanitizedPayloadForStorage
 } = require('../api/_syncPayload');
 
 test('accepts legacy backup payloads without account metadata', () => {
@@ -37,4 +38,33 @@ test('strips raw activities from restored payloads unless the current plan allow
         payloadForEntitlement(payload, { plan: 'negocios' }, includesFeature).rawActivities,
         payload.rawActivities
     );
+});
+
+test('sanitizes integration secrets and cached calendar events before storage', () => {
+    const payload = {
+        monitoringPreferences: {
+            zapierSettings: { webhookURL: 'https://hooks.zapier.com/hooks/catch/private' }
+        },
+        googleCalendarSnapshot: {
+            clientID: 'public-client-id',
+            clientSecret: 'private-client-secret',
+            connections: [{
+                id: 'google-account',
+                agendaDay: 123,
+                agendaItems: [{ title: 'Private event' }],
+                legacyTokens: { accessToken: 'access' },
+                tokens: { refreshToken: 'refresh' }
+            }]
+        }
+    };
+
+    const sanitized = sanitizedPayloadForStorage(payload);
+
+    assert.equal(sanitized.monitoringPreferences.zapierSettings.webhookURL, '');
+    assert.equal(sanitized.googleCalendarSnapshot.clientSecret, '');
+    assert.equal(sanitized.googleCalendarSnapshot.connections[0].agendaDay, null);
+    assert.deepEqual(sanitized.googleCalendarSnapshot.connections[0].agendaItems, []);
+    assert.equal(sanitized.googleCalendarSnapshot.connections[0].legacyTokens, null);
+    assert.equal(sanitized.googleCalendarSnapshot.connections[0].tokens, null);
+    assert.equal(payload.googleCalendarSnapshot.clientSecret, 'private-client-secret');
 });
