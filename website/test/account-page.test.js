@@ -27,3 +27,9 @@ test('account page uses Firebase password reset instead of a placeholder alert',
     assert.match(accountHTML, /id="resetPasswordBtn"/);
     assert.match(accountHTML, /sendPasswordResetEmail\(currentUser\.email\)/);
 });
+
+test('account page shows subscription cancellation status inline', () => {
+    assert.match(accountHTML, /id="subscriptionMessage"/);
+    assert.match(accountHTML, /setSubscriptionMessage\('Agendando cancelamento/);
+    assert.doesNotMatch(accountHTML, /alert\('Cancelamento agendado/);
+});
