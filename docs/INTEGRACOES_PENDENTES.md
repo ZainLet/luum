@@ -5,6 +5,7 @@ Este arquivo lista o que depende de contas, chaves externas ou decisões que nã
 ## Estado validado em 04/06/2026
 
 - Vercel production atualizado em `https://luum-app.vercel.app` com as APIs de login, admin, checkout, backup, workspace e CORS restrito.
+- `login.html` e `cadastro.html` em produção usam `user.getIdToken(true)` antes de chamar `/api/auth/upsert-user` e antes de abrir `luum://auth`, reduzindo falhas por token Firebase antigo no app.
 - Firebase Hosting publicado em `https://luum-app.web.app` com `auth.js?v=8`.
 - `OPTIONS /api/auth/upsert-user` aceita `Origin: https://luum-app.web.app` e rejeita origem desconhecida.
 - `auth.js` compartilhado cria/atualiza `users/{uid}` via `/api/auth/upsert-user` antes de abrir o app com `luum://auth`.
@@ -12,6 +13,14 @@ Este arquivo lista o que depende de contas, chaves externas ou decisões que nã
 - `cadastro.html?app=mac` preserva o retorno para o app; cadastro comum do site redireciona para `account.html`.
 - App macOS validado localmente com `swift test`, `swift build` e `./script/build_and_run.sh --verify`.
 - Build local do app continua assinado ad-hoc e usa cofre local cifrado por padrão, sem Keychain do macOS, para evitar prompts recorrentes enquanto não houver Apple Developer ID estável.
+
+Progresso aproximado para finalizar o produto:
+
+- Login, Firebase e gates por plano: 90%.
+- Backup Firebase: 80-85%.
+- Stripe e billing: 75-80%, pendente de compra/cancelamento real e conferência do webhook no painel.
+- App macOS completo: 70-75%, pendente de QA manual ponta a ponta no Mac.
+- Integrações externas de agenda/tarefas/automação: 45-60%, porque dependem de credenciais e contas reais.
 
 Ainda precisa de validação manual com uma conta real: entrar no site, abrir o app pelo deeplink, alterar plano no `admin.html` e clicar em validar assinatura no app.
 
@@ -33,7 +42,7 @@ Ainda precisa de validação manual com uma conta real: entrar no site, abrir o 
 
 ## Backend escolhido
 
-Use Vercel para as rotas Node já existentes do site, porque `luum_website/api/*.js` já segue o formato serverless. Firebase Hosting deve continuar servindo o site estático e redirecionar ou chamar a API no domínio escolhido.
+Use Vercel para as rotas Node já existentes do site, porque `website/api/*.js` já segue o formato serverless. Firebase Hosting deve continuar servindo o site estático e chamar a API oficial em `https://luum-app.vercel.app`.
 
 Variáveis necessárias no deploy:
 
@@ -94,15 +103,16 @@ Stripe configurado em produção:
 
 ## Calendários e integrações
 
-- Google Calendar: criar OAuth Client tipo Desktop app e colar Client ID no app.
-- Outlook: registrar app no Azure/Microsoft Entra e revisar escopos Graph.
-- Notion: criar integração interna e compartilhar databases com ela.
-- ClickUp/Linear: gerar tokens/API keys por workspace.
-- Zapier: criar webhook Catch Hook e colar URL no app.
+- Google Calendar: criar OAuth Client tipo Desktop app, autorizar redirect local do fluxo nativo e colar o Client ID no app. Client secret é opcional no app desktop e, se usado, fica no cofre local cifrado.
+- Outlook: registrar app no Azure/Microsoft Entra, gerar token Microsoft Graph com permissões de calendário e colar no app.
+- Notion: criar integração interna, copiar token, compartilhar as data sources com ela e informar os IDs/URLs no app.
+- ClickUp: gerar API token pessoal ou de workspace e informar os List IDs que devem entrar na agenda.
+- Linear: gerar API key e informar Workspace/Team IDs.
+- Zapier: criar webhook Catch Hook e colar URL no app. O backup remove a URL completa antes de enviar preferências ao Firebase.
 
 ## Backup Firebase
 
-- API criada no site/backend: `luum_website/api/sync/[backupID].js`.
+- API criada no site/backend: `website/api/sync/[backupID].js`.
 - O app macOS envia backup com `Authorization: Bearer {firebase_id_token}` para `/api/sync/{backupID}`.
 - `backupID` vira obrigatoriamente o UID Firebase após login e a API rejeita identificadores alternativos.
 - Atividades brutas continuam desligadas por privacidade e só podem ser armadas/enviadas se o app estiver com sessão validada em plano `rawActivityBackup` (Negócios).
@@ -122,8 +132,8 @@ Stripe configurado em produção:
 
 ## Admin de planos
 
-- Página criada no site: `luum_website/admin.html`.
-- APIs criadas no backend Vercel: `luum_website/api/admin/users.js` e `luum_website/api/admin/health.js`.
+- Página criada no site: `website/admin.html`.
+- APIs criadas no backend Vercel: `website/api/admin/users.js` e `website/api/admin/health.js`.
 - Ao abrir `admin.html` logado, o painel testa `/api/admin/health` e mostra API base, Firebase Admin, Firestore, `ADMIN_EMAILS` e sua permissão.
 - A tela usa `window.LUUM_API_BASE` para chamar o backend. O padrão atual é `https://luum-app.vercel.app`; se publicar em outro domínio, altere em `firebase-config.js`.
 - O admin inicial autorizado no backend é `oluum.app@gmail.com`. Use `ADMIN_EMAILS` na Vercel para incluir emails adicionais; depois disso, a página também pode promover outros usuários para `role: admin`.

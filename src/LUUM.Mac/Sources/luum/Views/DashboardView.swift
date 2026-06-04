@@ -44,33 +44,45 @@ struct DashboardView: View {
         return LuumFormatters.timeRange(start: nextEvent.startDate, end: nextEvent.endDate)
     }
 
+    private var greetingTitle: String {
+        let hour = Calendar.autoupdatingCurrent.component(.hour, from: Date())
+        switch hour {
+        case 5 ..< 12:
+            return "Bom dia, Luum"
+        case 12 ..< 18:
+            return "Boa tarde, Luum"
+        default:
+            return "Boa noite, Luum"
+        }
+    }
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 16) {
                 contextHeader
 
                 if store.needsOnboarding {
                     onboardingCard
                 }
 
-                HStack(alignment: .top, spacing: 20) {
-                    VStack(alignment: .leading, spacing: 20) {
+                HStack(alignment: .top, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 16) {
                         metricsStrip
                         quickActionStrip
                         timelineBoard
                     }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
 
-                    VStack(spacing: 18) {
+                    VStack(spacing: 14) {
                         agendaCard
                         performanceCard
                         liveSignalsCard
                         topBreakdownsCard
                     }
-                    .frame(width: 340)
+                    .frame(width: 312)
                 }
             }
-            .padding(28)
+            .padding(20)
         }
         .scrollIndicators(.hidden)
     }
@@ -137,11 +149,11 @@ struct DashboardView: View {
 
     private var contextHeader: some View {
         HStack(alignment: .top, spacing: 22) {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 14) {
                 LuumSectionHeader(
-                    eyebrow: "Painel do dia",
-                    title: "Tudo claro em uma unica leitura",
-                    subtitle: "Veja o que voce fez, o que estava planejado e onde agir, sem precisar adivinhar como o luum esta lendo o seu dia."
+                    eyebrow: "Hoje",
+                    title: greetingTitle,
+                    subtitle: "Revise captura, agenda e sinais importantes do dia."
                 )
 
                 HStack(spacing: 10) {
@@ -181,8 +193,8 @@ struct DashboardView: View {
                     .frame(width: 330)
             }
         }
-        .padding(26)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.15), cornerRadius: 34)
+        .padding(20)
+        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.10), cornerRadius: 18, shadowOpacity: 0.08)
     }
 
     private var summarySnapshotCard: some View {
@@ -204,12 +216,12 @@ struct DashboardView: View {
                 tint: LuumTheme.electricBlue
             )
         }
-        .padding(20)
-        .luumGlassCard(tint: LuumTheme.accent.opacity(0.16), cornerRadius: 28, shadowOpacity: 0.16)
+        .padding(16)
+        .luumGlassCard(tint: LuumTheme.accent.opacity(0.10), cornerRadius: 16, shadowOpacity: 0.08)
     }
 
     private var metricsStrip: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             OverviewMetricCard(
                 title: "Tempo capturado",
                 value: LuumFormatters.duration(summary.totalTrackedTime),
