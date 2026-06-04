@@ -56,3 +56,13 @@ test('shared auth script only handles explicitly marked generic forms', () => {
     assert.match(auth, /googleBtn\?\.dataset\.luumSharedAuth === 'true'/);
     assert.doesNotMatch(signup, /data-luum-shared-auth="true"/);
 });
+
+test('pages use the current auth.js cache-busting version', () => {
+    for (const file of fs.readdirSync(root).filter((name) => name.endsWith('.html'))) {
+        const html = read(file);
+        if (!html.includes('auth.js')) continue;
+
+        assert.doesNotMatch(html, /auth\.js\?v=[0-7]\b/, `${file} references an old auth.js version`);
+        assert.match(html, /auth\.js\?v=8\b/, `${file} should use auth.js?v=8`);
+    }
+});

@@ -5,7 +5,7 @@ Este arquivo lista o que depende de contas, chaves externas ou decisões que nã
 ## Estado validado em 04/06/2026
 
 - Vercel production atualizado em `https://luum-app.vercel.app` com as APIs de login, admin, checkout, backup, workspace e CORS restrito.
-- Firebase Hosting publicado em `https://luum-app.web.app` com `auth.js?v=7`.
+- Firebase Hosting publicado em `https://luum-app.web.app` com `auth.js?v=8`.
 - `OPTIONS /api/auth/upsert-user` aceita `Origin: https://luum-app.web.app` e rejeita origem desconhecida.
 - `auth.js` compartilhado cria/atualiza `users/{uid}` via `/api/auth/upsert-user` antes de abrir o app com `luum://auth`.
 - `login.html?app=mac` é o único fluxo web que abre `luum://auth`; login comum do site redireciona para `account.html`.
