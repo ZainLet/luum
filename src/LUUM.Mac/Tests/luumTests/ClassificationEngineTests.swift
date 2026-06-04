@@ -31,6 +31,46 @@ func categorizesEntertainmentApplicationsWithoutURL() {
 }
 
 @Test
+func categorizesProfessionalCreativeApplicationsByDefault() {
+    let engine = ClassificationEngine()
+
+    let category = engine.classify(
+        applicationName: "Adobe Premiere Pro 2026",
+        bundleIdentifier: "com.adobe.PremierePro",
+        webURL: nil
+    )
+
+    #expect(category == .work)
+}
+
+@Test
+func categorizesProductivityUtilitiesByDefault() {
+    let engine = ClassificationEngine()
+
+    let category = engine.classify(
+        applicationName: "Todoist",
+        bundleIdentifier: "com.todoist.mac.Todoist",
+        webURL: nil
+    )
+
+    #expect(category == .utilities)
+}
+
+@Test
+func ignoresSystemApplicationsByDefault() {
+    let engine = ClassificationEngine()
+
+    let ignored = engine.isIgnored(
+        applicationName: "System Settings",
+        bundleIdentifier: "com.apple.systemsettings",
+        webURL: nil,
+        preferences: .default
+    )
+
+    #expect(ignored == true)
+}
+
+@Test
 func prioritizesManualRuleOverrides() {
     let engine = ClassificationEngine()
     var preferences = MonitoringPreferencesSnapshot.default
@@ -228,6 +268,43 @@ final class ClassificationEngineTests: XCTestCase {
         )
 
         XCTAssertEqual(category, .entertainment)
+    }
+
+    func testCategorizesProfessionalCreativeApplicationsByDefault() {
+        let engine = ClassificationEngine()
+
+        let category = engine.classify(
+            applicationName: "Adobe Premiere Pro 2026",
+            bundleIdentifier: "com.adobe.PremierePro",
+            webURL: nil
+        )
+
+        XCTAssertEqual(category, .work)
+    }
+
+    func testCategorizesProductivityUtilitiesByDefault() {
+        let engine = ClassificationEngine()
+
+        let category = engine.classify(
+            applicationName: "Todoist",
+            bundleIdentifier: "com.todoist.mac.Todoist",
+            webURL: nil
+        )
+
+        XCTAssertEqual(category, .utilities)
+    }
+
+    func testIgnoresSystemApplicationsByDefault() {
+        let engine = ClassificationEngine()
+
+        let ignored = engine.isIgnored(
+            applicationName: "System Settings",
+            bundleIdentifier: "com.apple.systemsettings",
+            webURL: nil,
+            preferences: .default
+        )
+
+        XCTAssertTrue(ignored)
     }
 
     func testPrioritizesManualRuleOverrides() {
