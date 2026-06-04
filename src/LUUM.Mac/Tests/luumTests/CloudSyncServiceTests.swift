@@ -15,6 +15,45 @@ func cloudBackupRemovesZapierWebhookURL() {
 }
 
 @Test
+func cloudBackupKeepsIntegrationMetadataWithoutLocalSecrets() {
+    var preferences = MonitoringPreferencesSnapshot.default
+    preferences.notionCalendarSettings = NotionCalendarSettings(
+        isEnabled: true,
+        workspaceLabel: "Notion Ops",
+        databaseIDs: ["12345678-1234-1234-1234-1234567890ab"],
+        datePropertyName: "Date",
+        titlePropertyName: "Name",
+        lastSyncAt: Date(timeIntervalSince1970: 1_700_000_000)
+    )
+    preferences.clickUpSettings = ClickUpSettings(
+        isEnabled: true,
+        workspaceLabel: "ClickUp Ops",
+        workspaceID: "workspace",
+        listIDs: ["list-a"],
+        includeClosedTasks: true,
+        lastSyncAt: Date(timeIntervalSince1970: 1_700_000_000)
+    )
+    preferences.linearSettings = LinearSettings(
+        isEnabled: true,
+        workspaceLabel: "Linear Ops",
+        workspaceID: "linear-workspace",
+        teamIDs: ["team-a"],
+        includeCompletedIssues: true,
+        lastSyncAt: Date(timeIntervalSince1970: 1_700_000_000)
+    )
+    preferences.teamSettings.workspaceEndpointURL = "https://evil.example"
+    preferences.zapierSettings.webhookURL = "https://hooks.zapier.com/hooks/catch/private"
+
+    let sanitized = CloudSyncService.cloudSafePreferences(preferences).normalized()
+
+    #expect(sanitized.notionCalendarSettings.databaseIDs == ["12345678-1234-1234-1234-1234567890ab"])
+    #expect(sanitized.clickUpSettings.listIDs == ["list-a"])
+    #expect(sanitized.linearSettings.teamIDs == ["team-a"])
+    #expect(sanitized.zapierSettings.webhookURL.isEmpty)
+    #expect(sanitized.teamSettings.workspaceEndpointURL == FirebaseAuthService.defaultBaseURL)
+}
+
+@Test
 func cloudBackupKeepsCalendarStructureWithoutCachedEventsOrTokens() {
     let now = Date(timeIntervalSince1970: 1_700_000_000)
     let connection = GoogleCalendarConnectionSnapshot(
