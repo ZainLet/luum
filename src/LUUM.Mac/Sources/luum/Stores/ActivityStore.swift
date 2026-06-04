@@ -75,6 +75,8 @@ final class ActivityStore {
     @ObservationIgnored private var focusBlockDeliveries: [String: Date] = [:]
     @ObservationIgnored private var persistTask: Task<Void, Never>?
     @ObservationIgnored private var reminderEvaluationTask: Task<Void, Never>?
+    @ObservationIgnored private var authRefreshTask: Task<Void, Never>?
+    @ObservationIgnored private var authRefreshGeneration = 0
     @ObservationIgnored private var cloudSyncTask: Task<Void, Never>?
     @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
     @ObservationIgnored private let calendarRefreshInterval: TimeInterval = 900
@@ -283,52 +285,78 @@ final class ActivityStore {
         do {
             let session = try authService.session(from: url)
             applyAuthSession(session, message: "Login recebido. Validando plano no Firebase...")
-            refreshAccountStatus()
+            refreshAccountStatus(restartInFlight: true)
         } catch {
             authStatusMessage = error.localizedDescription
         }
     }
 
     func refreshAccountStatus() {
-        guard !isCheckingAuth else { return }
+        refreshAccountStatus(restartInFlight: false)
+    }
+
+    private func refreshAccountStatus(restartInFlight: Bool) {
         guard let authSession else {
             authStatusMessage = "Entre com sua conta Luum para validar o plano."
             return
         }
 
+        if isCheckingAuth {
+            guard restartInFlight else { return }
+            authRefreshTask?.cancel()
+        }
+
+        authRefreshGeneration += 1
+        let generation = authRefreshGeneration
+        let sessionToValidate = authSession
         isCheckingAuth = true
-        Task { [weak self] in
+        authRefreshTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let verified = try await authService.verifiedSession(authSession)
+                let verified = try await authService.verifiedSession(sessionToValidate)
                 await MainActor.run {
+                    guard self.isCurrentAuthRefresh(generation, for: sessionToValidate) else { return }
                     self.applyAuthSession(verified, message: "Plano \(verified.plan.title) validado.")
                     self.isCheckingAuth = false
+                    self.authRefreshTask = nil
                 }
             } catch {
+                let wasCancelled = Task.isCancelled
                 await MainActor.run {
+                    guard self.isCurrentAuthRefresh(generation, for: sessionToValidate) else { return }
+                    if wasCancelled {
+                        self.isCheckingAuth = false
+                        self.authRefreshTask = nil
+                        return
+                    }
+
                     if error is URLError {
-                        let offline = authSession
+                        let offline = sessionToValidate
                         let message = offline.isLocked
                             ? "Conecte-se a internet e valide seu plano para liberar o app."
                             : "Sem conexao com a API. Usando sessao local validada por ate 24 horas."
                         self.applyAuthSession(offline, message: message)
                     } else if Self.isExplicitAuthRejection(error) {
-                        self.rejectAuthSession(authSession)
+                        self.rejectAuthSession(sessionToValidate)
                     } else {
-                        let offline = authSession
+                        let offline = sessionToValidate
                         let message = offline.isLocked
                             ? "Nao foi possivel validar o plano agora. Tente novamente em instantes."
                             : "A API de assinatura respondeu de forma temporaria. Usando sessao local validada por ate 24 horas."
                         self.applyAuthSession(offline, message: message)
                     }
                     self.isCheckingAuth = false
+                    self.authRefreshTask = nil
                 }
             }
         }
     }
 
     func signOut() {
+        authRefreshTask?.cancel()
+        authRefreshTask = nil
+        authRefreshGeneration += 1
+        isCheckingAuth = false
         stopMonitoring()
         authSession = nil
         authStatusMessage = "Conta desconectada deste Mac."
@@ -387,6 +415,12 @@ final class ActivityStore {
 
     private static func isExplicitAuthRejection(_ error: Error) -> Bool {
         (error as? FirebaseAuthServiceError)?.isExplicitAuthRejection ?? false
+    }
+
+    private func isCurrentAuthRefresh(_ generation: Int, for session: LuumAuthSession) -> Bool {
+        guard generation == authRefreshGeneration else { return false }
+        guard let current = authSession else { return false }
+        return current.uid == session.uid && current.idToken == session.idToken
     }
 
     private func rejectAuthSession(_ session: LuumAuthSession) {
