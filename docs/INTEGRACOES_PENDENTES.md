@@ -51,6 +51,8 @@ Variáveis necessárias no deploy:
 - `STRIPE_WEBHOOK_SECRET`
 - `PUBLIC_SITE_URL` com a URL pública do site usada no retorno do Checkout; depois do bootstrap também pode ser salva pelo cofre do admin
 - `LUUM_SETTINGS_ENCRYPTION_KEY` com uma chave aleatória longa para criptografar o cofre de integrações no Firestore
+- `GEMINI_API_KEY` para a rota segura `POST /api/ai/classify`
+- Opcional: `GEMINI_MODEL` e `GEMINI_ENDPOINT` se quiser trocar o modelo ou provedor compatível com Gemini
 - `STRIPE_MIN_SEATS_EQUIPES=2` e `STRIPE_MIN_SEATS_NEGOCIOS=5` se quiser sobrescrever os mínimos já protegidos no backend
 - `FIREBASE_SERVICE_ACCOUNT_JSON` com a credencial técnica restrita do Admin SDK
 - `ADMIN_EMAILS` com os emails autorizados a acessar `admin.html`
@@ -104,8 +106,9 @@ Stripe configurado em produção:
 
 ## Calendários e integrações
 
-- IA de classificação: em `Preferências > IA de classificação`, ative o recurso, cole a chave Gemini e mantenha `gemini-2.5-flash` ou troque o modelo ali. No código, os defaults ficam em `AIClassificationSettings.default` e a chamada fica em `AIClassificationService`.
-- Para ficar 100% produção, mover a chamada Gemini direta do app para uma rota Vercel, por exemplo `/api/ai/classify`, com `GEMINI_API_KEY` salva na Vercel. Assim o binário macOS nunca contém nem usa diretamente a chave do provedor.
+- IA de classificação: em `Preferências > IA de classificação`, ative o recurso. Para teste local rápido, cole uma chave Gemini no app; ela fica no cofre local cifrado. No código, os defaults ficam em `AIClassificationSettings.default` e a chamada local fica em `AIClassificationService`.
+- Produção segura: usar `POST /api/ai/classify` na Vercel com `GEMINI_API_KEY` salva nas variáveis do deploy. A rota exige Firebase ID token, valida plano no Firestore e chama Gemini server-side, impedindo que a chave do provedor fique exposta no binário macOS.
+- Para deixar a IA 100% server-side no app, trocar o alvo de chamada em `AIClassificationService`/`ActivityStore.runAIClassification` para enviar `{ kind, label, secondaryLabel, currentCategoryID, categories }` para `https://luum-app.vercel.app/api/ai/classify` com `Authorization: Bearer {firebase_id_token}`.
 - Google Calendar: criar OAuth Client tipo Desktop app, autorizar redirect local do fluxo nativo e colar o Client ID no app. Client secret é opcional no app desktop e, se usado, fica no cofre local cifrado.
 - Outlook: registrar app no Azure/Microsoft Entra, gerar token Microsoft Graph com permissões de calendário e colar no app.
 - Notion: criar integração interna, copiar token, compartilhar as data sources com ela e informar os IDs/URLs no app.

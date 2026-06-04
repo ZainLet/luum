@@ -75,6 +75,8 @@ function includesFeature(entitlement, feature) {
 
     const rank = PLAN_RANK[normalizedPlan(entitlement.plan)] || 0;
     switch (feature) {
+        case 'classification':
+            return true;
         case 'cloudBackup':
             return rank >= PLAN_RANK.profissional;
         case 'rawActivityBackup':
