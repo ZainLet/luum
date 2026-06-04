@@ -327,9 +327,7 @@ private struct LoginRequiredView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: "person.crop.circle.badge.checkmark")
-                .font(.system(size: 56, weight: .semibold))
-                .foregroundStyle(LuumTheme.accent)
+            LuumAppMark(size: 72)
 
             VStack(spacing: 8) {
                 Text("Entre no Luum")
@@ -629,14 +627,18 @@ private struct SidebarMetricPill: View {
             Text(title.uppercased())
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(LuumTheme.textMuted)
-                .tracking(1.0)
+                .tracking(0.6)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
 
             Text(value)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct LuumBackdrop: View {
@@ -50,25 +51,20 @@ struct LuumAppMark: View {
     var size: CGFloat = 28
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            LuumTheme.accent.opacity(0.95),
-                            LuumTheme.secondaryAccent.opacity(0.9),
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+        Image(nsImage: appIcon)
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
+            .frame(width: size, height: size)
+    }
 
-            Text("L")
-                .font(.system(size: size * 0.54, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
-                .offset(x: -size * 0.02, y: -size * 0.02)
+    private var appIcon: NSImage {
+        if let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+           let image = NSImage(contentsOf: iconURL) {
+            return image
         }
-        .frame(width: size, height: size)
+
+        return NSApplication.shared.applicationIconImage
     }
 }
 
