@@ -1,5 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { addNoStoreHeaders } = require('../api/_httpHeaders');
 const {
     invoiceSubscriptionID,
     invoiceSubscriptionMetadata,
@@ -62,4 +65,21 @@ test('webhook patch only writes official plan values', () => {
 
     const missing = planPatch(undefined, isValidPlan);
     assert.equal(Object.prototype.hasOwnProperty.call(missing, 'plan'), false);
+});
+
+test('stripe webhook responses are never cacheable', () => {
+    const res = {
+        headers: {},
+        setHeader(name, value) {
+            this.headers[name] = value;
+        }
+    };
+
+    addNoStoreHeaders(res);
+    const webhook = fs.readFileSync(path.join(__dirname, '..', 'api', 'webhook.js'), 'utf8');
+
+    assert.equal(res.headers['Cache-Control'], 'no-store, max-age=0');
+    assert.equal(res.headers.Pragma, 'no-cache');
+    assert.equal(res.headers.Expires, '0');
+    assert.match(webhook, /addNoStoreHeaders\(res\)/);
 });

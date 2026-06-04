@@ -1,6 +1,7 @@
 // Stripe Webhook -> Firestore — Luum
 
 const { admin, getFirestore } = require('./_firebaseAdmin');
+const { addNoStoreHeaders } = require('./_httpHeaders');
 const { getStripe, isStripePlan, requireSetting } = require('./_stripe');
 const {
     invoiceSubscriptionID,
@@ -55,6 +56,8 @@ async function writeSubscription(db, uid, plan, subscription) {
 }
 
 async function webhookHandler(req, res) {
+    addNoStoreHeaders(res);
+
     if (req.method !== 'POST') return res.status(405).end();
 
     const sig = req.headers['stripe-signature'];

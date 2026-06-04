@@ -48,6 +48,9 @@ test('adds CORS headers for official Firebase Hosting origin', () => {
     assert.equal(res.headers['Access-Control-Allow-Origin'], 'https://luum-app.web.app');
     assert.equal(res.headers['Access-Control-Allow-Headers'], 'Authorization, Content-Type');
     assert.equal(res.headers['Access-Control-Allow-Methods'], 'POST, OPTIONS');
+    assert.equal(res.headers['Cache-Control'], 'no-store, max-age=0');
+    assert.equal(res.headers.Pragma, 'no-cache');
+    assert.equal(res.headers.Expires, '0');
     assert.equal(res.headers.Vary, 'Origin');
 });
 

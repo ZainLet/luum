@@ -1,4 +1,5 @@
 const { OFFICIAL_ORIGINS: PUBLIC_ORIGINS, PUBLIC_SITE_URL } = require('./_publicConfig');
+const { addNoStoreHeaders } = require('./_httpHeaders');
 
 const OFFICIAL_ORIGINS = new Set(PUBLIC_ORIGINS);
 const DEFAULT_ORIGIN = PUBLIC_SITE_URL;
@@ -27,6 +28,7 @@ function addCors(req, res, { methods = 'GET, POST, OPTIONS' } = {}) {
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
     res.setHeader('Access-Control-Allow-Methods', methods);
+    addNoStoreHeaders(res);
     return !origin || Boolean(allowed);
 }
 
