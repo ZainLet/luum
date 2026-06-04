@@ -1,7 +1,7 @@
 const { admin, getFirestore } = require('../_firebaseAdmin');
 const { addCors, handleOptions } = require('../_cors');
 const { entitlementForUser, includesFeature } = require('../_entitlements');
-const { payloadAccountMatchesFirebaseUID, payloadSize } = require('../_syncPayload');
+const { payloadAccountMatchesFirebaseUID, payloadForEntitlement, payloadSize } = require('../_syncPayload');
 
 function jsonBody(req) {
     if (!req.body) return {};
@@ -110,7 +110,7 @@ async function syncHandler(req, res) {
 
         const data = snap.data() || {};
         return res.json({
-            payload: data.payload || null,
+            payload: payloadForEntitlement(data.payload || null, entitlement, includesFeature),
             updatedAt: swiftReferenceSeconds(firestoreDate(data.updatedAt))
         });
     } catch (err) {

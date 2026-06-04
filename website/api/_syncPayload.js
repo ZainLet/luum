@@ -11,7 +11,20 @@ function payloadAccountMatchesFirebaseUID(payload, uid) {
     return !accountUID || accountUID === uid;
 }
 
+function payloadForEntitlement(payload, entitlement, includesFeature) {
+    if (!payload || typeof payload !== 'object') return payload;
+    if (typeof includesFeature !== 'function' || includesFeature(entitlement, 'rawActivityBackup')) {
+        return payload;
+    }
+
+    return {
+        ...payload,
+        rawActivities: null
+    };
+}
+
 module.exports = {
+    payloadForEntitlement,
     payloadAccountMatchesFirebaseUID,
     payloadAccountUID,
     payloadSize

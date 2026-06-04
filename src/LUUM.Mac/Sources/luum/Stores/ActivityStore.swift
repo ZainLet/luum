@@ -2881,7 +2881,7 @@ final class ActivityStore {
             monitoringPreferences = mergeRestoredMonitoringPreferences(payload.monitoringPreferences)
             googleCalendarClientID = payload.googleCalendarSnapshot.clientID
             googleCalendarConnections = payload.googleCalendarSnapshot.connections
-            if let rawActivities = payload.rawActivities {
+            if canUse(.rawActivityBackup), let rawActivities = payload.rawActivities {
                 samples = rawActivities
             }
 
