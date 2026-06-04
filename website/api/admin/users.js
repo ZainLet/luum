@@ -1,10 +1,13 @@
 const { admin, getFirestore } = require('../_firebaseAdmin');
 const { addCors, handleOptions } = require('../_cors');
 const { requireAdmin } = require('../_adminAuth');
+const {
+    normalizeAdminPlan,
+    normalizeAdminRole,
+    normalizeAdminStatus,
+    normalizeSeats
+} = require('../_adminGrantInput');
 const { manualSubscriptionSnapshot, stripeSubscriptionDeletePatch } = require('../_manualGrant');
-
-const VALID_PLANS = new Set(['essencial', 'profissional', 'equipes', 'negocios']);
-const VALID_STATUSES = new Set(['trial', 'active', 'canceling', 'canceled', 'past_due']);
 
 function jsonBody(req) {
     if (!req.body) return {};
@@ -13,8 +16,10 @@ function jsonBody(req) {
 }
 
 async function resolveUser({ uid, email }) {
-    if (uid) return admin.auth().getUser(uid);
-    if (email) return admin.auth().getUserByEmail(email.trim().toLowerCase());
+    const trimmedUID = String(uid || '').trim();
+    const trimmedEmail = String(email || '').trim().toLowerCase();
+    if (trimmedUID) return admin.auth().getUser(trimmedUID);
+    if (trimmedEmail) return admin.auth().getUserByEmail(trimmedEmail);
     throw new Error('Informe email ou uid');
 }
 
@@ -60,22 +65,22 @@ async function adminUsersHandler(req, res) {
 
         const body = jsonBody(req);
         const userRecord = await resolveUser(body);
-        const plan = body.plan || 'essencial';
-        const status = body.status || 'active';
-        const role = body.role || 'user';
-        const seats = Number.parseInt(body.seats || '1', 10);
+        const plan = normalizeAdminPlan(body.plan || 'essencial');
+        const status = normalizeAdminStatus(body.status || 'active');
+        const role = normalizeAdminRole(body.role || 'user');
+        const seats = normalizeSeats(body.seats || '1');
         const currentPeriodEnd = timestampFromDays(body.days || 365);
 
-        if (!VALID_PLANS.has(plan)) {
+        if (!plan) {
             return res.status(400).json({ error: 'Plano inválido' });
         }
-        if (!VALID_STATUSES.has(status)) {
+        if (!status) {
             return res.status(400).json({ error: 'Status inválido' });
         }
-        if (!['user', 'admin'].includes(role)) {
+        if (!role) {
             return res.status(400).json({ error: 'Perfil inválido' });
         }
-        if (!Number.isInteger(seats) || seats < 1 || seats > 10000 || !currentPeriodEnd) {
+        if (!seats || !currentPeriodEnd) {
             return res.status(400).json({ error: 'Assentos ou validade inválidos' });
         }
 

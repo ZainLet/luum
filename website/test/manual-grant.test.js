@@ -5,6 +5,12 @@ const {
     manualSubscriptionSnapshot,
     stripeSubscriptionDeletePatch
 } = require('../api/_manualGrant');
+const {
+    normalizeAdminPlan,
+    normalizeAdminRole,
+    normalizeAdminStatus,
+    normalizeSeats
+} = require('../api/_adminGrantInput');
 
 test('manual grant snapshot is clearly separated from Stripe billing', () => {
     const snapshot = manualSubscriptionSnapshot({
@@ -49,4 +55,16 @@ test('manual grants delete every stale Stripe subscription field', () => {
         .map((field) => `subscription.${field}`)
         .sort());
     assert.equal(patch['subscription.stripeSubscriptionId'], '__delete__');
+});
+
+test('admin grant input accepts Portuguese labels without accepting unknown values', () => {
+    assert.equal(normalizeAdminPlan(' Negócios '), 'negocios');
+    assert.equal(normalizeAdminPlan('Profissional'), 'profissional');
+    assert.equal(normalizeAdminPlan('Enterprise Unlimited'), '');
+    assert.equal(normalizeAdminStatus('PAST_DUE'), 'past_due');
+    assert.equal(normalizeAdminStatus('bloqueado'), '');
+    assert.equal(normalizeAdminRole('ADMIN'), 'admin');
+    assert.equal(normalizeAdminRole('owner'), '');
+    assert.equal(normalizeSeats('5'), 5);
+    assert.equal(normalizeSeats('0'), null);
 });
