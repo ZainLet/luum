@@ -21,3 +21,9 @@ test('account page validates the account document before reading Firestore metad
     assert.match(accountHTML, /fetch\(luumApiUrl\('\/api\/auth\/status'\)/);
     assert.match(accountHTML, /renderAccount\(user, data, entitlement\)/);
 });
+
+test('account page uses Firebase password reset instead of a placeholder alert', () => {
+    assert.doesNotMatch(accountHTML, /Funcionalidade em breve/);
+    assert.match(accountHTML, /id="resetPasswordBtn"/);
+    assert.match(accountHTML, /sendPasswordResetEmail\(currentUser\.email\)/);
+});

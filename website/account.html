@@ -63,6 +63,9 @@
         .acct-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--purple-500); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 700; color: white; flex-shrink: 0; }
         .acct-name { font-size: 1.125rem; font-weight: 700; color: var(--text-primary); }
         .acct-email { font-size: 0.875rem; color: var(--text-muted); margin-top: 2px; }
+        .profile-message { display: none; margin-top: 12px; font-size: 0.8125rem; line-height: 1.5; color: var(--text-muted); }
+        .profile-message.success { color: #4ade80; }
+        .profile-message.error { color: #fca5a5; }
 
         .empty-devices { text-align: center; padding: 32px 0; color: var(--text-muted); font-size: 0.875rem; }
 
@@ -139,9 +142,10 @@
                             </div>
                         </div>
                         <div style="display:flex;gap:12px;flex-wrap:wrap;">
-                            <a href="#" class="btn btn-secondary" style="font-size:0.8125rem;padding:8px 16px;" onclick="alert('Funcionalidade em breve.')">Alterar senha</a>
+                            <button class="btn btn-secondary" id="resetPasswordBtn" style="font-size:0.8125rem;padding:8px 16px;">Alterar senha</button>
                             <a href="admin.html" class="btn btn-secondary" id="adminLink" style="display:none;font-size:0.8125rem;padding:8px 16px;">Admin</a>
                         </div>
+                        <div class="profile-message" id="profileMessage" aria-live="polite"></div>
                     </div>
 
                     <!-- Assinatura -->
@@ -265,6 +269,13 @@
 
         function firebaseReady() {
             return typeof firebase !== 'undefined' && firebase.apps?.length && firebase.auth;
+        }
+
+        function setProfileMessage(message, kind = 'success') {
+            const el = document.getElementById('profileMessage');
+            el.textContent = message;
+            el.className = `profile-message ${kind}`;
+            el.style.display = message ? 'block' : 'none';
         }
 
         function bootAccount() {
@@ -436,6 +447,24 @@
             firebase.auth().signOut().then(() => {
                 window.location.href = 'index.html';
             });
+        });
+
+        document.getElementById('resetPasswordBtn').addEventListener('click', async () => {
+            if (!firebaseReady() || !currentUser?.email) {
+                setProfileMessage('Entre novamente para alterar sua senha.', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('resetPasswordBtn');
+            btn.disabled = true;
+            try {
+                await firebase.auth().sendPasswordResetEmail(currentUser.email);
+                setProfileMessage(`Enviamos um link de alteração de senha para ${currentUser.email}.`);
+            } catch (err) {
+                setProfileMessage(err.message || 'Não foi possível enviar o email de alteração de senha agora.', 'error');
+            } finally {
+                btn.disabled = false;
+            }
         });
 
         // ─── Cancelar ───────────────────────────────

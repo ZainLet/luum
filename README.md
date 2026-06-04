@@ -40,7 +40,7 @@ Safari, Google Chrome, Arc, Brave, Microsoft Edge, Chromium, Opera e Vivaldi.
 5. Clique em `Adicionar conta Google`.
 6. Escolha os calendarios que entram no `luum`.
 
-Os tokens OAuth ficam no Keychain deste Mac. O backup em nuvem salva apenas a configuracao das contas e dos calendarios, nao os tokens.
+Os tokens OAuth ficam em um cofre local cifrado neste Mac. O backup em nuvem salva apenas a configuracao das contas e dos calendarios, nao os tokens.
 
 ### Privacidade e backup
 
