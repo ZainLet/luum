@@ -67,6 +67,22 @@ test('enforces plan tiers for Firebase backup', () => {
     assert.equal(includesFeature(active('negocios'), 'rawActivityBackup'), true);
 });
 
+test('uses the strongest valid plan from legacy onboarding snapshots', () => {
+    const entitlement = entitlementForUser({
+        plan: 'profissional',
+        onboarding: {
+            plan: 'equipes',
+            role: 'admin',
+            seats: 1
+        },
+        subscription: { status: 'active', currentPeriodEnd: timestamp(now + DAY_MS) }
+    }, now);
+
+    assert.equal(entitlement.locked, false);
+    assert.equal(entitlement.plan, 'equipes');
+    assert.equal(includesFeature(entitlement, 'teamWorkspace'), true);
+});
+
 test('validates workspace ids and compares invite secrets by hash', () => {
     assert.equal(validID('design-team_2026'), true);
     assert.equal(validID('../other-workspace'), false);

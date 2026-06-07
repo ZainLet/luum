@@ -5,6 +5,8 @@ Este arquivo lista o que depende de contas, chaves externas ou decisões que nã
 ## Estado validado em 04/06/2026
 
 - Vercel production atualizado em `https://luum-app.vercel.app` com as APIs de login, admin, checkout, backup, workspace e CORS restrito.
+- Correção publicada em produção: `/api/auth/status` agora resolve o plano efetivo mais forte entre `plan`, `subscription.plan` e campos legados `onboarding.plan`/`quiz.plan`, evitando o caso em que o Firestore mostra `equipes` mas o app continua preso em `Profissional`.
+- Rotas `/api/admin/*` consolidadas em uma única function dinâmica para manter o deploy dentro do limite de 12 Serverless Functions do plano Vercel Hobby.
 - `login.html` e `cadastro.html` em produção usam `user.getIdToken(true)` antes de chamar `/api/auth/upsert-user` e antes de abrir `luum://auth`, reduzindo falhas por token Firebase antigo no app.
 - Firebase Hosting publicado em `https://luum-app.web.app` com `auth.js?v=8`.
 - `OPTIONS /api/auth/upsert-user` aceita `Origin: https://luum-app.web.app` e rejeita origem desconhecida.
@@ -34,6 +36,7 @@ Ainda precisa de validação manual com uma conta real: entrar no site, abrir o 
 - Endpoint `GET /api/auth/status` validado em produção recebendo exclusivamente `Authorization: Bearer {firebase_id_token}` e retornando `locked`, `plan`, `trial`, `expiresAt`, `trialEndsAt` e `reason`.
 - Configurar `ADMIN_EMAILS` no backend com o primeiro email administrador, separado por vírgula se houver mais de um.
 - Usar `admin.html` para promover usuários e definir `plan`, `subscription.status`, validade, assentos e `role`.
+- Se um usuário antigo tiver plano salvo em `onboarding.plan` ou `quiz.plan`, a API de status já considera esse valor como fallback/compatibilidade. O formato oficial continua sendo `users/{uid}.plan` na raiz.
 - Opcional: manter custom claims `luumAdmin` para admins; a fonte de verdade dos planos deve continuar sendo Firestore/Stripe.
 
 ## Credenciais removidas do histórico ativo

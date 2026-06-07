@@ -241,3 +241,37 @@ test('auth status returns entitlement from the verified Firebase uid document', 
     assert.equal(res.body.trial, false);
     assert.equal(res.body.expiresAt, now + 86_400_000);
 });
+
+test('auth status honors stronger legacy onboarding plan for desktop gates', async () => {
+    const now = Date.now();
+    installFirebaseAdminMock({
+        decoded: { uid: 'team-user', email: 'team@luum.app' },
+        userData: {
+            plan: 'profissional',
+            onboarding: {
+                plan: 'equipes',
+                role: 'admin',
+                seats: 1
+            },
+            subscription: {
+                status: 'active',
+                currentPeriodEnd: { toMillis: () => now + 86_400_000 }
+            }
+        }
+    });
+
+    const handler = require('../api/auth/status');
+    const res = response();
+    await handler({
+        method: 'GET',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        }
+    }, res);
+
+    assert.equal(res.code, 200);
+    assert.equal(res.body.locked, false);
+    assert.equal(res.body.plan, 'equipes');
+    assert.equal(res.body.trial, false);
+});
