@@ -21,7 +21,7 @@ Progresso aproximado para finalizar o produto:
 - Backup Firebase: 80-85%.
 - Stripe e billing: 75-80%, pendente de compra/cancelamento real e conferência do webhook no painel.
 - App macOS completo: 70-75%, pendente de QA manual ponta a ponta no Mac.
-- Performance do app macOS: meta contínua adicionada. Primeira otimização aplicada no cache de resumos e no debounce de lembretes/foco para reduzir travadas durante captura contínua.
+- Performance do app macOS: meta contínua adicionada. Otimizações aplicadas no cache de resumos, debounce de lembretes/foco, corte de relatórios por janela de data e cálculo de streak recente.
 - Integrações externas de agenda/tarefas/automação: 45-60%, porque dependem de credenciais e contas reais.
 
 Ainda precisa de validação manual com uma conta real: entrar no site, abrir o app pelo deeplink, alterar plano no `admin.html` e clicar em validar assinatura no app.
@@ -92,6 +92,7 @@ Stripe configurado em produção:
 - O desktop fixa login, backup e ranking em `https://luum-app.vercel.app`: preferências locais não podem redirecionar o Firebase ID token para outro domínio.
 - Otimização agora faz parte das metas de finalização: o app deve permanecer leve durante uso contínuo, evitando recálculo completo de resumos e varreduras de histórico em cada amostra capturada.
 - Primeira correção de performance: `ActivityStore` invalida somente os dias afetados pelo sample editado/capturado e só filtra histórico para lembretes/foco depois do debounce da avaliação.
+- Segunda correção de performance: os samples ficam ordenados ao carregar/restaurar, resumos/relatórios param ao sair da janela de data e lembretes/foco usam somente o streak visível mais recente.
 
 ### Roteiro de validação do login e planos
 

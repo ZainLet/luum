@@ -127,9 +127,12 @@ final class ActivityStore {
 
         let monitoringPreferences = monitoringPreferencesPersistence.load().normalized()
         let calendarSnapshot = googleCalendarPersistence.load()
+        let loadedSamples = persistence
+            .load(retentionDays: monitoringPreferences.privacySettings.retentionDays)
+            .sorted(by: Self.sampleSortOrder)
 
         self.monitoringPreferences = monitoringPreferences
-        self.samples = persistence.load(retentionDays: monitoringPreferences.privacySettings.retentionDays)
+        self.samples = loadedSamples
         self.googleCalendarClientID = calendarSnapshot.clientID
         self.googleCalendarClientSecret = keychainService.string(for: Self.googleCalendarClientSecretKey) ?? calendarSnapshot.clientSecret
         self.googleCalendarConnections = calendarSnapshot.connections
@@ -2070,8 +2073,10 @@ final class ActivityStore {
 
         for sample in samples {
             guard !sample.isHidden else { continue }
-            guard !isIgnored(sample: sample) else { continue }
+            if sample.startDate >= dayEnd { break }
+            guard sampleOverlaps(sample, from: dayStart, to: dayEnd) else { continue }
             guard let clipped = clip(sample: sample, from: dayStart, to: dayEnd) else { continue }
+            guard !isIgnored(sample: clipped) else { continue }
 
             let category = classifier.classify(sample: clipped, preferences: monitoringPreferences)
             let applicationIgnored = classifier.isApplicationIgnored(
@@ -2160,9 +2165,7 @@ final class ActivityStore {
     }
 
     func focusProfileInsights(at date: Date = Date()) -> [FocusProfileInsight] {
-        let orderedSamples = samples
-            .filter { !$0.isHidden && !isIgnored(sample: $0) }
-            .sorted { $0.endDate < $1.endDate }
+        let orderedSamples = visibleSamplesForCurrentStreak()
 
         return focusProfiles.compactMap { profile in
             let categories = profile.categoryIDs.compactMap { category(for: $0) }
@@ -2302,9 +2305,7 @@ final class ActivityStore {
             cursor = calendar.date(byAdding: .day, value: 1, to: cursor) ?? weekEnd
         }
 
-        let weekSamples = samples
-            .filter { !$0.isHidden && !isIgnored(sample: $0) }
-            .compactMap { clip(sample: $0, from: weekStart, to: weekEnd) }
+        let weekSamples = visibleSamples(from: weekStart, to: weekEnd)
             .sorted { $0.startDate < $1.startDate }
 
         let contextSwitches = max(weekSamples.count - 1, 0)
@@ -3208,6 +3209,7 @@ final class ActivityStore {
             googleCalendarConnections = payload.googleCalendarSnapshot.connections
             if canUse(.rawActivityBackup), let rawActivities = payload.rawActivities {
                 samples = rawActivities
+                sortSamples()
             }
 
             if !googleCalendarConnections.isEmpty {
@@ -3523,7 +3525,7 @@ final class ActivityStore {
         reminderEvaluationTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(350))
             guard let self else { return }
-            let filteredSamples = self.samples.filter { !$0.isHidden && !self.isIgnored(sample: $0) }
+            let filteredSamples = self.visibleSamplesForCurrentStreak()
             if canEvaluateReminders {
                 await self.reminderEngine.evaluate(
                     samples: filteredSamples,
@@ -3633,6 +3635,43 @@ final class ActivityStore {
         clipped.startDate = clippedStart
         clipped.endDate = clippedEnd
         return clipped
+    }
+
+    private func visibleSamples(from start: Date, to end: Date) -> [ActivitySample] {
+        var visibleSamples: [ActivitySample] = []
+
+        for sample in samples {
+            guard !sample.isHidden else { continue }
+            if sample.startDate >= end { break }
+            guard sampleOverlaps(sample, from: start, to: end) else { continue }
+            guard let clipped = clip(sample: sample, from: start, to: end) else { continue }
+            guard !isIgnored(sample: clipped) else { continue }
+            visibleSamples.append(clipped)
+        }
+
+        return visibleSamples
+    }
+
+    private func visibleSamplesForCurrentStreak() -> [ActivitySample] {
+        var reversedVisibleSamples: [ActivitySample] = []
+        var nextSample: ActivitySample?
+
+        for sample in samples.reversed() {
+            guard !sample.isHidden, !isIgnored(sample: sample) else { continue }
+
+            if let nextSample, nextSample.startDate.timeIntervalSince(sample.endDate) > 90 {
+                break
+            }
+
+            reversedVisibleSamples.append(sample)
+            nextSample = sample
+        }
+
+        return reversedVisibleSamples.reversed()
+    }
+
+    private func sampleOverlaps(_ sample: ActivitySample, from start: Date, to end: Date) -> Bool {
+        sample.endDate > start && sample.startDate < end
     }
 
     private func continuousStreakDuration(for categoryIDs: Set<String>, in samples: [ActivitySample]) -> TimeInterval {
@@ -3857,13 +3896,15 @@ final class ActivityStore {
     }
 
     private func sortSamples() {
-        samples.sort {
-            if $0.startDate == $1.startDate {
-                return $0.endDate < $1.endDate
-            }
+        samples.sort(by: Self.sampleSortOrder)
+    }
 
-            return $0.startDate < $1.startDate
+    private static func sampleSortOrder(_ lhs: ActivitySample, _ rhs: ActivitySample) -> Bool {
+        if lhs.startDate == rhs.startDate {
+            return lhs.endDate < rhs.endDate
         }
+
+        return lhs.startDate < rhs.startDate
     }
 
     private func canMerge(lhs: ActivitySample, rhs: ActivitySample) -> Bool {
