@@ -6,6 +6,7 @@ import Network
 struct GoogleCalendarSyncResult {
     let tokens: GoogleCalendarTokens
     let profile: GoogleCalendarProfile?
+    let calendars: [GoogleCalendarDescriptor]
     let events: [CalendarAgendaItem]
     let syncedAt: Date
 }
@@ -45,13 +46,14 @@ enum GoogleCalendarIssue: LocalizedError {
     }
 }
 
-struct GoogleCalendarService {
+struct GoogleCalendarService: Sendable {
     private static let calendarScope = "https://www.googleapis.com/auth/calendar.readonly"
     private static let identityScopes = ["openid", "email", "profile"]
     private static let authEndpoint = URL(string: "https://accounts.google.com/o/oauth2/v2/auth")!
     private static let tokenEndpoint = URL(string: "https://oauth2.googleapis.com/token")!
-    private static let calendarEndpoint = URL(string: "https://www.googleapis.com/calendar/v3/calendars/primary/events")!
+    private static let calendarListEndpoint = URL(string: "https://www.googleapis.com/calendar/v3/users/me/calendarList")!
     fileprivate static let oauthCallbackPath = "/oauth2callback"
+    private static let agendaWindowDays = 3
 
     private let session: URLSession
 
@@ -102,12 +104,22 @@ struct GoogleCalendarService {
             redirectURL: redirectURL
         )
 
-        let events = try await fetchAgenda(day: day, accessToken: tokens.accessToken)
         let profile = Self.profile(fromIDToken: tokens.idToken)
+        let calendars = try await fetchCalendars(accessToken: tokens.accessToken)
+        let selectedCalendarIDs = calendars.filter(\.isSelected).map(\.id)
+        let events = try await fetchAgenda(
+            day: day,
+            accessToken: tokens.accessToken,
+            accountID: profile?.email ?? UUID().uuidString.lowercased(),
+            accountLabel: profile?.name ?? profile?.email ?? "Google Agenda",
+            accountEmail: profile?.email ?? "Google Agenda",
+            calendars: calendars.filter { selectedCalendarIDs.contains($0.id) }
+        )
 
         return GoogleCalendarSyncResult(
             tokens: tokens,
             profile: profile,
+            calendars: calendars,
             events: events,
             syncedAt: Date()
         )
@@ -117,7 +129,10 @@ struct GoogleCalendarService {
         day: Date,
         clientID: String,
         clientSecret: String,
-        existingTokens: GoogleCalendarTokens
+        existingTokens: GoogleCalendarTokens,
+        connectionID: String,
+        connectionProfile: GoogleCalendarProfile,
+        existingCalendars: [GoogleCalendarDescriptor]
     ) async throws -> GoogleCalendarSyncResult {
         let activeTokens = try await refreshedTokensIfNeeded(
             clientID: clientID,
@@ -125,12 +140,22 @@ struct GoogleCalendarService {
             existingTokens: existingTokens
         )
 
-        let events = try await fetchAgenda(day: day, accessToken: activeTokens.accessToken)
-        let profile = Self.profile(fromIDToken: activeTokens.idToken)
+        let refreshedProfile = Self.profile(fromIDToken: activeTokens.idToken) ?? connectionProfile
+        let remoteCalendars = try await fetchCalendars(accessToken: activeTokens.accessToken)
+        let mergedCalendars = merge(remoteCalendars: remoteCalendars, existingCalendars: existingCalendars)
+        let events = try await fetchAgenda(
+            day: day,
+            accessToken: activeTokens.accessToken,
+            accountID: connectionID,
+            accountLabel: refreshedProfile.name,
+            accountEmail: refreshedProfile.email,
+            calendars: mergedCalendars.filter(\.isSelected)
+        )
 
         return GoogleCalendarSyncResult(
             tokens: activeTokens,
-            profile: profile,
+            profile: refreshedProfile,
+            calendars: mergedCalendars,
             events: events,
             syncedAt: Date()
         )
@@ -244,29 +269,87 @@ struct GoogleCalendarService {
         )
     }
 
-    private func fetchAgenda(day: Date, accessToken: String) async throws -> [CalendarAgendaItem] {
-        let calendar = Calendar.autoupdatingCurrent
-        let dayStart = calendar.startOfDay(for: day)
-        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86_400)
-
-        var components = URLComponents(url: Self.calendarEndpoint, resolvingAgainstBaseURL: false)
-        components?.queryItems = [
-            URLQueryItem(name: "singleEvents", value: "true"),
-            URLQueryItem(name: "orderBy", value: "startTime"),
-            URLQueryItem(name: "timeMin", value: Self.isoTimestamp(dayStart)),
-            URLQueryItem(name: "timeMax", value: Self.isoTimestamp(dayEnd)),
-            URLQueryItem(name: "maxResults", value: "30"),
-        ]
-
-        guard let url = components?.url else {
-            throw GoogleCalendarIssue.invalidEventPayload
-        }
-
-        var request = URLRequest(url: url)
+    private func fetchCalendars(accessToken: String) async throws -> [GoogleCalendarDescriptor] {
+        var request = URLRequest(url: Self.calendarListEndpoint)
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
 
-        let response: EventsResponse = try await perform(request)
-        return response.items.compactMap(Self.makeAgendaItem)
+        let response: CalendarListResponse = try await perform(request)
+        let calendars = response.items
+            .map { item in
+                GoogleCalendarDescriptor(
+                    id: item.id,
+                    title: item.summaryOverride?.nilIfBlank ?? item.summary?.nilIfBlank ?? item.id,
+                    colorHex: item.backgroundColor?.nilIfBlank,
+                    isPrimary: item.primary ?? false,
+                    isSelected: (item.selected ?? true) && !(item.hidden ?? false),
+                    isHidden: item.hidden ?? false,
+                    accessRole: item.accessRole
+                )
+            }
+            .sorted { lhs, rhs in
+                if lhs.isPrimary != rhs.isPrimary {
+                    return lhs.isPrimary && !rhs.isPrimary
+                }
+
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+
+        return calendars.isEmpty
+            ? [GoogleCalendarDescriptor(id: "primary", title: "Principal", isPrimary: true, isSelected: true)]
+            : calendars
+    }
+
+    private func fetchAgenda(
+        day: Date,
+        accessToken: String,
+        accountID: String,
+        accountLabel: String,
+        accountEmail: String,
+        calendars: [GoogleCalendarDescriptor]
+    ) async throws -> [CalendarAgendaItem] {
+        let calendar = Calendar.autoupdatingCurrent
+        let dayStart = calendar.startOfDay(for: day)
+        let rangeStart = dayStart
+        let rangeEnd = calendar.date(byAdding: .day, value: Self.agendaWindowDays + 1, to: dayStart) ?? dayStart.addingTimeInterval(Double(Self.agendaWindowDays + 1) * 86_400)
+        let visibleCalendars = calendars.filter { $0.isSelected && !$0.isHidden }
+
+        return try await withThrowingTaskGroup(of: [CalendarAgendaItem].self) { group in
+            for calendarDescriptor in visibleCalendars {
+                group.addTask {
+                    let url = try Self.eventsURL(
+                        calendarID: calendarDescriptor.id,
+                        rangeStart: rangeStart,
+                        rangeEnd: rangeEnd
+                    )
+
+                    var request = URLRequest(url: url)
+                    request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+                    let response: EventsResponse = try await perform(request)
+                    return response.items.compactMap {
+                        Self.makeAgendaItem(
+                            from: $0,
+                            accountID: accountID,
+                            accountEmail: accountEmail,
+                            accountLabel: accountLabel,
+                            calendar: calendarDescriptor
+                        )
+                    }
+                }
+            }
+
+            var merged: [CalendarAgendaItem] = []
+            for try await items in group {
+                merged.append(contentsOf: items)
+            }
+
+            return merged.sorted { lhs, rhs in
+                if lhs.startDate == rhs.startDate {
+                    return lhs.endDate < rhs.endDate
+                }
+                return lhs.startDate < rhs.startDate
+            }
+        }
     }
 
     private func perform<T: Decodable>(_ request: URLRequest) async throws -> T {
@@ -288,7 +371,13 @@ struct GoogleCalendarService {
         }
     }
 
-    private static func makeAgendaItem(from event: EventResponseItem) -> CalendarAgendaItem? {
+    private static func makeAgendaItem(
+        from event: EventResponseItem,
+        accountID: String,
+        accountEmail: String,
+        accountLabel: String,
+        calendar: GoogleCalendarDescriptor
+    ) -> CalendarAgendaItem? {
         guard event.status != "cancelled" else {
             return nil
         }
@@ -301,7 +390,13 @@ struct GoogleCalendarService {
         let isAllDay = event.start?.date != nil
 
         return CalendarAgendaItem(
-            id: event.id,
+            id: "\(accountID)::\(calendar.id)::\(event.id)",
+            accountID: accountID,
+            accountEmail: accountEmail,
+            accountLabel: accountLabel,
+            calendarID: calendar.id,
+            calendarTitle: calendar.title,
+            calendarColorHex: calendar.colorHex,
             title: event.summary?.nilIfBlank ?? "Sem titulo",
             location: event.location?.nilIfBlank,
             notes: event.description?.nilIfBlank,
@@ -374,6 +469,41 @@ struct GoogleCalendarService {
     private static func isoTimestamp(_ date: Date) -> String {
         makeISO8601Formatter().string(from: date)
     }
+
+    private static func eventsURL(calendarID: String, rangeStart: Date, rangeEnd: Date) throws -> URL {
+        let encodedCalendarID = calendarID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? calendarID
+        guard var components = URLComponents(string: "https://www.googleapis.com/calendar/v3/calendars/\(encodedCalendarID)/events") else {
+            throw GoogleCalendarIssue.invalidEventPayload
+        }
+
+        components.queryItems = [
+            URLQueryItem(name: "singleEvents", value: "true"),
+            URLQueryItem(name: "orderBy", value: "startTime"),
+            URLQueryItem(name: "timeMin", value: Self.isoTimestamp(rangeStart)),
+            URLQueryItem(name: "timeMax", value: Self.isoTimestamp(rangeEnd)),
+            URLQueryItem(name: "maxResults", value: "250"),
+        ]
+
+        guard let url = components.url else {
+            throw GoogleCalendarIssue.invalidEventPayload
+        }
+
+        return url
+    }
+
+    private func merge(
+        remoteCalendars: [GoogleCalendarDescriptor],
+        existingCalendars: [GoogleCalendarDescriptor]
+    ) -> [GoogleCalendarDescriptor] {
+        let existingSelection = Dictionary(uniqueKeysWithValues: existingCalendars.map { ($0.id, $0) })
+
+        return remoteCalendars.map { remote in
+            guard let existing = existingSelection[remote.id] else { return remote }
+            var merged = remote
+            merged.isSelected = existing.isSelected
+            return merged
+        }
+    }
 }
 
 private struct TokenResponse: Decodable {
@@ -404,6 +534,21 @@ private struct GoogleAPIError: Decodable {
 
 private struct EventsResponse: Decodable {
     let items: [EventResponseItem]
+}
+
+private struct CalendarListResponse: Decodable {
+    let items: [CalendarListItem]
+}
+
+private struct CalendarListItem: Decodable {
+    let id: String
+    let summary: String?
+    let summaryOverride: String?
+    let backgroundColor: String?
+    let accessRole: String?
+    let primary: Bool?
+    let hidden: Bool?
+    let selected: Bool?
 }
 
 private struct EventResponseItem: Decodable {

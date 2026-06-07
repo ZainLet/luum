@@ -13,10 +13,10 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080;https://+:8081
       - GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/firebase-key.json
-      - Firestore__ProjectId=FIREBASE_PROJECT_ID
+      - Firestore__ProjectId=${FIREBASE_PROJECT_ID:-luum-app}
       - Firestore__EmulatorHost=firestore-emulator
       - Firestore__EmulatorPort=8082
-      - Gemini__ApiKey=GEMINI_API_KEY
+      - Gemini__ApiKey=${GEMINI_API_KEY:-}
     volumes:
       - ./path/to/your/firebase-key.json:/app/secrets/firebase-key.json:ro
     depends_on:

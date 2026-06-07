@@ -7,37 +7,38 @@ struct LuumBackdrop: View {
                 .ignoresSafeArea()
 
             Circle()
-                .fill(LuumTheme.accent.opacity(0.22))
+                .fill(LuumTheme.accent.opacity(0.18))
                 .frame(width: 520, height: 520)
-                .blur(radius: 160)
-                .offset(x: -360, y: -240)
+                .blur(radius: 180)
+                .offset(x: 420, y: 240)
 
             Circle()
-                .fill(LuumTheme.secondaryAccent.opacity(0.24))
-                .frame(width: 620, height: 620)
-                .blur(radius: 180)
-                .offset(x: 420, y: 180)
+                .fill(LuumTheme.secondaryAccent.opacity(0.17))
+                .frame(width: 560, height: 560)
+                .blur(radius: 200)
+                .offset(x: -420, y: -260)
+
+            Ellipse()
+                .fill(LuumTheme.electricBlue.opacity(0.08))
+                .frame(width: 880, height: 260)
+                .blur(radius: 120)
+                .offset(x: 0, y: -340)
 
             RoundedRectangle(cornerRadius: 48, style: .continuous)
-                .fill(.white.opacity(0.03))
-                .frame(width: 760, height: 520)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 48, style: .continuous)
-                        .stroke(.white.opacity(0.08))
-                }
-                .blur(radius: 0.2)
-                .rotationEffect(.degrees(-8))
-                .offset(x: 260, y: 120)
-
-            RoundedRectangle(cornerRadius: 40, style: .continuous)
-                .fill(.clear)
-                .frame(width: 540, height: 360)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 40, style: .continuous)
-                        .stroke(LuumTheme.accent.opacity(0.18))
-                }
-                .rotationEffect(.degrees(14))
-                .offset(x: 430, y: -260)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0.07),
+                            .clear,
+                            LuumTheme.accent.opacity(0.12),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+                .padding(18)
+                .ignoresSafeArea()
         }
     }
 }
@@ -51,15 +52,15 @@ struct LuumSectionHeader: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(eyebrow.uppercased())
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.62))
-                .tracking(1.4)
+                .foregroundStyle(LuumTheme.textMuted)
+                .tracking(1.9)
 
             Text(title)
-                .font(.system(size: 34, weight: .bold, design: .rounded))
+                .font(.system(size: 30, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white)
 
             Text(subtitle)
-                .font(.title3)
+                .font(.body)
                 .foregroundStyle(LuumTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -75,13 +76,58 @@ extension View {
         self
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.white.opacity(0.015))
-                    .shadow(color: tint.opacity(shadowOpacity), radius: 32, x: 0, y: 18)
+                    .fill(LuumTheme.elevatedBlack.opacity(0.92))
+                    .shadow(color: Color.black.opacity(0.36), radius: 28, x: 0, y: 22)
+                    .shadow(color: tint.opacity(shadowOpacity), radius: 26, x: 0, y: 16)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        LuumTheme.panelFillStrong,
+                                        LuumTheme.panelFill,
+                                        .clear,
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    }
+                    .overlay(alignment: .top) {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        .white.opacity(0.09),
+                                        .clear,
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .center
+                                )
+                            )
+                            .mask {
+                                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            }
+                    }
             }
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(.white.opacity(0.08))
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                LuumTheme.surfaceInnerHighlight,
+                                .white.opacity(0.03),
+                                tint.opacity(0.18),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
             }
-            .glassEffect(.regular.tint(tint).interactive(), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .glassEffect(
+                .regular.tint(tint.opacity(0.16)).interactive(),
+                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            )
     }
 }

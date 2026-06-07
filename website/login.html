@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
+    <title>Luum - Login</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a12;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: #12121e;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 32px;
+            padding: 48px 40px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .logo { width: 72px; height: 72px; margin: 0 auto 16px; display: block; border-radius: 18px; }
+        h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+        p.subtitle { color: #8888aa; font-size: 14px; margin-bottom: 32px; }
+
+        .btn-google {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            padding: 14px;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.04);
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-google:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        .btn-google:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 24px 0;
+            color: #555577;
+            font-size: 12px;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(255,255,255,0.08);
+        }
+
+        .form-group { margin-bottom: 16px; text-align: left; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; color: #aaaacc; margin-bottom: 6px; }
+        .form-group input {
+            width: 100%; padding: 12px 14px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px; background: #0e0e1a;
+            color: #ffffff; font-size: 14px; outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus { border-color: #6c5ce7; }
+
+        .btn-primary {
+            width: 100%; padding: 14px; border: none;
+            border-radius: 12px; background: #6c5ce7;
+            color: #ffffff; font-size: 16px; font-weight: 600;
+            cursor: pointer; transition: background 0.2s;
+        }
+
+        .btn-primary:hover { background: #5a4bd1; }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .error { color: #ff4757; font-size: 13px; margin-top: 12px; display: none; }
+        .success { color: #2ed573; font-size: 13px; margin-top: 12px; display: none; }
+
+        .loading {
+            display: none; align-items: center; justify-content: center;
+            gap: 10px; margin-top: 16px; color: #8888aa; font-size: 14px;
+        }
+
+        .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.1); border-top-color: #6c5ce7; border-radius: 50%; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .info { margin-top: 24px; font-size: 12px; color: #555577; }
+        .info a { color: #6c5ce7; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img class="logo" src="favicon.png" alt="Luum">
+        <h1>Luum</h1>
+        <p class="subtitle">Faça login para continuar no aplicativo</p>
+
+        <button class="btn-google" id="googleBtn">
+            <svg width="20" height="20" viewBox="0 0 48 48">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                <path fill="#FBBC05" d="M10.54 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.97.96 7.72 2.56 11.22l7.98-6.63z"/>
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            </svg>
+            Entrar com Google
+        </button>
+
+        <div class="divider">ou</div>
+
+        <form id="emailForm">
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" placeholder="seu@email.com" autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label for="password">Senha</label>
+                <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn-primary" id="emailBtn">Entrar</button>
+        </form>
+
+        <div class="error" id="errorMsg"></div>
+        <div class="success" id="successMsg"></div>
+
+        <div class="loading" id="loadingIndicator">
+            <div class="spinner"></div>
+            <span>Autenticando...</span>
+        </div>
+
+        <div class="info">
+            <p>Ao fazer login, você será redirecionado de volta para o aplicativo Luum.</p>
+            <p style="margin-top: 8px">
+                <a href="cadastro.html">Criar conta</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        let redirecting = false;
+
+        function showError(msg) {
+            document.getElementById('errorMsg').textContent = msg;
+            document.getElementById('errorMsg').style.display = 'block';
+            document.getElementById('successMsg').style.display = 'none';
+        }
+        function showSuccess(msg) {
+            document.getElementById('successMsg').textContent = msg;
+            document.getElementById('successMsg').style.display = 'block';
+            document.getElementById('errorMsg').style.display = 'none';
+        }
+        function setLoading(loading) {
+            document.getElementById('loadingIndicator').style.display = loading ? 'flex' : 'none';
+            document.getElementById('googleBtn').disabled = loading;
+            document.getElementById('emailBtn').disabled = loading;
+        }
+
+        function getRedirectTarget() {
+            const params = new URLSearchParams(window.location.search);
+            const redirect = params.get('redirect');
+            if (!redirect) return null;
+
+            const target = new URL(redirect, window.location.href);
+            if (target.origin !== window.location.origin) return null;
+
+            const plan = params.get('plan');
+            if (plan && !target.searchParams.has('plan')) {
+                target.searchParams.set('plan', plan);
+            }
+
+            return `${target.pathname.replace(/^\//, '')}${target.search}${target.hash}`;
+        }
+
+        function shouldOpenApp() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('app') === 'mac' || !getRedirectTarget();
+        }
+
+        async function exchangeTokenAndRedirect(user) {
+            if (redirecting) return;
+            redirecting = true;
+            setLoading(true);
+            try {
+                const idToken = await user.getIdToken();
+                const accountResponse = await fetch(luumApiUrl('/api/auth/upsert-user'), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${idToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: user.email,
+                        name: user.displayName
+                    })
+                });
+                const accountData = await accountResponse.json().catch(() => ({}));
+                if (!accountResponse.ok) {
+                    throw new Error(accountData.error || 'Backend de conta indisponível.');
+                }
+
+                const redirectTarget = getRedirectTarget();
+
+                if (!shouldOpenApp() && redirectTarget) {
+                    showSuccess('Login bem-sucedido! Redirecionando...');
+                    window.location.href = redirectTarget;
+                    return;
+                }
+
+                const refreshToken = user.refreshToken || '';
+                const redirectUrl = `luum://auth?token=${encodeURIComponent(idToken)}&refreshToken=${encodeURIComponent(refreshToken)}&uid=${encodeURIComponent(user.uid)}`;
+
+                showSuccess('Login bem-sucedido! Redirecionando...');
+                // Redireciona imediatamente (sem setTimeout) para manter o gesto do usuário
+                window.location.href = redirectUrl;
+
+            } catch (error) {
+                redirecting = false;
+                console.error('Erro no exchange:', error);
+                showError('Erro ao autenticar: ' + error.message);
+                setLoading(false);
+            }
+        }
+
+        function firebaseReady() {
+            return typeof firebase !== 'undefined' && firebase.apps?.length && firebase.auth;
+        }
+
+        function disableAuth(message) {
+            document.getElementById('googleBtn').disabled = true;
+            document.getElementById('emailBtn').disabled = true;
+            showError(message);
+        }
+
+        function bootLogin() {
+            if (!firebaseReady()) {
+                disableAuth('Firebase não carregou. Recarregue a página ou verifique sua conexão.');
+                return;
+            }
+
+            // Google
+            document.getElementById('googleBtn').addEventListener('click', async () => {
+                try {
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    provider.addScope('profile');
+                    provider.addScope('email');
+                    const result = await firebase.auth().signInWithPopup(provider);
+                    await exchangeTokenAndRedirect(result.user);
+                } catch (error) {
+                    console.error('Erro Google login:', error);
+                    let msg = 'Erro ao fazer login com Google';
+                    if (error.code === 'auth/popup-closed-by-user') msg = 'Login cancelado.';
+                    else if (error.code === 'auth/popup-blocked') msg = 'Popup bloqueado pelo navegador.';
+                    else msg += ': ' + error.message;
+                    showError(msg);
+                }
+            });
+
+            // Email
+            document.getElementById('emailForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('email').value.trim();
+                const password = document.getElementById('password').value;
+                if (!email || !password) { showError('Preencha email e senha'); return; }
+
+                setLoading(true);
+                try {
+                    const result = await firebase.auth().signInWithEmailAndPassword(email, password);
+                    await exchangeTokenAndRedirect(result.user);
+                } catch (error) {
+                    console.error('Erro email login:', error);
+                    let msg = 'Erro ao fazer login';
+                    switch (error.code) {
+                        case 'auth/user-not-found': msg = 'Conta não encontrada'; break;
+                        case 'auth/wrong-password': case 'auth/invalid-credential': msg = 'Email ou senha inválidos'; break;
+                        case 'auth/invalid-email': msg = 'Email inválido'; break;
+                        case 'auth/too-many-requests': msg = 'Muitas tentativas. Aguarde e tente novamente'; break;
+                        default: msg = error.message;
+                    }
+                    showError(msg);
+                    setLoading(false);
+                }
+            });
+
+            // Se já estiver logado, redireciona direto
+            firebase.auth().onAuthStateChanged(async (user) => {
+                if (user) {
+                    console.log('Usuário já logado:', user.email);
+                    await exchangeTokenAndRedirect(user);
+                }
+            });
+        }
+
+        bootLogin();
+    </script>
+</body>
+</html>

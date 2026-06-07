@@ -1,0 +1,41 @@
+import Foundation
+
+struct MonitoringPreferencesPersistence {
+    private let fileManager: FileManager
+    private let directoryName = "luum"
+    private let fileName = "monitoring-preferences.json"
+
+    init(fileManager: FileManager = .default) {
+        self.fileManager = fileManager
+    }
+
+    func load() -> MonitoringPreferencesSnapshot {
+        guard
+            let data = try? Data(contentsOf: fileURL),
+            let snapshot = try? JSONDecoder().decode(MonitoringPreferencesSnapshot.self, from: data)
+        else {
+            return MonitoringPreferencesSnapshot.default.normalized()
+        }
+
+        return snapshot.normalized()
+    }
+
+    func save(snapshot: MonitoringPreferencesSnapshot) throws {
+        try fileManager.createDirectory(
+            at: directoryURL,
+            withIntermediateDirectories: true
+        )
+
+        let data = try JSONEncoder().encode(snapshot.normalized())
+        try data.write(to: fileURL, options: .atomic)
+    }
+
+    private var directoryURL: URL {
+        fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(directoryName, isDirectory: true)
+    }
+
+    private var fileURL: URL {
+        directoryURL.appendingPathComponent(fileName)
+    }
+}

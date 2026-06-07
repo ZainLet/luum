@@ -1,0 +1,13 @@
+{
+  "name": "luum-website-api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.10.0",
+    "stripe": "^17.5.0"
+  }
+}

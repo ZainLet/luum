@@ -23,9 +23,9 @@ secrets.json
 
 # Firebase
 .firebase/
-firebase.json
-database.rules.json
-storage.rules
+/firebase.json
+/database.rules.json
+/storage.rules
 *.log
 
 # Rider
@@ -36,3 +36,5 @@ storage.rules
 dist/
 .build/
 src/LUUM.Mac/.build/
+graphify-out/
+.aider*

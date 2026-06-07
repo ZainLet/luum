@@ -1,0 +1,28 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      ".firebaserc",
+      ".gitignore",
+      "**/.*",
+      "**/node_modules/**",
+      "api/**",
+      "firestore.rules",
+      "package.json",
+      "package-lock.json",
+      "skills-lock.json",
+      "vercel.json",
+      "private/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

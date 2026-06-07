@@ -3,47 +3,71 @@ import SwiftUI
 
 struct DashboardView: View {
     let store: ActivityStore
-    let selectedDay: Date
+    @Binding var selectedDay: Date
     let summary: DailySummary
     let agenda: AgendaSummary
+    let openAgenda: () -> Void
+    let openApps: () -> Void
+    let openWebsites: () -> Void
+    let openTeam: () -> Void
+    let openCategories: () -> Void
+    let openFocus: () -> Void
+    let openReports: () -> Void
+    let openSearch: () -> Void
+    let openSettings: () -> Void
 
     private var leadingCategory: CategoryBreakdown? {
         summary.categoryBreakdown.first
     }
 
     private var trackedVersusPlanned: String {
-        LuumFormatters.percentage(summary.totalTrackedTime, over: max(agenda.plannedTime, 1))
+        guard agenda.plannedTime > 0 else {
+            return "Sem agenda"
+        }
+
+        return LuumFormatters.percentage(summary.totalTrackedTime, over: agenda.plannedTime)
+    }
+
+    private var agendaPreviewEvents: [CalendarAgendaItem] {
+        agenda.focusedEvents.isEmpty ? agenda.events : agenda.focusedEvents
     }
 
     private var nextAgendaLabel: String {
         guard let nextEvent = agenda.nextEvent else {
-            return agenda.isConnected ? "Nenhum compromisso para este dia." : "Conecte a Google Agenda para ver a proxima reuniao aqui."
+            return agenda.isConnected ? "Nenhum compromisso para este dia." : "Conecte Google, Notion, Outlook, ClickUp ou Linear para comparar o plano com o uso real."
         }
 
         if nextEvent.isAllDay {
-            return "\(nextEvent.title) • dia inteiro"
+            return "Dia inteiro"
         }
 
-        return "\(nextEvent.title) • \(LuumFormatters.timeRange(start: nextEvent.startDate, end: nextEvent.endDate))"
+        return LuumFormatters.timeRange(start: nextEvent.startDate, end: nextEvent.endDate)
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                heroPanel
+                contextHeader
 
-                HStack(alignment: .top, spacing: 22) {
-                    VStack(spacing: 22) {
+                if store.needsOnboarding {
+                    onboardingCard
+                }
+
+                HStack(alignment: .top, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 20) {
+                        metricsStrip
+                        quickActionStrip
                         timelineBoard
-                        bottomInsightsRow
                     }
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
 
                     VStack(spacing: 18) {
-                        performanceCard
                         agendaCard
+                        performanceCard
                         liveSignalsCard
+                        topBreakdownsCard
                     }
-                    .frame(width: 350)
+                    .frame(width: 340)
                 }
             }
             .padding(28)
@@ -51,130 +75,375 @@ struct DashboardView: View {
         .scrollIndicators(.hidden)
     }
 
-    private var heroPanel: some View {
+    private var onboardingCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Onboarding rapido")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.white)
+
+                    Text("Deixe o luum pronto em poucos passos para que o monitoramento, a agenda e os lembretes funcionem sem surpresas.")
+                        .foregroundStyle(LuumTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                Button("Fechar checklist") {
+                    store.completeOnboarding()
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(LuumTheme.textSecondary)
+            }
+
+            VStack(spacing: 10) {
+                ForEach(store.onboardingChecklist) { item in
+                    HStack(spacing: 12) {
+                        Image(systemName: item.isDone ? "checkmark.circle.fill" : "circle.dashed")
+                            .foregroundStyle(item.isDone ? LuumTheme.electricBlue : LuumTheme.textMuted)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(item.title)
+                                .foregroundStyle(.white)
+                                .font(.subheadline.weight(.semibold))
+
+                            Text(item.detail)
+                                .foregroundStyle(LuumTheme.textSecondary)
+                                .font(.caption)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Spacer()
+
+                        if let actionTitle = item.actionTitle {
+                            Button(actionTitle) {
+                                handleOnboarding(itemID: item.id)
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .fill(.white.opacity(0.03))
+                    )
+                }
+            }
+        }
+        .padding(22)
+        .luumGlassCard(tint: LuumTheme.accent.opacity(0.14), cornerRadius: 32)
+    }
+
+    private var contextHeader: some View {
         HStack(alignment: .top, spacing: 22) {
             VStack(alignment: .leading, spacing: 16) {
                 LuumSectionHeader(
-                    eyebrow: "Luum Command Center",
-                    title: "Seu dia em camadas",
-                    subtitle: "O luum cruza app em foco, URLs e agenda para montar uma leitura mais precisa do que foi trabalho, reuniao, estudo ou entretenimento."
+                    eyebrow: "Painel do dia",
+                    title: "Tudo claro em uma unica leitura",
+                    subtitle: "Veja o que voce fez, o que estava planejado e onde agir, sem precisar adivinhar como o luum esta lendo o seu dia."
                 )
 
                 HStack(spacing: 10) {
                     StatusPill(
                         title: store.isMonitoring ? "Captura ativa" : "Captura pausada",
-                        detail: store.currentActivityTitle,
-                        tint: store.isMonitoring ? ActivityCategory.work.tint : ActivityCategory.utilities.tint
+                        detail: store.currentActivityCategory?.title ?? "Monitoramento local",
+                        tint: store.currentActivityCategory?.tint ?? LuumTheme.accent
                     )
 
                     StatusPill(
                         title: agenda.isConnected ? "Agenda conectada" : "Agenda desconectada",
-                        detail: agenda.profile?.email ?? "Google Calendar",
-                        tint: agenda.isConnected ? LuumTheme.accent : LuumTheme.secondaryAccent
+                        detail: agenda.isConnected ? "\(agenda.selectedCalendarCount) fonte(s)" : "Agenda integrada",
+                        tint: agenda.isConnected ? LuumTheme.secondaryAccent : LuumTheme.hotPink
                     )
 
                     StatusPill(
                         title: LuumFormatters.dayLabel(selectedDay),
-                        detail: "Dia selecionado",
+                        detail: "dia selecionado",
                         tint: LuumTheme.electricBlue
                     )
+
+                    if store.focusShieldProfilesCount > 0 {
+                        StatusPill(
+                            title: store.currentFocusBlockMatch == nil ? "Escudo pronto" : "Bloqueio ativo",
+                            detail: store.currentFocusBlockMatch?.title ?? "\(store.focusShieldProfilesCount) perfil(is)",
+                            tint: store.currentFocusBlockMatch == nil ? LuumTheme.hotPink : LuumTheme.electricBlue
+                        )
+                    }
                 }
             }
 
             Spacer(minLength: 12)
 
-            VStack(spacing: 12) {
-                FloatingSignalCard(
-                    eyebrow: "Agora",
-                    title: store.currentActivityTitle,
-                    detail: store.currentSnapshot?.pageTitle ?? store.currentSnapshot?.category.title ?? "Aguardando atividade",
-                    tint: store.currentSnapshot?.category.glassTint ?? LuumTheme.accent.opacity(0.35)
-                )
-
-                FloatingSignalCard(
-                    eyebrow: "Proxima agenda",
-                    title: agenda.nextEvent?.title ?? "Sem evento na fila",
-                    detail: nextAgendaLabel,
-                    tint: LuumTheme.secondaryAccent.opacity(0.34)
-                )
+            VStack(alignment: .trailing, spacing: 14) {
+                DashboardDatePanel(selectedDay: $selectedDay)
+                summarySnapshotCard
+                    .frame(width: 330)
             }
-            .frame(width: 320)
         }
-        .padding(28)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.16), cornerRadius: 36)
+        .padding(26)
+        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.15), cornerRadius: 34)
+    }
+
+    private var summarySnapshotCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SnapshotLine(
+                eyebrow: "Agora",
+                title: store.currentActivityTitle,
+                detail: store.currentActivityCategory?.title ?? "Aguardando nova atividade",
+                tint: store.currentActivityCategory?.tint ?? LuumTheme.accent
+            )
+
+            Divider()
+                .overlay(.white.opacity(0.06))
+
+            SnapshotLine(
+                eyebrow: "Proxima agenda",
+                title: agenda.nextEvent?.title ?? "Sem compromisso em fila",
+                detail: nextAgendaLabel,
+                tint: LuumTheme.electricBlue
+            )
+        }
+        .padding(20)
+        .luumGlassCard(tint: LuumTheme.accent.opacity(0.16), cornerRadius: 28, shadowOpacity: 0.16)
+    }
+
+    private var metricsStrip: some View {
+        HStack(spacing: 16) {
+            OverviewMetricCard(
+                title: "Tempo capturado",
+                value: LuumFormatters.duration(summary.totalTrackedTime),
+                detail: "historico do dia",
+                tint: LuumTheme.accent,
+                action: openApps
+            )
+
+            OverviewMetricCard(
+                title: "Tempo planejado",
+                value: LuumFormatters.duration(agenda.plannedTime),
+                detail: "agenda do dia",
+                tint: LuumTheme.secondaryAccent,
+                action: openAgenda
+            )
+
+            OverviewMetricCard(
+                title: "Cobertura",
+                value: trackedVersusPlanned,
+                detail: "real vs agenda",
+                tint: LuumTheme.electricBlue,
+                action: openAgenda
+            )
+
+            OverviewMetricCard(
+                title: "Categoria lider",
+                value: leadingCategory?.category.title ?? "Sem dados",
+                detail: leadingCategory.map { LuumFormatters.duration($0.duration) } ?? "aguardando uso",
+                tint: leadingCategory?.category.tint ?? LuumTheme.hotPink,
+                action: openCategories
+            )
+        }
+    }
+
+    private var quickActionStrip: some View {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
+            QuickActionCard(
+                title: "Busca global",
+                detail: "encontre qualquer contexto",
+                symbol: "magnifyingglass",
+                tint: LuumTheme.accent,
+                action: openSearch
+            )
+
+            QuickActionCard(
+                title: "Foco e metas",
+                detail: "acompanhe limites, metas e bloqueios",
+                symbol: "target",
+                tint: LuumTheme.electricBlue,
+                action: openFocus
+            )
+
+            QuickActionCard(
+                title: "Relatorio semanal",
+                detail: "veja tendencias e exporte",
+                symbol: "chart.xyaxis.line",
+                tint: LuumTheme.hotPink,
+                action: openReports
+            )
+
+            QuickActionCard(
+                title: "Equipe e ranking",
+                detail: store.teamRankingUsesPreviewData ? "ative o workspace real" : "ranking ao vivo da empresa",
+                symbol: "person.3.fill",
+                tint: LuumTheme.secondaryAccent,
+                action: openTeam
+            )
+        }
     }
 
     private var timelineBoard: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Timeline do dia")
+                    Text("Linha do tempo")
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Apps e compromissos ficam lado a lado para voce entender o que foi planejado e o que de fato aconteceu.")
+                    Text("Atividade real e agenda ficam lado a lado para voce entender o dia sem blocos sobrepostos nem excesso de informacao.")
                         .foregroundStyle(LuumTheme.textSecondary)
                 }
 
                 Spacer()
 
+                Button("Apps e sites") {
+                    openApps()
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(LuumTheme.textSecondary)
+
                 HStack(spacing: 8) {
                     LegendChip(title: "Atividade real", tint: LuumTheme.accent)
-                    LegendChip(title: "Google Agenda", tint: LuumTheme.electricBlue)
+                    LegendChip(title: "Agenda integrada", tint: LuumTheme.electricBlue)
                 }
             }
 
-            if summary.timelineActivities.isEmpty && agenda.events.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Ainda nao ha blocos para este dia.")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-
-                    Text("Abra apps, navegue normalmente e conecte sua agenda para o painel ganhar profundidade.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                }
-                .frame(maxWidth: .infinity, minHeight: 520, alignment: .leading)
-                .padding(28)
-                .luumGlassCard(tint: LuumTheme.accent.opacity(0.12))
-            } else {
-                TimelineScene(day: selectedDay, activities: summary.timelineActivities, agendaItems: agenda.events)
-                    .frame(height: 720)
-            }
+            TimelineScene(store: store, activities: summary.timelineActivities, agendaItems: agenda.events)
+                .frame(height: 620)
         }
         .padding(24)
-        .luumGlassCard(tint: LuumTheme.accent.opacity(0.12), cornerRadius: 34)
+        .frame(maxWidth: .infinity)
+        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.14), cornerRadius: 34)
     }
 
-    private var bottomInsightsRow: some View {
-        HStack(alignment: .top, spacing: 22) {
-            recentSessionsCard
-            topBreakdownsCard
+    private var agendaCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Agenda")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.white)
+
+                Spacer()
+
+                Button("Ver agenda") {
+                    openAgenda()
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(LuumTheme.textSecondary)
+
+                if let lastSyncAt = agenda.lastSyncAt {
+                    Text("sync \(LuumFormatters.relativeTime(until: lastSyncAt))")
+                        .font(.caption)
+                        .foregroundStyle(LuumTheme.textMuted)
+                }
+            }
+
+            if !agenda.isConfigured {
+                Text("Adicione Google e/ou Notion nas preferencias para liberar a comparacao com a agenda.")
+                    .foregroundStyle(LuumTheme.textSecondary)
+            } else if !agenda.isConnected {
+                Text("A configuracao esta pronta. Falta sincronizar pelo menos uma fonte para puxar os compromissos.")
+                    .foregroundStyle(LuumTheme.textSecondary)
+            } else if agenda.events.isEmpty {
+                Text("Nenhum compromisso encontrado entre a data escolhida e os proximos 3 dias.")
+                    .foregroundStyle(LuumTheme.textSecondary)
+            } else {
+                if !agenda.hasEventsInFocusDay {
+                    Text("Sem eventos no dia selecionado. Mostrando apenas os proximos compromissos dentro de 3 dias.")
+                        .foregroundStyle(LuumTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if let nextEvent = agenda.nextEvent {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Proximo bloco")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(LuumTheme.textMuted)
+
+                        Text(nextEvent.title)
+                            .font(.headline)
+                            .foregroundStyle(.white)
+
+                        Text(nextAgendaLabel)
+                            .foregroundStyle(LuumTheme.electricBlue)
+                            .font(.subheadline.weight(.semibold))
+
+                        Text("\(nextEvent.accountLabel) • \(nextEvent.calendarTitle)")
+                            .foregroundStyle(LuumTheme.textSecondary)
+                            .font(.caption)
+                    }
+                    .padding(16)
+                    .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.16), cornerRadius: 24, shadowOpacity: 0.14)
+                }
+
+                VStack(spacing: 10) {
+                    ForEach(agendaPreviewEvents.prefix(4)) { event in
+                        HStack(alignment: .top, spacing: 12) {
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill((Color(hex: event.calendarColorHex) ?? LuumTheme.electricBlue).gradient)
+                                .frame(width: 4, height: 38)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(event.title)
+                                    .foregroundStyle(.white)
+                                    .font(.subheadline.weight(.semibold))
+                                    .lineLimit(1)
+
+                                Text(event.isAllDay ? "Dia inteiro" : LuumFormatters.timeRange(start: event.startDate, end: event.endDate))
+                                    .foregroundStyle(LuumTheme.textSecondary)
+                                    .font(.caption)
+
+                                Text(event.startDate.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
+                                    .foregroundStyle(LuumTheme.textMuted)
+                                    .font(.caption2)
+                            }
+
+                            Spacer()
+                        }
+                        .padding(14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .fill(LuumTheme.panelFill)
+                        )
+                    }
+                }
+            }
         }
+        .padding(22)
+        .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.12))
     }
 
     private var performanceCard: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Mix de tempo")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
+            HStack {
+                Text("Categorias")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.white)
+
+                Spacer()
+
+                Button("Editar") {
+                    openCategories()
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(LuumTheme.textSecondary)
+            }
 
             if summary.categoryBreakdown.isEmpty {
-                Text("Sem dados suficientes para o grafico por enquanto.")
+                Text("Sem dados suficientes para mostrar o mix do dia.")
                     .foregroundStyle(LuumTheme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Chart(summary.categoryBreakdown) { bucket in
                     SectorMark(
                         angle: .value("Tempo", bucket.duration),
-                        innerRadius: .ratio(0.62),
+                        innerRadius: .ratio(0.64),
                         angularInset: 2
                     )
                     .foregroundStyle(bucket.category.tint.gradient)
                 }
-                .frame(height: 210)
+                .frame(height: 190)
 
                 VStack(spacing: 10) {
-                    ForEach(summary.categoryBreakdown.prefix(4)) { bucket in
+                    ForEach(summary.categoryBreakdown.prefix(5)) { bucket in
                         HStack {
                             Circle()
                                 .fill(bucket.category.tint)
@@ -187,7 +456,7 @@ struct DashboardView: View {
 
                             Text(LuumFormatters.duration(bucket.duration))
                                 .foregroundStyle(bucket.category.tint)
-                                .font(.headline)
+                                .font(.subheadline.weight(.semibold))
                         }
                     }
                 }
@@ -197,104 +466,38 @@ struct DashboardView: View {
         .luumGlassCard(tint: LuumTheme.hotPink.opacity(0.12))
     }
 
-    private var agendaCard: some View {
+    private var liveSignalsCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("Agenda")
+                Text("Resumo rapido")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(.white)
 
                 Spacer()
 
-                if let lastSyncAt = agenda.lastSyncAt {
-                    Text("Sync \(LuumFormatters.relativeTime(until: lastSyncAt))")
-                        .font(.caption)
-                        .foregroundStyle(LuumTheme.textMuted)
+                Button("Preferencias") {
+                    openSettings()
                 }
+                .buttonStyle(.borderless)
+                .foregroundStyle(LuumTheme.textSecondary)
             }
-
-            if !agenda.isConfigured {
-                Text("Cole um Client ID do tipo Desktop app nas preferencias para conectar sua agenda.")
-                    .foregroundStyle(LuumTheme.textSecondary)
-            } else if !agenda.isConnected {
-                Text("A configuracao esta pronta. Clique em conectar para puxar seus compromissos do Google Calendar.")
-                    .foregroundStyle(LuumTheme.textSecondary)
-            } else if agenda.events.isEmpty {
-                Text("Nenhum compromisso encontrado para o dia selecionado.")
-                    .foregroundStyle(LuumTheme.textSecondary)
-            } else {
-                if let nextEvent = agenda.nextEvent {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Proximo bloco")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.62))
-
-                        Text(nextEvent.title)
-                            .font(.headline)
-                            .foregroundStyle(.white)
-
-                        Text(nextEvent.isAllDay ? "Dia inteiro" : LuumFormatters.timeRange(start: nextEvent.startDate, end: nextEvent.endDate))
-                            .foregroundStyle(LuumTheme.electricBlue)
-                    }
-                    .padding(16)
-                    .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.18), cornerRadius: 26, shadowOpacity: 0.18)
-                }
-
-                VStack(spacing: 10) {
-                    ForEach(agenda.events.prefix(5)) { event in
-                        HStack(alignment: .top, spacing: 12) {
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(LuumTheme.electricBlue.gradient)
-                                .frame(width: 5, height: 42)
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(event.title)
-                                    .foregroundStyle(.white)
-                                    .font(.subheadline.weight(.semibold))
-                                    .lineLimit(1)
-
-                                Text(event.isAllDay ? "Dia inteiro" : LuumFormatters.timeRange(start: event.startDate, end: event.endDate))
-                                    .foregroundStyle(LuumTheme.textSecondary)
-                                    .font(.caption)
-                            }
-
-                            Spacer()
-                        }
-                        .padding(14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .fill(.white.opacity(0.03))
-                        )
-                    }
-                }
-            }
-        }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.12))
-    }
-
-    private var liveSignalsCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Sinais ao vivo")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
 
             MetricLine(
                 title: "Tempo capturado",
                 value: LuumFormatters.duration(summary.totalTrackedTime),
-                detail: "Historico local do dia"
+                detail: "historico local do dia"
             )
 
             MetricLine(
                 title: "Tempo planejado",
                 value: LuumFormatters.duration(agenda.plannedTime),
-                detail: "Compromissos da agenda"
+                detail: "compromissos do dia selecionado"
             )
 
             MetricLine(
-                title: "Cobertura do dia",
+                title: "Cobertura",
                 value: trackedVersusPlanned,
-                detail: "Tempo real vs agenda"
+                detail: "relacao entre uso real e plano"
             )
 
             if let leadingCategory {
@@ -305,7 +508,15 @@ struct DashboardView: View {
                 )
             }
 
-            if let message = store.googleCalendarStatusMessage {
+            if store.focusShieldProfilesCount > 0 {
+                MetricLine(
+                    title: "Escudo de foco",
+                    value: store.currentFocusBlockMatch?.title ?? "Armado",
+                    detail: store.focusShieldStatusMessage ?? "\(store.focusShieldProfilesCount) perfil(is) com bloqueio configurado"
+                )
+            }
+
+            if let message = store.lastReminderStatusMessage {
                 Text(message)
                     .font(.caption)
                     .foregroundStyle(LuumTheme.textSecondary)
@@ -313,69 +524,37 @@ struct DashboardView: View {
             }
         }
         .padding(22)
-        .luumGlassCard(tint: ActivityCategory.utilities.glassTint)
-    }
-
-    private var recentSessionsCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Blocos recentes")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
-
-            if summary.recentActivities.isEmpty {
-                Text("Assim que voce abrir alguns apps, o luum vai mostrar os ultimos blocos aqui.")
-                    .foregroundStyle(LuumTheme.textSecondary)
-            } else {
-                VStack(spacing: 10) {
-                    ForEach(summary.recentActivities.prefix(6)) { activity in
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: activity.category.systemImage)
-                                .foregroundStyle(activity.category.tint)
-                                .frame(width: 18)
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(activity.pageTitle ?? activity.applicationName)
-                                    .foregroundStyle(.white)
-                                    .font(.subheadline.weight(.semibold))
-                                    .lineLimit(1)
-
-                                Text(activity.webDomain ?? activity.applicationName)
-                                    .foregroundStyle(LuumTheme.textSecondary)
-                                    .font(.caption)
-                                    .lineLimit(1)
-                            }
-
-                            Spacer()
-
-                            Text(LuumFormatters.duration(activity.duration))
-                                .foregroundStyle(.white.opacity(0.92))
-                                .font(.caption.weight(.semibold))
-                        }
-                        .padding(14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .fill(.white.opacity(0.025))
-                        )
-                    }
-                }
-            }
-        }
-        .padding(22)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.12))
+        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.14))
     }
 
     private var topBreakdownsCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Motores do dia")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
+            HStack {
+                Text("Apps e sites")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.white)
+
+                Spacer()
+
+                HStack(spacing: 12) {
+                    Button("Apps") {
+                        openApps()
+                    }
+                    .buttonStyle(.borderless)
+
+                    Button("Sites") {
+                        openWebsites()
+                    }
+                    .buttonStyle(.borderless)
+                }
+                .foregroundStyle(LuumTheme.textSecondary)
+            }
 
             BreakdownHighlight(
                 title: "Top app",
                 item: summary.appBreakdown.first,
                 emptyState: "Nenhum app consolidado ainda.",
-                tint: ActivityCategory.work.tint
+                tint: LuumTheme.accent
             )
 
             BreakdownHighlight(
@@ -394,276 +573,312 @@ struct DashboardView: View {
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .luumGlassCard(tint: LuumTheme.accent.opacity(0.12))
+        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.12))
     }
-}
 
-struct BreakdownListView: View {
-    let title: String
-    let subtitle: String
-    let emptyState: String
-    let items: [UsageBreakdownItem]
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                LuumSectionHeader(eyebrow: "Detalhe", title: title, subtitle: subtitle)
-
-                if items.isEmpty {
-                    Text(emptyState)
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(24)
-                        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.14))
-                } else {
-                    VStack(spacing: 12) {
-                        ForEach(items) { item in
-                            HStack(spacing: 14) {
-                                Image(systemName: item.systemImage)
-                                    .foregroundStyle(item.category?.tint ?? LuumTheme.accent)
-                                    .frame(width: 18)
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(item.label)
-                                        .font(.headline)
-                                        .foregroundStyle(.white)
-
-                                    if let secondaryLabel = item.secondaryLabel {
-                                        Text(secondaryLabel)
-                                            .font(.subheadline)
-                                            .foregroundStyle(LuumTheme.textSecondary)
-                                            .lineLimit(1)
-                                    }
-                                }
-
-                                Spacer()
-
-                                VStack(alignment: .trailing, spacing: 4) {
-                                    Text(LuumFormatters.duration(item.duration))
-                                        .font(.headline)
-                                        .foregroundStyle(.white)
-
-                                    if let category = item.category {
-                                        Text(category.title)
-                                            .font(.caption)
-                                            .foregroundStyle(category.tint)
-                                    }
-                                }
-                            }
-                            .padding(18)
-                            .luumGlassCard(tint: item.category?.glassTint ?? LuumTheme.accent.opacity(0.16))
-                        }
-                    }
-                }
-            }
-            .padding(28)
+    private func handleOnboarding(itemID: String) {
+        switch itemID {
+        case "google-client", "google-account":
+            openAgenda()
+            store.handleOnboardingAction(itemID, day: selectedDay)
+        case "browser-data":
+            SystemSettings.openAutomationPrivacy()
+        case "notifications":
+            openSettings()
+            store.handleOnboardingAction(itemID, day: selectedDay)
+        default:
+            store.handleOnboardingAction(itemID, day: selectedDay)
         }
-        .scrollIndicators(.hidden)
-    }
-}
-
-struct CategoryListView: View {
-    let summary: DailySummary
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                LuumSectionHeader(
-                    eyebrow: "Categorias",
-                    title: "Leitura contextual",
-                    subtitle: "O luum cruza nome do app, bundle e dominio para transformar uso bruto em contexto."
-                )
-
-                if summary.categoryBreakdown.isEmpty {
-                    Text("Ainda nao existem categorias consolidadas para este dia.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .padding(20)
-                        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.14))
-                } else {
-                    VStack(spacing: 12) {
-                        ForEach(summary.categoryBreakdown) { bucket in
-                            HStack {
-                                Label(bucket.category.title, systemImage: bucket.category.systemImage)
-                                    .foregroundStyle(.white)
-
-                                Spacer()
-
-                                Text(LuumFormatters.duration(bucket.duration))
-                                    .foregroundStyle(bucket.category.tint)
-                                    .font(.headline)
-                            }
-                            .padding(18)
-                            .luumGlassCard(tint: bucket.category.glassTint)
-                        }
-                    }
-                }
-            }
-            .padding(28)
-        }
-        .scrollIndicators(.hidden)
     }
 }
 
 private struct TimelineScene: View {
-    let day: Date
-    let activities: [ActivitySample]
+    let store: ActivityStore
+    let activities: [ResolvedActivitySample]
     let agendaItems: [CalendarAgendaItem]
 
-    private let hours = Array(0 ... 23)
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("Apps")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.62))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, 66)
+        HStack(alignment: .top, spacing: 18) {
+            TimelineColumnCard(title: "Atividade real", icon: "waveform.path.ecg.rectangle.fill", tint: LuumTheme.accent) {
+                if activities.isEmpty {
+                    TimelineEmptyState(text: "Nenhuma atividade capturada neste dia.")
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(activitySections, id: \.title) { section in
+                                TimelineSectionHeader(title: section.title)
 
-                Text("Agenda")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.62))
-                    .frame(width: 160, alignment: .leading)
+                                ForEach(section.activities) { activity in
+                                    EditableActivityRow(store: store, activity: activity, compact: false)
+                                }
+                            }
+                        }
+                    }
+                    .scrollIndicators(.hidden)
+                }
             }
 
-            GeometryReader { proxy in
-                let totalHeight = proxy.size.height
-                let labelWidth: CGFloat = 56
-                let columnSpacing: CGFloat = 18
-                let columnWidth = max(140, (proxy.size.width - labelWidth - columnSpacing) / 2)
-                let startOfDay = Calendar.autoupdatingCurrent.startOfDay(for: day)
+            TimelineColumnCard(title: "Agenda", icon: "calendar.badge.clock", tint: LuumTheme.electricBlue) {
+                if agendaItems.isEmpty {
+                    TimelineEmptyState(text: "Nenhum compromisso das fontes integradas para o dia selecionado ou para os proximos 3 dias.")
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(agendaSections, id: \.sortDate) { section in
+                                TimelineSectionHeader(title: section.title)
 
-                ZStack(alignment: .topLeading) {
-                    ForEach(hours, id: \.self) { hour in
-                        let yPosition = totalHeight * CGFloat(hour) / 24
-
-                        Path { path in
-                            path.move(to: CGPoint(x: labelWidth, y: yPosition))
-                            path.addLine(to: CGPoint(x: proxy.size.width, y: yPosition))
+                                ForEach(section.events) { event in
+                                    AgendaTimelineRow(event: event)
+                                }
+                            }
                         }
-                        .stroke(.white.opacity(hour.isMultiple(of: 2) ? 0.09 : 0.04), style: StrokeStyle(lineWidth: 1, dash: [4, 6]))
-
-                        Text(String(format: "%02d:00", hour))
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.45))
-                            .frame(width: labelWidth - 10, alignment: .trailing)
-                            .offset(x: 0, y: max(0, yPosition - 8))
                     }
-
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(.white.opacity(0.03))
-                        .frame(width: columnWidth, height: totalHeight)
-                        .offset(x: labelWidth, y: 0)
-
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(.white.opacity(0.02))
-                        .frame(width: columnWidth, height: totalHeight)
-                        .offset(x: labelWidth + columnWidth + columnSpacing, y: 0)
-
-                    ForEach(activities) { activity in
-                        TimelineActivityBlock(activity: activity)
-                            .frame(width: columnWidth - 12, height: blockHeight(from: activity.startDate, to: activity.endDate, totalHeight: totalHeight))
-                            .offset(
-                                x: labelWidth + 6,
-                                y: yOffset(for: activity.startDate, startOfDay: startOfDay, totalHeight: totalHeight)
-                            )
-                    }
-
-                    ForEach(agendaItems) { event in
-                        TimelineAgendaBlock(event: event)
-                            .frame(width: columnWidth - 12, height: blockHeight(from: event.startDate, to: event.endDate, totalHeight: totalHeight))
-                            .offset(
-                                x: labelWidth + columnWidth + columnSpacing + 6,
-                                y: yOffset(for: event.startDate, startOfDay: startOfDay, totalHeight: totalHeight)
-                            )
-                    }
+                    .scrollIndicators(.hidden)
                 }
             }
         }
     }
 
-    private func yOffset(for date: Date, startOfDay: Date, totalHeight: CGFloat) -> CGFloat {
-        let elapsed = max(0, min(86_400, date.timeIntervalSince(startOfDay)))
-        return CGFloat(elapsed / 86_400) * totalHeight
+    private var activitySections: [ActivityTimelineSection] {
+        Dictionary(grouping: activities) { activity in
+            activity.startDate.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)))
+        }
+        .map { key, value in
+            ActivityTimelineSection(title: "\(key):00", activities: value.sorted { $0.startDate > $1.startDate })
+        }
+        .sorted { $0.activities.first?.startDate ?? .distantPast > $1.activities.first?.startDate ?? .distantPast }
     }
 
-    private func blockHeight(from start: Date, to end: Date, totalHeight: CGFloat) -> CGFloat {
-        let duration = max(900, end.timeIntervalSince(start))
-        return max(34, CGFloat(duration / 86_400) * totalHeight)
+    private var agendaSections: [AgendaTimelineSection] {
+        let calendar = Calendar.autoupdatingCurrent
+
+        return Dictionary(grouping: agendaItems) { event in
+            calendar.startOfDay(for: event.startDate)
+        }
+        .map { day, value in
+            AgendaTimelineSection(
+                title: day.formatted(.dateTime.weekday(.wide).day().month(.wide)),
+                sortDate: day,
+                events: value.sorted { $0.startDate < $1.startDate }
+            )
+        }
+        .sorted { $0.sortDate < $1.sortDate }
     }
 }
 
-private struct TimelineActivityBlock: View {
-    let activity: ActivitySample
+private struct ActivityTimelineSection {
+    let title: String
+    let activities: [ResolvedActivitySample]
+}
+
+private struct AgendaTimelineSection {
+    let title: String
+    let sortDate: Date
+    let events: [CalendarAgendaItem]
+}
+
+private struct TimelineColumnCard<Content: View>: View {
+    let title: String
+    let icon: String
+    let tint: Color
+    @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(activity.pageTitle ?? activity.applicationName)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white)
-                .lineLimit(1)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label(title, systemImage: icon)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
 
-            Text(activity.webDomain ?? activity.applicationName)
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.7))
-                .lineLimit(1)
+                Spacer()
+            }
 
-            Spacer(minLength: 0)
-
-            Text(LuumFormatters.timeRange(start: activity.startDate, end: activity.endDate))
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.6))
+            content
         }
-        .padding(10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(18)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(activity.category.tint.opacity(0.88).gradient)
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(LuumTheme.panelFill)
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(.white.opacity(0.12))
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .stroke(tint.opacity(0.14))
         }
     }
 }
 
-private struct TimelineAgendaBlock: View {
+private struct TimelineSectionHeader: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.white.opacity(0.58))
+            .padding(.top, 8)
+    }
+}
+
+private struct TimelineEmptyState: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .foregroundStyle(LuumTheme.textSecondary)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.top, 8)
+    }
+}
+
+private struct EditableActivityRow: View {
+    @Bindable var store: ActivityStore
+    let activity: ResolvedActivitySample
+    let compact: Bool
+
+    @State private var showsEditor = false
+
+    var body: some View {
+        Button {
+            showsEditor = true
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(LuumFormatters.timeRange(start: activity.startDate, end: activity.endDate))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white)
+
+                    Text(LuumFormatters.duration(activity.duration))
+                        .font(.caption2)
+                        .foregroundStyle(LuumTheme.textSecondary)
+                }
+                .frame(width: 108, alignment: .leading)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(activity.pageTitle ?? activity.applicationName)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+
+                    Text(activity.webDomain ?? activity.applicationName)
+                        .font(.caption)
+                        .foregroundStyle(LuumTheme.textSecondary)
+                        .lineLimit(1)
+
+                    Label(activity.category.title, systemImage: activity.category.systemImage)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(activity.category.tint)
+
+                    if activity.isManuallyCategorized {
+                        Text("Ajuste manual")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                }
+
+                Spacer()
+
+                if compact {
+                    Text(LuumFormatters.duration(activity.duration))
+                        .foregroundStyle(.white.opacity(0.92))
+                        .font(.caption.weight(.semibold))
+                }
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(.white.opacity(compact ? 0.04 : 0.05))
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(activity.category.tint.opacity(0.14))
+            }
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Menu("Reclassificar bloco") {
+                ForEach(store.categories) { category in
+                    Button {
+                        store.overrideActivityCategory(sampleID: activity.id, categoryID: category.id)
+                    } label: {
+                        Label(category.title, systemImage: category.systemImage)
+                    }
+                }
+            }
+
+            if let domain = activity.webDomain {
+                Menu("Aprender site") {
+                    ForEach(store.categories) { category in
+                        Button(category.title) {
+                            store.assignCategory(toDomain: domain, categoryID: category.id)
+                        }
+                    }
+                }
+            }
+
+            Menu("Aprender app") {
+                ForEach(store.categories) { category in
+                    Button(category.title) {
+                        store.assignCategory(toApplication: activity.applicationName, categoryID: category.id)
+                    }
+                }
+            }
+
+            Divider()
+
+            Button(activity.sample.isHidden ? "Voltar a mostrar bloco" : "Ocultar bloco") {
+                store.setActivityHidden(sampleID: activity.id, isHidden: !activity.sample.isHidden)
+            }
+
+            Button("Remover ajuste manual") {
+                store.resetActivityEdits(sampleID: activity.id)
+            }
+            .disabled(!activity.isManuallyCategorized && !activity.sample.isHidden)
+        }
+        .sheet(isPresented: $showsEditor) {
+            TimelineActivityEditor(store: store, activity: activity)
+        }
+    }
+}
+
+private struct AgendaTimelineRow: View {
     let event: CalendarAgendaItem
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(event.title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white)
-                .lineLimit(2)
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(event.isAllDay ? "Dia inteiro" : LuumFormatters.timeRange(start: event.startDate, end: event.endDate))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white)
 
-            if let location = event.location {
-                Text(location)
+                Text(LuumFormatters.duration(event.duration))
                     .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.72))
-                    .lineLimit(1)
+                    .foregroundStyle(LuumTheme.textSecondary)
+            }
+            .frame(width: 108, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(event.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+
+                if let location = event.location {
+                    Text(location)
+                        .font(.caption)
+                        .foregroundStyle(LuumTheme.textSecondary)
+                }
+
+                Text("\(event.accountLabel) • \(event.calendarTitle)")
+                    .font(.caption2)
+                    .foregroundStyle(LuumTheme.textMuted)
             }
 
-            Spacer(minLength: 0)
-
-            Text(event.isAllDay ? "Dia inteiro" : LuumFormatters.timeRange(start: event.startDate, end: event.endDate))
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.62))
+            Spacer()
         }
-        .padding(10)
+        .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [LuumTheme.electricBlue.opacity(0.95), LuumTheme.accent.opacity(0.92)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(.white.opacity(0.04))
         )
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(.white.opacity(0.12))
-        }
     }
 }
 
@@ -701,35 +916,8 @@ private struct BreakdownHighlight: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(.white.opacity(0.03))
+                .fill(LuumTheme.panelFill)
         )
-    }
-}
-
-private struct FloatingSignalCard: View {
-    let eyebrow: String
-    let title: String
-    let detail: String
-    let tint: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(eyebrow.uppercased())
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.6))
-
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(.white)
-                .lineLimit(2)
-
-            Text(detail)
-                .font(.caption)
-                .foregroundStyle(LuumTheme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(18)
-        .luumGlassCard(tint: tint, cornerRadius: 28, shadowOpacity: 0.2)
     }
 }
 
@@ -743,6 +931,7 @@ private struct StatusPill: View {
             Text(title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.white)
+
             Text(detail)
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.68))
@@ -752,11 +941,11 @@ private struct StatusPill: View {
         .padding(.vertical, 10)
         .background(
             Capsule(style: .continuous)
-                .fill(tint.opacity(0.18))
+                .fill(tint.opacity(0.16))
         )
         .overlay {
             Capsule(style: .continuous)
-                .stroke(.white.opacity(0.08))
+                .stroke(.white.opacity(0.07))
         }
     }
 }
@@ -779,7 +968,7 @@ private struct LegendChip: View {
         .padding(.vertical, 6)
         .background(
             Capsule(style: .continuous)
-                .fill(.white.opacity(0.04))
+                .fill(LuumTheme.panelFill)
         )
     }
 }
@@ -804,5 +993,181 @@ private struct MetricLine: View {
                 .foregroundStyle(LuumTheme.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(LuumTheme.panelFill)
+        )
+    }
+}
+
+private struct QuickActionCard: View {
+    let title: String
+    let detail: String
+    let symbol: String
+    let tint: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(tint.opacity(0.18))
+
+                    Image(systemName: symbol)
+                        .foregroundStyle(tint)
+                }
+                .frame(width: 38, height: 38)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .foregroundStyle(.white)
+                        .font(.subheadline.weight(.semibold))
+
+                    Text(detail)
+                        .foregroundStyle(LuumTheme.textSecondary)
+                        .font(.caption)
+                }
+
+                Spacer()
+            }
+            .padding(16)
+        }
+        .buttonStyle(.plain)
+        .luumGlassCard(tint: tint.opacity(0.14), cornerRadius: 26, shadowOpacity: 0.1)
+    }
+}
+
+private struct OverviewMetricCard: View {
+    let title: String
+    let value: String
+    let detail: String
+    let tint: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title.uppercased())
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(LuumTheme.textMuted)
+                    .tracking(1.1)
+
+                Text(value)
+                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(tint.opacity(0.9))
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(18)
+        }
+        .buttonStyle(.plain)
+        .luumGlassCard(tint: tint.opacity(0.16), cornerRadius: 26, shadowOpacity: 0.14)
+    }
+}
+
+private struct DashboardDatePanel: View {
+    @Binding var selectedDay: Date
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button {
+                shiftDay(by: -1)
+            } label: {
+                Image(systemName: "chevron.left")
+            }
+            .buttonStyle(.borderless)
+
+            HStack(spacing: 10) {
+                Image(systemName: "calendar")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(LuumTheme.textSecondary)
+
+                DatePicker("Dia", selection: $selectedDay, displayedComponents: .date)
+                    .labelsHidden()
+                    .datePickerStyle(.compact)
+                    .frame(width: 122)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(LuumTheme.panelFill)
+            )
+            .overlay {
+                Capsule(style: .continuous)
+                    .stroke(LuumTheme.surfaceOutline)
+            }
+
+            Button("Hoje") {
+                selectedDay = Date()
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(LuumTheme.textSecondary)
+
+            Button {
+                shiftDay(by: 1)
+            } label: {
+                Image(systemName: "chevron.right")
+            }
+            .buttonStyle(.borderless)
+        }
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(.white)
+    }
+
+    private func shiftDay(by value: Int) {
+        selectedDay = Calendar.autoupdatingCurrent.date(byAdding: .day, value: value, to: selectedDay) ?? selectedDay
+    }
+}
+
+private struct SnapshotLine: View {
+    let eyebrow: String
+    let title: String
+    let detail: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(tint)
+                    .frame(width: 8, height: 8)
+
+                Text(eyebrow.uppercased())
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(LuumTheme.textMuted)
+                    .tracking(1.1)
+            }
+
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(.white)
+                .lineLimit(2)
+
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(LuumTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private extension Color {
+    init?(hex: String?) {
+        guard let hex else { return nil }
+        let cleaned = hex.replacingOccurrences(of: "#", with: "")
+        guard cleaned.count == 6, let value = Int(cleaned, radix: 16) else { return nil }
+        self.init(
+            red: Double((value >> 16) & 0xFF) / 255,
+            green: Double((value >> 8) & 0xFF) / 255,
+            blue: Double(value & 0xFF) / 255
+        )
     }
 }

@@ -10,7 +10,6 @@ final class ActivityMonitor {
     var onInputMonitoringMessage: ((String?) -> Void)?
 
     private let browserURLProvider: BrowserURLProvider
-    private let classifier: ClassificationEngine
     private let pollingInterval: TimeInterval
     private let idleThreshold: TimeInterval
 
@@ -19,12 +18,10 @@ final class ActivityMonitor {
 
     init(
         browserURLProvider: BrowserURLProvider = BrowserURLProvider(),
-        classifier: ClassificationEngine = ClassificationEngine(),
         pollingInterval: TimeInterval = 5,
         idleThreshold: TimeInterval = 300
     ) {
         self.browserURLProvider = browserURLProvider
-        self.classifier = classifier
         self.pollingInterval = pollingInterval
         self.idleThreshold = idleThreshold
     }
@@ -110,20 +107,13 @@ final class ActivityMonitor {
             onAutomationMessage?("Nao foi possivel consultar o navegador ativo.")
         }
 
-        let category = classifier.classify(
-            applicationName: appName,
-            bundleIdentifier: app.bundleIdentifier,
-            webURL: webURL
-        )
-
         onSnapshot?(
             ActivitySnapshot(
                 timestamp: now,
                 applicationName: appName,
                 bundleIdentifier: app.bundleIdentifier,
                 webURL: webURL,
-                pageTitle: pageTitle,
-                category: category
+                pageTitle: pageTitle
             )
         )
     }

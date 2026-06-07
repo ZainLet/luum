@@ -1,0 +1,11 @@
+# Firebase Admin SDK — service account (contém chave privada)
+luum-app-firebase-adminsdk-fbsvc-f3cb74a42a.json
+*firebase-adminsdk*.json
+
+# Dependências
+node_modules/
+
+# Ambiente
+.env
+.env.local
+.vercel
