@@ -1804,35 +1804,39 @@ final class ActivityStore {
         if let categoryID, monitoringPreferences.category(for: categoryID) == nil {
             return
         }
+        let affectedSample = samples[index]
         samples[index].manualCategoryID = categoryID
-        invalidateSummaries()
+        invalidateSummaries(touching: affectedSample)
         schedulePersistence()
         evaluateReminders()
     }
 
     func setActivityHidden(sampleID: UUID, isHidden: Bool) {
         guard let index = samples.firstIndex(where: { $0.id == sampleID }) else { return }
+        let affectedSample = samples[index]
         samples[index].isHidden = isHidden
-        invalidateSummaries()
+        invalidateSummaries(touching: affectedSample)
         schedulePersistence()
         evaluateReminders()
     }
 
     func resetActivityEdits(sampleID: UUID) {
         guard let index = samples.firstIndex(where: { $0.id == sampleID }) else { return }
+        let affectedSample = samples[index]
         samples[index].manualCategoryID = nil
         samples[index].isHidden = false
         samples[index].note = nil
-        invalidateSummaries()
+        invalidateSummaries(touching: affectedSample)
         schedulePersistence()
         evaluateReminders()
     }
 
     func updateActivityNote(sampleID: UUID, note: String) {
         guard let index = samples.firstIndex(where: { $0.id == sampleID }) else { return }
+        let affectedSample = samples[index]
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
         samples[index].note = trimmedNote.isEmpty ? nil : trimmedNote
-        invalidateSummaries()
+        invalidateSummaries(touching: affectedSample)
         schedulePersistence()
     }
 
@@ -1867,7 +1871,7 @@ final class ActivityStore {
         samples[index] = firstPart
         samples.insert(secondPart, at: index + 1)
         sortSamples()
-        invalidateSummaries()
+        invalidateSummaries(touching: sample)
         schedulePersistence()
         evaluateReminders()
     }
@@ -1894,7 +1898,7 @@ final class ActivityStore {
         samples.remove(at: higherIndex)
         samples[lowerIndex] = merged
         sortSamples()
-        invalidateSummaries()
+        invalidateSummaries(from: min(current.startDate, adjacent.startDate), to: max(current.endDate, adjacent.endDate))
         schedulePersistence()
         evaluateReminders()
     }
@@ -3363,21 +3367,31 @@ final class ActivityStore {
 
         currentSnapshot = snapshot
 
+        var affectedStart = snapshot.timestamp
+        var affectedEnd = snapshot.timestamp
+
         if let lastIndex = samples.indices.last,
            samples[lastIndex].canExtend(with: snapshot, maximumGap: sessionGapTolerance, sanitizedURL: sanitizedURL, sanitizedTitle: sanitizedTitle) {
+            affectedStart = samples[lastIndex].startDate
             samples[lastIndex].endDate = snapshot.timestamp
             samples[lastIndex].webURL = sanitizedURL
             samples[lastIndex].webDomain = domain
             samples[lastIndex].pageTitle = sanitizedTitle
+            affectedEnd = samples[lastIndex].endDate
         } else {
             if let lastIndex = samples.indices.last, snapshot.timestamp.timeIntervalSince(samples[lastIndex].endDate) <= sessionGapTolerance {
+                affectedStart = min(affectedStart, samples[lastIndex].startDate)
                 samples[lastIndex].endDate = max(samples[lastIndex].endDate, snapshot.timestamp)
+                affectedEnd = max(affectedEnd, samples[lastIndex].endDate)
             }
 
-            samples.append(ActivitySample(snapshot: snapshot, domain: domain, sanitizedURL: sanitizedURL, sanitizedTitle: sanitizedTitle))
+            let newSample = ActivitySample(snapshot: snapshot, domain: domain, sanitizedURL: sanitizedURL, sanitizedTitle: sanitizedTitle)
+            samples.append(newSample)
+            affectedStart = min(affectedStart, newSample.startDate)
+            affectedEnd = max(affectedEnd, newSample.endDate)
         }
 
-        invalidateSummaries()
+        invalidateSummaries(from: affectedStart, to: affectedEnd)
         schedulePersistence()
         evaluateReminders()
     }
@@ -3386,7 +3400,11 @@ final class ActivityStore {
         guard currentSnapshot != nil || !samples.isEmpty else { return }
 
         if let lastIndex = samples.indices.last, timestamp.timeIntervalSince(samples[lastIndex].endDate) <= sessionGapTolerance {
+            let previousEndDate = samples[lastIndex].endDate
             samples[lastIndex].endDate = max(samples[lastIndex].endDate, timestamp)
+            if samples[lastIndex].endDate != previousEndDate {
+                invalidateSummaries(touching: samples[lastIndex])
+            }
         }
 
         currentSnapshot = nil
@@ -3502,10 +3520,10 @@ final class ActivityStore {
             return
         }
 
-        let filteredSamples = samples.filter { !$0.isHidden && !isIgnored(sample: $0) }
         reminderEvaluationTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(350))
             guard let self else { return }
+            let filteredSamples = self.samples.filter { !$0.isHidden && !self.isIgnored(sample: $0) }
             if canEvaluateReminders {
                 await self.reminderEngine.evaluate(
                     samples: filteredSamples,
@@ -3687,6 +3705,29 @@ final class ActivityStore {
 
     private func invalidateSummaries() {
         summaryCache.removeAll()
+        summaryRevision &+= 1
+    }
+
+    private func invalidateSummaries(touching sample: ActivitySample) {
+        invalidateSummaries(from: sample.startDate, to: sample.endDate)
+    }
+
+    private func invalidateSummaries(from startDate: Date, to endDate: Date) {
+        guard !summaryCache.isEmpty else {
+            summaryRevision &+= 1
+            return
+        }
+
+        let calendar = Calendar.autoupdatingCurrent
+        var day = calendar.startOfDay(for: min(startDate, endDate))
+        let lastDay = calendar.startOfDay(for: max(startDate, endDate))
+
+        while day <= lastDay {
+            summaryCache.removeValue(forKey: day)
+            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = nextDay
+        }
+
         summaryRevision &+= 1
     }
 
