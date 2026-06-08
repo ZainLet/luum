@@ -609,6 +609,14 @@ private struct TimelineScene: View {
     let activities: [ResolvedActivitySample]
     let agendaItems: [CalendarAgendaItem]
 
+    private var displayedActivities: [ResolvedActivitySample] {
+        Array(activities.prefix(120))
+    }
+
+    private var displayedAgendaItems: [CalendarAgendaItem] {
+        Array(agendaItems.prefix(80))
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 18) {
             TimelineColumnCard(title: "Atividade real", icon: "waveform.path.ecg.rectangle.fill", tint: LuumTheme.accent) {
@@ -617,6 +625,12 @@ private struct TimelineScene: View {
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 10) {
+                            if activities.count > displayedActivities.count {
+                                TimelineLimitNotice(
+                                    text: "Mostrando \(displayedActivities.count) blocos mais recentes de \(activities.count)."
+                                )
+                            }
+
                             ForEach(activitySections, id: \.title) { section in
                                 TimelineSectionHeader(title: section.title)
 
@@ -636,6 +650,12 @@ private struct TimelineScene: View {
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 10) {
+                            if agendaItems.count > displayedAgendaItems.count {
+                                TimelineLimitNotice(
+                                    text: "Mostrando \(displayedAgendaItems.count) eventos mais recentes de \(agendaItems.count)."
+                                )
+                            }
+
                             ForEach(agendaSections, id: \.sortDate) { section in
                                 TimelineSectionHeader(title: section.title)
 
@@ -652,7 +672,7 @@ private struct TimelineScene: View {
     }
 
     private var activitySections: [ActivityTimelineSection] {
-        Dictionary(grouping: activities) { activity in
+        Dictionary(grouping: displayedActivities) { activity in
             activity.startDate.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)))
         }
         .map { key, value in
@@ -664,7 +684,7 @@ private struct TimelineScene: View {
     private var agendaSections: [AgendaTimelineSection] {
         let calendar = Calendar.autoupdatingCurrent
 
-        return Dictionary(grouping: agendaItems) { event in
+        return Dictionary(grouping: displayedAgendaItems) { event in
             calendar.startOfDay(for: event.startDate)
         }
         .map { day, value in
@@ -739,6 +759,23 @@ private struct TimelineEmptyState: View {
             .foregroundStyle(LuumTheme.textSecondary)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(.top, 8)
+    }
+}
+
+private struct TimelineLimitNotice: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(LuumTheme.textMuted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.white.opacity(0.03))
+            )
     }
 }
 

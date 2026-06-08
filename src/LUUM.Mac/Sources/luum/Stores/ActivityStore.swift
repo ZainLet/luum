@@ -2467,30 +2467,34 @@ final class ActivityStore {
         }
     }
 
-    func searchResults(matching rawQuery: String) -> [GlobalSearchResult] {
+    func searchResults(matching rawQuery: String, limit: Int = 80) -> [GlobalSearchResult] {
         let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return [] }
         let normalizedQuery = query.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
 
-        let activityResults = samples
-            .filter { !$0.isHidden && !isIgnored(sample: $0) }
-            .compactMap { sample -> GlobalSearchResult? in
-                let haystack = [
-                    sample.applicationName,
-                    sample.bundleIdentifier ?? "",
-                    sample.webDomain ?? "",
-                    sample.pageTitle ?? "",
-                    sample.webURL ?? "",
-                    sample.note ?? "",
-                    classifier.searchQuery(from: sample.webURL) ?? "",
-                ]
-                .joined(separator: " ")
-                .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+        var activityResults: [GlobalSearchResult] = []
+        activityResults.reserveCapacity(min(limit, 80))
 
-                guard haystack.contains(normalizedQuery) else { return nil }
+        for sample in samples.reversed() where activityResults.count < limit {
+            guard !sample.isHidden && !isIgnored(sample: sample) else { continue }
 
-                let resolvedCategory = classifier.classify(sample: sample, preferences: monitoringPreferences)
-                return GlobalSearchResult(
+            let haystack = [
+                sample.applicationName,
+                sample.bundleIdentifier ?? "",
+                sample.webDomain ?? "",
+                sample.pageTitle ?? "",
+                sample.webURL ?? "",
+                sample.note ?? "",
+                classifier.searchQuery(from: sample.webURL) ?? "",
+            ]
+            .joined(separator: " ")
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+
+            guard haystack.contains(normalizedQuery) else { continue }
+
+            let resolvedCategory = classifier.classify(sample: sample, preferences: monitoringPreferences)
+            activityResults.append(
+                GlobalSearchResult(
                     id: sample.id.uuidString,
                     kind: .activity,
                     date: sample.startDate,
@@ -2499,7 +2503,13 @@ final class ActivityStore {
                     footnote: LuumFormatters.timeRange(start: sample.startDate, end: sample.endDate),
                     category: resolvedCategory
                 )
-            }
+            )
+        }
+
+        let remainingLimit = max(0, limit - activityResults.count)
+        guard remainingLimit > 0 else {
+            return activityResults.sorted { $0.date > $1.date }
+        }
 
         let planningEvents =
             googleCalendarConnections
@@ -2511,6 +2521,7 @@ final class ActivityStore {
             + linearAgendaItems
 
         let agendaResults = planningEvents
+            .sorted { $0.startDate > $1.startDate }
             .compactMap { event -> GlobalSearchResult? in
                 let haystack = [
                     event.title,
@@ -2534,8 +2545,9 @@ final class ActivityStore {
                     category: nil
                 )
             }
+            .prefix(remainingLimit)
 
-        return (activityResults + agendaResults).sorted { $0.date > $1.date }
+        return (activityResults + Array(agendaResults)).sorted { $0.date > $1.date }
     }
 
     func exportWeeklyReport(containing day: Date, format: ExportFormat) {
