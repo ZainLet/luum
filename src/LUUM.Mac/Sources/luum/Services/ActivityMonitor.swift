@@ -12,18 +12,22 @@ final class ActivityMonitor {
     private let browserURLProvider: BrowserURLProvider
     private let pollingInterval: TimeInterval
     private let idleThreshold: TimeInterval
+    private let browserContextRefreshInterval: TimeInterval
 
     private var timer: Timer?
     private var activationObserver: NSObjectProtocol?
+    private var cachedBrowserContext: CachedBrowserContext?
 
     init(
         browserURLProvider: BrowserURLProvider = BrowserURLProvider(),
-        pollingInterval: TimeInterval = 5,
-        idleThreshold: TimeInterval = 300
+        pollingInterval: TimeInterval = 8,
+        idleThreshold: TimeInterval = 300,
+        browserContextRefreshInterval: TimeInterval = 12
     ) {
         self.browserURLProvider = browserURLProvider
         self.pollingInterval = pollingInterval
         self.idleThreshold = idleThreshold
+        self.browserContextRefreshInterval = browserContextRefreshInterval
     }
 
     func start() {
@@ -38,7 +42,7 @@ final class ActivityMonitor {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.capture()
+                self?.capture(forceBrowserRefresh: true)
             }
         }
 
@@ -70,7 +74,7 @@ final class ActivityMonitor {
         }
     }
 
-    private func capture() {
+    private func capture(forceBrowserRefresh: Bool = false) {
         let now = Date()
 
         guard !isIdle else {
@@ -96,7 +100,12 @@ final class ActivityMonitor {
         var pageTitle: String?
 
         do {
-            if let browserContext = try browserURLProvider.currentContext(for: appName, bundleIdentifier: app.bundleIdentifier) {
+            if let browserContext = try browserContext(
+                for: appName,
+                bundleIdentifier: app.bundleIdentifier,
+                now: now,
+                forceRefresh: forceBrowserRefresh
+            ) {
                 webURL = browserContext.urlString
                 pageTitle = browserContext.pageTitle
             }
@@ -134,4 +143,30 @@ final class ActivityMonitor {
 
         onInputMonitoringMessage?("Sem permissao de Monitoramento de Entrada. O luum continua lendo app e URL, mas nao consegue pausar a captura quando voce fica ausente.")
     }
+
+    private func browserContext(
+        for applicationName: String,
+        bundleIdentifier: String?,
+        now: Date,
+        forceRefresh: Bool
+    ) throws -> BrowserContext? {
+        let cacheKey = "\(bundleIdentifier ?? "")|\(applicationName)"
+
+        if !forceRefresh,
+           let cachedBrowserContext,
+           cachedBrowserContext.cacheKey == cacheKey,
+           now.timeIntervalSince(cachedBrowserContext.capturedAt) < browserContextRefreshInterval {
+            return cachedBrowserContext.context
+        }
+
+        let context = try browserURLProvider.currentContext(for: applicationName, bundleIdentifier: bundleIdentifier)
+        cachedBrowserContext = CachedBrowserContext(cacheKey: cacheKey, context: context, capturedAt: now)
+        return context
+    }
+}
+
+private struct CachedBrowserContext {
+    let cacheKey: String
+    let context: BrowserContext?
+    let capturedAt: Date
 }

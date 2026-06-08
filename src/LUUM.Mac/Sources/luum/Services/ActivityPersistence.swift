@@ -1,6 +1,6 @@
 import Foundation
 
-struct ActivityPersistence {
+struct ActivityPersistence: @unchecked Sendable {
     private let fileManager: FileManager
     private let directoryName = "luum"
     private let fileName = "activity-log.json"

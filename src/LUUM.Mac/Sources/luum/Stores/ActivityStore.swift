@@ -77,6 +77,7 @@ final class ActivityStore {
     @ObservationIgnored private var focusModeDeliveries: [UUID: Date] = [:]
     @ObservationIgnored private var focusBlockDeliveries: [String: Date] = [:]
     @ObservationIgnored private var persistTask: Task<Void, Never>?
+    @ObservationIgnored private var persistenceWriteTask: Task<Void, Never>?
     @ObservationIgnored private var reminderEvaluationTask: Task<Void, Never>?
     @ObservationIgnored private var authRefreshTask: Task<Void, Never>?
     @ObservationIgnored private var authRefreshGeneration = 0
@@ -84,6 +85,9 @@ final class ActivityStore {
     @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
     @ObservationIgnored private let calendarRefreshInterval: TimeInterval = 900
     @ObservationIgnored private let cloudSyncInterval: TimeInterval = 900
+    @ObservationIgnored private let activityPersistenceDebounce: Duration = .seconds(5)
+    @ObservationIgnored private let liveSummaryRefreshInterval: TimeInterval = 30
+    @ObservationIgnored private var lastLiveSummaryRefreshAt: Date?
     @ObservationIgnored private var notionAgendaDay: Date?
     @ObservationIgnored private var outlookAgendaDay: Date?
     @ObservationIgnored private var clickUpAgendaDay: Date?
@@ -3381,9 +3385,11 @@ final class ActivityStore {
 
         var affectedStart = snapshot.timestamp
         var affectedEnd = snapshot.timestamp
+        var extendedCurrentSample = false
 
         if let lastIndex = samples.indices.last,
            samples[lastIndex].canExtend(with: snapshot, maximumGap: sessionGapTolerance, sanitizedURL: sanitizedURL, sanitizedTitle: sanitizedTitle) {
+            extendedCurrentSample = true
             affectedStart = samples[lastIndex].startDate
             samples[lastIndex].endDate = snapshot.timestamp
             samples[lastIndex].webURL = sanitizedURL
@@ -3403,7 +3409,12 @@ final class ActivityStore {
             affectedEnd = max(affectedEnd, newSample.endDate)
         }
 
-        invalidateSummaries(from: affectedStart, to: affectedEnd)
+        invalidateSummariesForActivity(
+            from: affectedStart,
+            to: affectedEnd,
+            at: snapshot.timestamp,
+            coalescingLiveExtension: extendedCurrentSample
+        )
         schedulePersistence()
         evaluateReminders()
     }
@@ -3428,20 +3439,27 @@ final class ActivityStore {
     private func schedulePersistence() {
         persistTask?.cancel()
         persistTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(1))
+            try? await Task.sleep(for: self?.activityPersistenceDebounce ?? .seconds(5))
             self?.flushPersistence()
         }
-
-        scheduleCloudSyncIfNeeded(reason: "activity")
     }
 
     private func flushPersistence() {
-        samples = persistence.trim(samples: samples, retentionDays: monitoringPreferences.privacySettings.retentionDays)
+        let retentionDays = monitoringPreferences.privacySettings.retentionDays
+        let cleanedSamples = persistence.trim(samples: samples, retentionDays: retentionDays)
+        samples = cleanedSamples
 
-        do {
-            try persistence.save(samples: samples, retentionDays: monitoringPreferences.privacySettings.retentionDays)
-        } catch {
-            automationStatusMessage = "Nao foi possivel salvar o historico local do luum."
+        persistenceWriteTask?.cancel()
+        let persistence = persistence
+
+        persistenceWriteTask = Task.detached(priority: .utility) { [cleanedSamples, retentionDays, persistence, weak self] in
+            do {
+                try persistence.save(samples: cleanedSamples, retentionDays: retentionDays)
+            } catch {
+                await MainActor.run {
+                    self?.automationStatusMessage = "Nao foi possivel salvar o historico local do luum."
+                }
+            }
         }
     }
 
@@ -3778,6 +3796,27 @@ final class ActivityStore {
         }
 
         summaryRevision &+= 1
+    }
+
+    private func invalidateSummariesForActivity(
+        from startDate: Date,
+        to endDate: Date,
+        at timestamp: Date,
+        coalescingLiveExtension: Bool
+    ) {
+        guard coalescingLiveExtension else {
+            lastLiveSummaryRefreshAt = timestamp
+            invalidateSummaries(from: startDate, to: endDate)
+            return
+        }
+
+        if let lastLiveSummaryRefreshAt,
+           timestamp.timeIntervalSince(lastLiveSummaryRefreshAt) < liveSummaryRefreshInterval {
+            return
+        }
+
+        lastLiveSummaryRefreshAt = timestamp
+        invalidateSummaries(from: startDate, to: endDate)
     }
 
     private func normalizedDay(_ day: Date) -> Date {
