@@ -174,6 +174,8 @@ struct FirebaseIDTokenPayload: Decodable, Sendable {
     let userID: String?
     let email: String?
     let name: String?
+    let audience: String?
+    let issuer: String?
     let issuedAt: TimeInterval?
     let expiresAt: TimeInterval?
 
@@ -181,6 +183,8 @@ struct FirebaseIDTokenPayload: Decodable, Sendable {
         case userID = "user_id"
         case email
         case name
+        case audience = "aud"
+        case issuer = "iss"
         case issuedAt = "iat"
         case expiresAt = "exp"
     }

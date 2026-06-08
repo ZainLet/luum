@@ -8,10 +8,14 @@ import Testing
 func cloudBackupRemovesZapierWebhookURL() {
     var preferences = MonitoringPreferencesSnapshot.default
     preferences.zapierSettings.webhookURL = "https://hooks.zapier.com/hooks/catch/secret"
+    preferences.aiClassificationSettings.endpointURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini"
+    preferences.aiClassificationSettings.providerName = "Gemini direto"
 
     let sanitized = CloudSyncService.cloudSafePreferences(preferences)
 
     #expect(sanitized.zapierSettings.webhookURL.isEmpty)
+    #expect(sanitized.aiClassificationSettings.endpointURL == AIClassificationSettings.default.endpointURL)
+    #expect(sanitized.aiClassificationSettings.providerName == AIClassificationSettings.default.providerName)
 }
 
 @Test

@@ -39,6 +39,18 @@ test('desktop deeplink is opened only by the explicit app login route', () => {
     assert.match(login, /document\.getElementById\('signupLink'\)\.href = appLogin\s*\?\s*'cadastro\.html\?app=mac'\s*:\s*'cadastro\.html\?redirect=account\.html';/);
 });
 
+test('app login confirms existing browser account before opening the desktop app', () => {
+    const login = read('login.html');
+
+    assert.match(login, /id="accountChoice"/);
+    assert.match(login, /function renderExistingAppSession\(user\)/);
+    assert.match(login, /Confirme antes de abrir o app/);
+    assert.match(login, /if \(appLogin\) \{\s*renderExistingAppSession\(user\);\s*return;\s*\}/);
+    assert.match(login, /id="continueCurrentAccount"/);
+    assert.match(login, /id="switchCurrentAccount"/);
+    assert.match(login, /function escapeHTML\(value\)/);
+});
+
 test('desktop deeplink is opened only by the explicit app signup route', () => {
     const signup = read('cadastro.html');
 
@@ -57,6 +69,14 @@ test('shared auth script only handles explicitly marked generic forms', () => {
     assert.match(auth, /signupForm\.dataset\.luumSharedAuth === 'true'/);
     assert.match(auth, /googleBtn\?\.dataset\.luumSharedAuth === 'true'/);
     assert.doesNotMatch(signup, /data-luum-shared-auth="true"/);
+});
+
+test('shared auth script opens desktop app only for explicit app route', () => {
+    const auth = read('auth.js');
+
+    assert.match(auth, /function shouldOpenApp\(\) \{\s*return new URLSearchParams\(window\.location\.search\)\.get\('app'\) === 'mac';\s*\}/);
+    assert.match(auth, /if \(shouldOpenApp\(\)\) \{\s*await redirectToApp\(user\);\s*return;\s*\}/);
+    assert.match(auth, /window\.location\.href = getRedirectTarget\(\);/);
 });
 
 test('pages use the current auth.js cache-busting version', () => {

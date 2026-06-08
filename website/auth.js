@@ -87,6 +87,30 @@
         window.location.href = redirectURL;
     }
 
+    function getRedirectTarget() {
+        const params = new URLSearchParams(window.location.search);
+        const redirect = params.get('redirect');
+        if (!redirect) return 'account.html';
+
+        const target = new URL(redirect, window.location.href);
+        if (target.origin !== window.location.origin) return 'account.html';
+        return `${target.pathname.replace(/^\//, '')}${target.search}${target.hash}`;
+    }
+
+    function shouldOpenApp() {
+        return new URLSearchParams(window.location.search).get('app') === 'mac';
+    }
+
+    async function finishAuth(user) {
+        if (shouldOpenApp()) {
+            await redirectToApp(user);
+            return;
+        }
+
+        await upsertAccount(user);
+        window.location.href = getRedirectTarget();
+    }
+
     async function upsertAccount(user) {
         const token = await user.getIdToken(true);
         const response = await fetch(apiUrl('/api/auth/upsert-user'), {
@@ -211,7 +235,7 @@
 
                 const credential = await auth.signInWithEmailAndPassword(email, password);
                 rememberUser(credential.user);
-                await redirectToApp(credential.user);
+                await finishAuth(credential.user);
             });
         }
 
@@ -227,7 +251,7 @@
                 const credential = await auth.createUserWithEmailAndPassword(email, password);
                 await credential.user.updateProfile({ displayName: name });
                 rememberUser(credential.user);
-                await redirectToApp(credential.user);
+                await finishAuth(credential.user);
             });
         }
 
@@ -239,7 +263,7 @@
                 const provider = new firebase.auth.GoogleAuthProvider();
                 const credential = await auth.signInWithPopup(provider);
                 rememberUser(credential.user);
-                await redirectToApp(credential.user);
+                await finishAuth(credential.user);
             });
         }
     }

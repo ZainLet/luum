@@ -195,6 +195,10 @@ final class ActivityStore {
         !(keychainService.string(for: Self.aiClassificationAPIKeyKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
     }
 
+    var secretStorageDescription: String {
+        keychainService.storageDescription
+    }
+
     var aiClassificationConfigured: Bool {
         guard aiClassificationSettings.isEnabled else { return false }
         if AIClassificationService.isLuumBackendEndpoint(aiClassificationSettings.endpointURL) {
@@ -342,7 +346,10 @@ final class ActivityStore {
         authRefreshTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let verified = try await authService.verifiedSession(sessionToValidate)
+                let verified = try await authService.verifiedSession(
+                    sessionToValidate,
+                    deviceID: keychainService.installationID()
+                )
                 await MainActor.run {
                     guard self.isCurrentAuthRefresh(generation, for: sessionToValidate) else { return }
                     self.applyAuthSession(verified, message: "Plano \(verified.plan.title) validado.")
@@ -435,7 +442,10 @@ final class ActivityStore {
         }
 
         do {
-            let verified = try await authService.verifiedSession(sessionToValidate)
+            let verified = try await authService.verifiedSession(
+                sessionToValidate,
+                deviceID: keychainService.installationID()
+            )
             guard isCurrentAuthSession(sessionToValidate) else { throw CancellationError() }
             persistAuthSession(verified, message: "Plano \(verified.plan.title) validado.", scheduleCloudSync: false)
             return verified

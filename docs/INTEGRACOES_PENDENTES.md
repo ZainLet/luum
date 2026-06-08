@@ -90,8 +90,9 @@ Stripe configurado em produção:
 - Notificações, lembretes, metas e perfis de foco respeitam os gates de plano antes de pedir permissão do macOS, criar regras ou avaliar alertas locais.
 - Toggles de integrações premium e workspace também respeitam o plano antes de ficarem ativos; Zapier exige integrações avançadas e ranking corporativo exige plano de equipe. O endpoint do workspace fica fixo no domínio oficial da Vercel.
 - Sem Apple Developer, mantenha assinatura ad-hoc (`codesign --sign -`) para builds locais. O armazenamento local cifrado evita o prompt recorrente “Luum deseja usar as informações confidenciais…” causado pelo Keychain quando a assinatura muda.
-- Verificação local atual: `./script/build_and_run.sh --verify` compila e assina o app ad-hoc. Nesta máquina, `swift test` compila o bundle de testes com sucesso, mas as Command Line Tools não expõem o runner `xctest`.
+- Verificação local atual: `./script/build_and_run.sh --verify-bundle` compila, assina ad-hoc e valida o bundle sem abrir o app; `--verify` faz a mesma validação e abre o app para teste manual. Nesta máquina, `swift test` compila o bundle de testes com sucesso, mas as Command Line Tools não expõem o runner `xctest`.
 - Para reduzir crack em distribuição real, mover validação final para servidor: expiração curta, refresh obrigatório, device id por instalação e checagem de assinatura no backend. Nenhum bloqueio local é 100% à prova de crack.
+- O app envia `X-Luum-Device-ID` nas validações de plano usando um identificador derivado do segredo local da instalação; o backend registra o último dispositivo visto em `users/{uid}.security`, preparando limite/alerta de dispositivos por plano.
 - O desktop fixa login, backup e ranking em `https://luum-app.vercel.app`: preferências locais não podem redirecionar o Firebase ID token para outro domínio.
 - Otimização agora faz parte das metas de finalização: o app deve permanecer leve durante uso contínuo, evitando recálculo completo de resumos e varreduras de histórico em cada amostra capturada.
 - Primeira correção de performance: `ActivityStore` invalida somente os dias afetados pelo sample editado/capturado e só filtra histórico para lembretes/foco depois do debounce da avaliação.
@@ -146,7 +147,7 @@ Stripe configurado em produção:
 ## Admin de planos
 
 - Página criada no site: `website/admin.html`.
-- APIs criadas no backend Vercel: `website/api/admin/users.js` e `website/api/admin/health.js`.
+- APIs criadas no backend Vercel por rota dinâmica: `website/api/admin/[action].js`, com ações `health`, `users`, `integrations` e `stripe-health`.
 - Ao abrir `admin.html` logado, o painel testa `/api/admin/health` e mostra API base, Firebase Admin, Firestore, `ADMIN_EMAILS` e sua permissão.
 - A tela usa `window.LUUM_API_BASE` para chamar o backend. O padrão atual é `https://luum-app.vercel.app`; se publicar em outro domínio, altere em `firebase-config.js`.
 - O admin inicial autorizado no backend é `oluum.app@gmail.com`. Use `ADMIN_EMAILS` na Vercel para incluir emails adicionais; depois disso, a página também pode promover outros usuários para `role: admin`.
@@ -154,7 +155,7 @@ Stripe configurado em produção:
 - A seção `Cofre de integrações` em `admin.html` salva segredos criptografados no Firestore e nunca devolve valores completos ao navegador. Para ativá-la, configure uma vez `LUUM_SETTINGS_ENCRYPTION_KEY` na Vercel.
 - A API exige Firebase ID token e só permite acesso para emails em `ADMIN_EMAILS` ou usuários com custom claim `luumAdmin: true`.
 - Para dar plano manual, o usuário precisa existir no Firebase Auth. Busque por email ou UID, selecione plano/status/dias/assentos e salve.
-- Depois de alterar um plano, peça para a pessoa clicar em `Validar plano` no app ou fazer login novamente, porque o app mantém uma sessão local para funcionar offline.
+- Depois de alterar um plano, confirme que o email exibido no app é o mesmo email alterado no admin. Em seguida, peça para a pessoa clicar em `Validar plano` no app ou fazer login novamente, porque o app mantém uma sessão local para funcionar offline.
 
 
 ## Marca e ícone

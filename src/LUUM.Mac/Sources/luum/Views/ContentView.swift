@@ -206,6 +206,8 @@ struct ContentView: View {
                 title: selection.title,
                 feature: selection.requiredFeature,
                 message: store.lockMessage(for: selection.requiredFeature),
+                accountEmail: store.accountEmail,
+                accountPlan: store.accountPlan,
                 openPlans: { store.openLoginPage() },
                 refresh: { store.refreshAccountStatus() }
             )
@@ -371,6 +373,8 @@ private struct LockedFeatureView: View {
     let title: String
     let feature: LuumFeature
     let message: String
+    let accountEmail: String
+    let accountPlan: LuumAccountPlan
     let openPlans: () -> Void
     let refresh: () -> Void
 
@@ -383,6 +387,22 @@ private struct LockedFeatureView: View {
             Text(message)
                 .foregroundStyle(LuumTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if !accountEmail.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Conta atual")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LuumTheme.textMuted)
+                        .textCase(.uppercase)
+
+                    Text("\(accountEmail) • Plano \(accountPlan.title)")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .textSelection(.enabled)
+                }
+                .padding(.vertical, 2)
+            }
 
             HStack(spacing: 10) {
                 Button("Ver planos / entrar") { openPlans() }
@@ -413,9 +433,13 @@ private struct SidebarHero: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Plano \(store.accountPlan.title) • \(store.isMonitoring ? "monitorando" : "pausado")")
+                    Text(store.accountEmail.isEmpty
+                        ? "Plano \(store.accountPlan.title) • \(store.isMonitoring ? "monitorando" : "pausado")"
+                        : "\(store.accountEmail) • \(store.accountPlan.title)"
+                    )
                         .font(.caption2)
                         .foregroundStyle(LuumTheme.textSecondary)
+                        .lineLimit(2)
                 }
 
                 Spacer()

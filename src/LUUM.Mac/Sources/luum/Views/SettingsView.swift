@@ -23,6 +23,7 @@ struct SettingsView: View {
                 )
 
                 integrationHubCard
+                localVaultCard
                 aiClassificationCard
                 googleCalendarCard
                 notionCalendarCard
@@ -100,6 +101,18 @@ struct SettingsView: View {
         }
         .padding(22)
         .luumGlassCard(tint: LuumTheme.accent.opacity(0.12), cornerRadius: 30)
+    }
+
+    private var localVaultCard: some View {
+        settingsCard(
+            title: "Conta e cofre local",
+            lines: [
+                "Conta: \(store.accountEmail.isEmpty ? "Entre com sua conta Luum" : store.accountEmail)",
+                "Armazenamento: \(store.secretStorageDescription)",
+                store.authStatusMessage ?? "Sessao local ainda nao validada.",
+            ],
+            tint: LuumTheme.secondaryAccent.opacity(0.16)
+        )
     }
 
     private var googleCalendarCard: some View {

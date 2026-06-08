@@ -113,6 +113,29 @@
 
         .info { margin-top: 24px; font-size: 12px; color: #555577; }
         .info a { color: #6c5ce7; text-decoration: none; }
+        .account-choice {
+            display: none;
+            margin-top: 16px;
+            padding: 14px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.035);
+            text-align: left;
+        }
+        .account-choice p { color: #aaaacc; font-size: 13px; line-height: 1.5; margin-bottom: 12px; }
+        .account-choice strong { color: #fff; overflow-wrap: anywhere; }
+        .account-choice-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn-secondary-small {
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.04);
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 10px 12px;
+        }
+        .btn-secondary-small:hover { background: rgba(255,255,255,0.08); }
     </style>
 </head>
 <body>
@@ -152,6 +175,8 @@
             <div class="spinner"></div>
             <span>Autenticando...</span>
         </div>
+
+        <div class="account-choice" id="accountChoice"></div>
 
         <div class="info">
             <p id="loginInfoText">Ao fazer login, você será redirecionado para sua conta Luum.</p>
@@ -258,6 +283,37 @@
             showError(message);
         }
 
+        function escapeHTML(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function renderExistingAppSession(user) {
+            const choice = document.getElementById('accountChoice');
+            if (!choice) return;
+            const label = escapeHTML(user.email || user.uid || 'conta atual');
+            choice.style.display = 'block';
+            choice.innerHTML = `
+                <p>Este navegador já está conectado como <strong>${label}</strong>. Confirme antes de abrir o app para evitar validar o plano na conta errada.</p>
+                <div class="account-choice-actions">
+                    <button type="button" class="btn-secondary-small" id="continueCurrentAccount">Usar esta conta</button>
+                    <button type="button" class="btn-secondary-small" id="switchCurrentAccount">Trocar conta</button>
+                </div>
+            `;
+            document.getElementById('continueCurrentAccount').addEventListener('click', () => {
+                exchangeTokenAndRedirect(user);
+            });
+            document.getElementById('switchCurrentAccount').addEventListener('click', async () => {
+                await firebase.auth().signOut();
+                choice.style.display = 'none';
+                document.getElementById('email').focus();
+            });
+        }
+
         function bootLogin() {
             if (!firebaseReady()) {
                 disableAuth('Firebase não carregou. Recarregue a página ou verifique sua conexão.');
@@ -319,10 +375,15 @@
                 }
             });
 
-            // Se já estiver logado, redireciona direto
+            // Se já estiver logado, só abre o app automaticamente no login comum do site.
+            // No fluxo macOS, confirma a conta para evitar validar plano no usuário errado.
             firebase.auth().onAuthStateChanged(async (user) => {
                 if (user) {
                     console.log('Usuário já logado:', user.email);
+                    if (appLogin) {
+                        renderExistingAppSession(user);
+                        return;
+                    }
                     await exchangeTokenAndRedirect(user);
                 }
             });

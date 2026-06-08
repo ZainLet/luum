@@ -214,6 +214,7 @@ test('upsert existing user keeps plan and subscription untouched', async () => {
 
 test('auth status returns entitlement from the verified Firebase uid document', async () => {
     const now = Date.now();
+    const writes = [];
     installFirebaseAdminMock({
         decoded: { uid: 'paid-user', email: 'paid@luum.app' },
         userData: {
@@ -222,15 +223,18 @@ test('auth status returns entitlement from the verified Firebase uid document', 
                 status: 'active',
                 currentPeriodEnd: { toMillis: () => now + 86_400_000 }
             }
-        }
+        },
+        onSet: (data, options) => writes.push({ data, options })
     });
 
     const handler = require('../api/auth/status');
     const res = response();
+    const deviceID = 'a'.repeat(64);
     await handler({
         method: 'GET',
         headers: {
             authorization: 'Bearer valid-token',
+            'x-luum-device-id': deviceID,
             origin: 'https://luum-app.web.app'
         }
     }, res);
@@ -240,6 +244,35 @@ test('auth status returns entitlement from the verified Firebase uid document', 
     assert.equal(res.body.plan, 'profissional');
     assert.equal(res.body.trial, false);
     assert.equal(res.body.expiresAt, now + 86_400_000);
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0].data.security.lastDeviceID, deviceID);
+    assert.deepEqual(writes[0].options, { merge: true });
+});
+
+test('auth status ignores malformed device ids', async () => {
+    const writes = [];
+    installFirebaseAdminMock({
+        decoded: { uid: 'paid-user', email: 'paid@luum.app' },
+        userData: {
+            plan: 'profissional',
+            subscription: { status: 'active' }
+        },
+        onSet: (data, options) => writes.push({ data, options })
+    });
+
+    const handler = require('../api/auth/status');
+    const res = response();
+    await handler({
+        method: 'GET',
+        headers: {
+            authorization: 'Bearer valid-token',
+            'x-luum-device-id': 'not-a-device',
+            origin: 'https://luum-app.web.app'
+        }
+    }, res);
+
+    assert.equal(res.code, 200);
+    assert.equal(writes.length, 0);
 });
 
 test('auth status honors stronger legacy onboarding plan for desktop gates', async () => {

@@ -10,6 +10,8 @@ func defaultStorageUsesEncryptedFallbackWithoutSystemKeychain() throws {
     let account = "test-default-fallback-\(UUID().uuidString)"
     defer { keychain.removeValue(for: account) }
 
+    #expect(keychain.storageDescription.contains("sem Chaves do macOS"))
+
     try keychain.setString("no-keychain-prompt", for: account)
 
     let raw = try #require(keychain.rawFallbackStringForTesting(account: account))
@@ -19,6 +21,32 @@ func defaultStorageUsesEncryptedFallbackWithoutSystemKeychain() throws {
 
     keychain.removeValue(for: account)
     #expect(keychain.rawFallbackStringForTesting(account: account) == nil)
+}
+
+@Test
+func explicitSystemKeychainModeIsVisibleForDiagnostics() {
+    let keychain = KeychainService(useSystemKeychain: true)
+
+    #expect(keychain.storageDescription == "Chaves do macOS")
+}
+
+@Test
+func installationIDIsStableAndDerivedFromLocalSecret() throws {
+    let temporaryDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("luum-installation-id-test-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+    let secretURL = temporaryDirectory.appendingPathComponent(".local-vault-key", isDirectory: false)
+    let first = KeychainService(installationSecretURL: secretURL)
+    let second = KeychainService(installationSecretURL: secretURL)
+
+    let firstID = try #require(first.installationID())
+    let secondID = try #require(second.installationID())
+
+    #expect(firstID == secondID)
+    #expect(firstID.count == 64)
+    #expect(!firstID.contains("local-vault-key"))
 }
 
 @Test

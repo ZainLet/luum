@@ -65,6 +65,12 @@ Para validar sem abrir o debugger:
 ./script/build_and_run.sh --verify
 ```
 
+Para validar apenas o bundle assinado, sem abrir o app:
+
+```bash
+./script/build_and_run.sh --verify-bundle
+```
+
 Para assinar com uma identidade local de desenvolvedor:
 
 ```bash

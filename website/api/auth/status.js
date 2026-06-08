@@ -23,6 +23,13 @@ const { admin, getFirestore } = require('../_firebaseAdmin');
 const { addCors, handleOptions } = require('../_cors');
 const { entitlementForUser } = require('../_entitlements');
 
+function normalizedDeviceID(req) {
+    const raw = req.headers['x-luum-device-id'];
+    const value = String(Array.isArray(raw) ? raw[0] : raw || '').trim().toLowerCase();
+    if (!/^[a-f0-9]{64}$/.test(value)) return '';
+    return value;
+}
+
 async function statusHandler(req, res) {
     addCors(req, res, { methods: 'GET, OPTIONS' });
     if (req.method === 'OPTIONS') return handleOptions(req, res, { methods: 'GET, OPTIONS' });
@@ -44,10 +51,21 @@ async function statusHandler(req, res) {
         }
 
         // ─── Consulta Firestore ─────────────────────────
-        const doc = await db.collection('users').doc(uid).get();
+        const userRef = db.collection('users').doc(uid);
+        const doc = await userRef.get();
 
         if (!doc.exists) {
             return res.json({ locked: true, reason: 'user_not_found' });
+        }
+
+        const deviceID = normalizedDeviceID(req);
+        if (deviceID) {
+            await userRef.set({
+                security: {
+                    lastDeviceID: deviceID,
+                    lastDeviceSeenAt: admin.firestore.FieldValue.serverTimestamp()
+                }
+            }, { merge: true });
         }
 
         return res.json(entitlementForUser(doc.data()));

@@ -32,6 +32,45 @@ func authCallbackRejectsUIDDifferentFromFirebaseToken() throws {
 }
 
 @Test
+func authCallbackRejectsTokenFromAnotherFirebaseProject() throws {
+    let token = makeFirebaseToken(
+        uid: "firebase-user",
+        email: "user@luum.app",
+        audience: "other-project",
+        issuer: "https://securetoken.google.com/other-project"
+    )
+    let callback = try #require(URL(string: "luum://auth?token=\(token)&uid=firebase-user"))
+
+    do {
+        _ = try FirebaseAuthService().session(from: callback)
+        Issue.record("Callback de outro projeto Firebase deveria ser rejeitado localmente.")
+    } catch FirebaseAuthServiceError.invalidToken {
+        // Esperado: o app só aceita tokens emitidos para o projeto oficial luum-app.
+    } catch {
+        Issue.record("Erro inesperado: \(error)")
+    }
+}
+
+@Test
+func authCallbackRejectsTokenWithWrongIssuer() throws {
+    let token = makeFirebaseToken(
+        uid: "firebase-user",
+        email: "user@luum.app",
+        issuer: "https://securetoken.google.com/other-project"
+    )
+    let callback = try #require(URL(string: "luum://auth?token=\(token)&uid=firebase-user"))
+
+    do {
+        _ = try FirebaseAuthService().session(from: callback)
+        Issue.record("Callback com issuer Firebase divergente deveria ser rejeitado.")
+    } catch FirebaseAuthServiceError.invalidToken {
+        // Esperado.
+    } catch {
+        Issue.record("Erro inesperado: \(error)")
+    }
+}
+
+@Test
 func authCallbackRequiresFirebaseToken() throws {
     let callback = try #require(URL(string: "luum://auth?uid=firebase-user"))
 
@@ -131,6 +170,24 @@ func verifiedSessionAppliesActivePlanFromStatusEndpoint() async throws {
 }
 
 @Test
+func verifiedSessionSendsInstallationDeviceIDToOfficialBackend() async throws {
+    let session = URLSession.mocking([
+        MockResponse(
+            url: "https://luum-app.vercel.app/api/auth/status",
+            statusCode: 200,
+            body: #"{"locked":false,"plan":"profissional","trial":false,"expiresAt":1780499999000}"#
+        )
+    ])
+    let service = FirebaseAuthService(session: session)
+
+    _ = try await service.verifiedSession(makeAuthSession(lastVerifiedAt: nil), deviceID: "device-abc")
+
+    let request = try #require(MockURLProtocol.observedRequests.first)
+    #expect(request.value(forHTTPHeaderField: "X-Luum-Device-ID") == "device-abc")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token")
+}
+
+@Test
 func verifiedSessionPreservesCancelingSubscriptionState() async throws {
     let session = URLSession.mocking([
         MockResponse(
@@ -200,9 +257,14 @@ func verifiedSessionRefreshesFirebaseTokenAfterUnauthorizedStatus() async throws
     #expect(!verified.isLocked)
 }
 
-private func makeFirebaseToken(uid: String, email: String) -> String {
+private func makeFirebaseToken(
+    uid: String,
+    email: String,
+    audience: String = FirebaseAuthService.firebaseProjectID,
+    issuer: String = FirebaseAuthService.firebaseIssuer
+) -> String {
     let header = base64URL(Data(#"{"alg":"none","typ":"JWT"}"#.utf8))
-    let payload = base64URL(Data(#"{"user_id":"\#(uid)","email":"\#(email)","iat":1700000000,"exp":1700003600}"#.utf8))
+    let payload = base64URL(Data(#"{"user_id":"\#(uid)","email":"\#(email)","aud":"\#(audience)","iss":"\#(issuer)","iat":1700000000,"exp":1700003600}"#.utf8))
     return "\(header).\(payload).test"
 }
 
@@ -230,6 +292,7 @@ private struct MockResponse: Sendable {
 
 private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var responses: [MockResponse] = []
+    nonisolated(unsafe) static var observedRequests: [URLRequest] = []
 
     override class func canInit(with request: URLRequest) -> Bool {
         true
@@ -240,6 +303,7 @@ private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     }
 
     override func startLoading() {
+        Self.observedRequests.append(request)
         guard let url = request.url?.absoluteString else {
             client?.urlProtocol(self, didFailWithError: URLError(.badURL))
             return
@@ -269,6 +333,7 @@ private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
 private extension URLSession {
     static func mocking(_ responses: [MockResponse]) -> URLSession {
         MockURLProtocol.responses = responses
+        MockURLProtocol.observedRequests = []
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         return URLSession(configuration: configuration)

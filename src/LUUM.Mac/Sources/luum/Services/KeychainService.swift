@@ -17,6 +17,20 @@ struct KeychainService {
         self.installationSecretURLOverride = installationSecretURL
     }
 
+    var storageDescription: String {
+        useSystemKeychain
+            ? "Chaves do macOS"
+            : "Cofre local cifrado, sem Chaves do macOS"
+    }
+
+    func installationID() -> String? {
+        guard let secret = installationSecretForWriting() else { return nil }
+        var data = Data("\(service)\u{0}installation-id".utf8)
+        data.append(0)
+        data.append(secret)
+        return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
     func setString(_ value: String, for account: String) throws {
         try setData(Data(value.utf8), for: account)
     }
