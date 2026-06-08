@@ -2,7 +2,7 @@
 
 Este arquivo lista o que depende de contas, chaves externas ou decisões que não devem ficar hardcoded no repositório.
 
-## Estado validado em 04/06/2026
+## Estado validado em 08/06/2026
 
 - Vercel production atualizado em `https://luum-app.vercel.app` com as APIs de login, admin, checkout, backup, workspace e CORS restrito.
 - Correção publicada em produção: `/api/auth/status` agora resolve o plano efetivo mais forte entre `plan`, `subscription.plan` e campos legados `onboarding.plan`/`quiz.plan`, evitando o caso em que o Firestore mostra `equipes` mas o app continua preso em `Profissional`.
@@ -13,7 +13,7 @@ Este arquivo lista o que depende de contas, chaves externas ou decisões que nã
 - `auth.js` compartilhado cria/atualiza `users/{uid}` via `/api/auth/upsert-user` antes de abrir o app com `luum://auth`.
 - `login.html?app=mac` é o único fluxo web que abre `luum://auth`; login comum do site redireciona para `account.html`.
 - `cadastro.html?app=mac` preserva o retorno para o app; cadastro comum do site redireciona para `account.html`.
-- App macOS validado localmente com `swift test`, `swift build` e `./script/build_and_run.sh --verify`.
+- App macOS validado localmente com `swift test`, `swift build`, `./script/build_and_run.sh --verify-bundle` e `./script/build_and_run.sh --verify`.
 - Build local do app continua assinado ad-hoc e usa cofre local cifrado por padrão, sem Keychain do macOS, para evitar prompts recorrentes enquanto não houver Apple Developer ID estável.
 - IA de classificação adicionada no app macOS: usa Gemini configurável em Preferências, salva a chave no cofre local cifrado e aplica regras apenas quando o usuário aciona a sugestão em Apps/Sites.
 
@@ -23,7 +23,7 @@ Progresso aproximado para finalizar o produto:
 - Backup Firebase: 80-85%.
 - Stripe e billing: 75-80%, pendente de compra/cancelamento real e conferência do webhook no painel.
 - App macOS completo: 70-75%, pendente de QA manual ponta a ponta no Mac.
-- Performance do app macOS: meta contínua adicionada. Otimizações aplicadas no cache de resumos, debounce de lembretes/foco, corte de relatórios por janela de data e cálculo de streak recente.
+- Performance do app macOS: meta contínua adicionada. Otimizações aplicadas no cache de resumos, debounce de lembretes/foco, corte de relatórios por janela de data, cálculo de streak recente, captura em background, persistência local e renderização de histórico grande.
 - Integrações externas de agenda/tarefas/automação: 45-60%, porque dependem de credenciais e contas reais.
 
 Ainda precisa de validação manual com uma conta real: entrar no site, abrir o app pelo deeplink, alterar plano no `admin.html` e clicar em validar assinatura no app.
@@ -97,6 +97,9 @@ Stripe configurado em produção:
 - Otimização agora faz parte das metas de finalização: o app deve permanecer leve durante uso contínuo, evitando recálculo completo de resumos e varreduras de histórico em cada amostra capturada.
 - Primeira correção de performance: `ActivityStore` invalida somente os dias afetados pelo sample editado/capturado e só filtra histórico para lembretes/foco depois do debounce da avaliação.
 - Segunda correção de performance: os samples ficam ordenados ao carregar/restaurar, resumos/relatórios param ao sair da janela de data e lembretes/foco usam somente o streak visível mais recente.
+- Terceira correção de performance: `ActivityMonitor` reduziu a cadência de captura, cacheia a leitura de URL do navegador por janela curta e evita AppleScript repetido a cada pulso.
+- Quarta correção de performance: persistência do `activity-log.json` usa debounce maior e grava em task de background, reduzindo travadas ao salvar histórico local.
+- Quinta correção de performance: Dashboard, Busca e Relatórios limitam renderização inicial de listas grandes; busca prefere resultados recentes e tem teste automatizado para respeitar limite.
 
 ### Roteiro de validação do login e planos
 
