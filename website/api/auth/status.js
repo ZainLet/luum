@@ -22,13 +22,7 @@
 const { admin, getFirestore } = require('../_firebaseAdmin');
 const { addCors, handleOptions } = require('../_cors');
 const { entitlementForUser } = require('../_entitlements');
-
-function normalizedDeviceID(req) {
-    const raw = req.headers['x-luum-device-id'];
-    const value = String(Array.isArray(raw) ? raw[0] : raw || '').trim().toLowerCase();
-    if (!/^[a-f0-9]{64}$/.test(value)) return '';
-    return value;
-}
+const { deviceSecurityPatch, evaluateDeviceAccess, normalizedDeviceID } = require('../_deviceSecurity');
 
 async function statusHandler(req, res) {
     addCors(req, res, { methods: 'GET, OPTIONS' });
@@ -58,17 +52,24 @@ async function statusHandler(req, res) {
             return res.json({ locked: true, reason: 'user_not_found' });
         }
 
+        const data = doc.data();
         const deviceID = normalizedDeviceID(req);
         if (deviceID) {
-            await userRef.set({
-                security: {
-                    lastDeviceID: deviceID,
-                    lastDeviceSeenAt: admin.firestore.FieldValue.serverTimestamp()
-                }
-            }, { merge: true });
+            const deviceAccess = evaluateDeviceAccess(data, deviceID);
+            if (!deviceAccess.allowed) {
+                await userRef.set(deviceSecurityPatch(admin, deviceID, { allowNewDevice: false }), { merge: true });
+                return res.json({
+                    locked: true,
+                    plan: entitlementForUser(data).plan,
+                    trial: false,
+                    reason: deviceAccess.reason,
+                    deviceLimit: deviceAccess.limit
+                });
+            }
+            await userRef.set(deviceSecurityPatch(admin, deviceID), { merge: true });
         }
 
-        return res.json(entitlementForUser(doc.data()));
+        return res.json(entitlementForUser(data));
 
     } catch (err) {
         console.error('[Status Error]', err);
