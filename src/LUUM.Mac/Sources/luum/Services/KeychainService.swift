@@ -4,7 +4,32 @@ import Security
 
 struct KeychainService {
     private let service = "com.zainlet.luum"
-    private let fallbackVersionPrefix = "v1:"
+    private let fallbackVersionPrefix = "v2:"
+    private let legacyFallbackVersionPrefix = "v1:"
+    private let useSystemKeychain: Bool
+    private let installationSecretURLOverride: URL?
+
+    init(
+        useSystemKeychain: Bool = ProcessInfo.processInfo.environment["LUUM_USE_SYSTEM_KEYCHAIN"] == "1",
+        installationSecretURL: URL? = nil
+    ) {
+        self.useSystemKeychain = useSystemKeychain
+        self.installationSecretURLOverride = installationSecretURL
+    }
+
+    var storageDescription: String {
+        useSystemKeychain
+            ? "Chaves do macOS"
+            : "Cofre local cifrado, sem Chaves do macOS"
+    }
+
+    func installationID() -> String? {
+        guard let secret = installationSecretForWriting() else { return nil }
+        var data = Data("\(service)\u{0}installation-id".utf8)
+        data.append(0)
+        data.append(secret)
+        return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
 
     func setString(_ value: String, for account: String) throws {
         try setData(Data(value.utf8), for: account)
@@ -25,6 +50,11 @@ struct KeychainService {
     }
 
     func removeValue(for account: String) {
+        guard useSystemKeychain else {
+            UserDefaults.standard.removeObject(forKey: fallbackKey(for: account))
+            return
+        }
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -35,6 +65,11 @@ struct KeychainService {
     }
 
     private func setData(_ data: Data, for account: String) throws {
+        guard useSystemKeychain else {
+            setFallbackData(data, for: account)
+            return
+        }
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -69,6 +104,10 @@ struct KeychainService {
     }
 
     private func data(for account: String) -> Data? {
+        guard useSystemKeychain else {
+            return fallbackData(for: account)
+        }
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -89,8 +128,9 @@ struct KeychainService {
 
     private func setFallbackData(_ data: Data, for account: String) {
         let accountData = Data(account.utf8)
+        let encryption = fallbackEncryptionForWriting()
         guard
-            let sealed = try? AES.GCM.seal(data, using: fallbackEncryptionKey, authenticating: accountData),
+            let sealed = try? AES.GCM.seal(data, using: encryption.key, authenticating: accountData),
             let combined = sealed.combined
         else {
             UserDefaults.standard.removeObject(forKey: fallbackKey(for: account))
@@ -98,7 +138,7 @@ struct KeychainService {
         }
 
         UserDefaults.standard.set(
-            fallbackVersionPrefix + combined.base64EncodedString(),
+            encryption.prefix + combined.base64EncodedString(),
             forKey: fallbackKey(for: account)
         )
     }
@@ -114,11 +154,28 @@ struct KeychainService {
                 return nil
             }
 
+            guard let key = fallbackEncryptionKeyForReading() else { return nil }
             return try? AES.GCM.open(
                 sealed,
-                using: fallbackEncryptionKey,
+                using: key,
                 authenticating: Data(account.utf8)
             )
+        }
+        if raw.hasPrefix(legacyFallbackVersionPrefix) {
+            let encoded = String(raw.dropFirst(legacyFallbackVersionPrefix.count))
+            guard
+                let combined = Data(base64Encoded: encoded),
+                let sealed = try? AES.GCM.SealedBox(combined: combined),
+                let legacyData = try? AES.GCM.open(
+                    sealed,
+                    using: legacyFallbackEncryptionKey,
+                    authenticating: Data(account.utf8)
+                )
+            else {
+                return nil
+            }
+            setFallbackData(legacyData, for: account)
+            return legacyData
         }
 
         // Migra o fallback Base64 usado por builds anteriores para armazenamento cifrado.
@@ -127,13 +184,125 @@ struct KeychainService {
         return legacyData
     }
 
-    private var fallbackEncryptionKey: SymmetricKey {
-        // Builds ad-hoc podem perder acesso ao Keychain. A chave derivada da conta local
-        // reduz exposição casual em disco, mas não substitui o Keychain em distribuição.
+    private struct FallbackEncryption {
+        let prefix: String
+        let key: SymmetricKey
+    }
+
+    private func fallbackEncryptionForWriting() -> FallbackEncryption {
+        guard let secret = installationSecretForWriting() else {
+            return FallbackEncryption(prefix: legacyFallbackVersionPrefix, key: legacyFallbackEncryptionKey)
+        }
+
+        return FallbackEncryption(prefix: fallbackVersionPrefix, key: fallbackEncryptionKey(secret: secret))
+    }
+
+    private func fallbackEncryptionKeyForReading() -> SymmetricKey? {
+        guard let secret = existingInstallationSecret() else { return nil }
+        return fallbackEncryptionKey(secret: secret)
+    }
+
+    private func fallbackEncryptionKey(secret: Data) -> SymmetricKey {
+        // Builds ad-hoc trocam de assinatura e fazem o Keychain pedir senha.
+        // Por padrão usamos fallback cifrado local para evitar esse prompt.
+        let material = "\(service)\u{0}\(NSUserName())\u{0}\(NSHomeDirectory())"
+        var data = Data(material.utf8)
+        data.append(0)
+        data.append(secret)
+        return SymmetricKey(data: SHA256.hash(data: data))
+    }
+
+    private var legacyFallbackEncryptionKey: SymmetricKey {
         let material = "\(service)\u{0}\(NSUserName())\u{0}\(NSHomeDirectory())"
         return SymmetricKey(data: SHA256.hash(data: Data(material.utf8)))
     }
+
+    private func existingInstallationSecret() -> Data? {
+        let url = installationSecretURL()
+        if let data = try? Data(contentsOf: url), data.count >= 32 {
+            return data
+        }
+
+        return nil
+    }
+
+    private func installationSecretForWriting() -> Data? {
+        if let existing = existingInstallationSecret() {
+            return existing
+        }
+
+        let url = installationSecretURL()
+
+        var bytes = [UInt8](repeating: 0, count: 32)
+        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        let secret = status == errSecSuccess
+            ? Data(bytes)
+            : Data(SHA256.hash(data: Data("\(service)\u{0}\(UUID().uuidString)".utf8)))
+
+        do {
+            let directory = url.deletingLastPathComponent()
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
+            try secret.write(to: url, options: [.atomic])
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        } catch {
+            return nil
+        }
+
+        return secret
+    }
+
+    private func installationSecretURL() -> URL {
+        if let installationSecretURLOverride {
+            return installationSecretURLOverride
+        }
+
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first ??
+            URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support", isDirectory: true)
+        return base
+            .appendingPathComponent("Luum", isDirectory: true)
+            .appendingPathComponent(".local-vault-key", isDirectory: false)
+    }
 }
+
+#if DEBUG
+extension KeychainService {
+    func setFallbackStringForTesting(_ value: String, for account: String) {
+        setFallbackData(Data(value.utf8), for: account)
+    }
+
+    func setLegacyFallbackStringForTesting(_ value: String, for account: String) {
+        UserDefaults.standard.set(
+            Data(value.utf8).base64EncodedString(),
+            forKey: fallbackKey(for: account)
+        )
+    }
+
+    func setLegacyEncryptedFallbackStringForTesting(_ value: String, for account: String) {
+        let accountData = Data(account.utf8)
+        guard
+            let sealed = try? AES.GCM.seal(
+                Data(value.utf8),
+                using: legacyFallbackEncryptionKey,
+                authenticating: accountData
+            ),
+            let combined = sealed.combined
+        else { return }
+
+        UserDefaults.standard.set(
+            legacyFallbackVersionPrefix + combined.base64EncodedString(),
+            forKey: fallbackKey(for: account)
+        )
+    }
+
+    func rawFallbackStringForTesting(account: String) -> String? {
+        UserDefaults.standard.string(forKey: fallbackKey(for: account))
+    }
+}
+#endif
 
 struct KeychainServiceError: LocalizedError {
     let status: OSStatus

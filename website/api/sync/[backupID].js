@@ -1,11 +1,12 @@
 const { admin, getFirestore } = require('../_firebaseAdmin');
+const { addCors, handleOptions } = require('../_cors');
 const { entitlementForUser, includesFeature } = require('../_entitlements');
-
-function addCors(res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-    res.setHeader('Access-Control-Allow-Methods', 'PUT, POST, OPTIONS');
-}
+const {
+    payloadAccountMatchesFirebaseUID,
+    payloadForEntitlement,
+    payloadSize,
+    sanitizedPayloadForStorage
+} = require('../_syncPayload');
 
 function jsonBody(req) {
     if (!req.body) return {};
@@ -38,13 +39,9 @@ function firestoreDate(value) {
     return value?.toDate?.() || null;
 }
 
-function payloadSize(payload) {
-    return Buffer.byteLength(JSON.stringify(payload), 'utf8');
-}
-
 async function syncHandler(req, res) {
-    addCors(res);
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    addCors(req, res, { methods: 'PUT, POST, OPTIONS' });
+    if (req.method === 'OPTIONS') return handleOptions(req, res, { methods: 'PUT, POST, OPTIONS' });
     if (!['PUT', 'POST'].includes(req.method)) {
         return res.status(405).json({ message: 'Method not allowed' });
     }
@@ -91,11 +88,15 @@ async function syncHandler(req, res) {
             if (body.payload.rawActivities != null && !includesFeature(entitlement, 'rawActivityBackup')) {
                 return res.status(403).json({ message: 'Atividades brutas exigem o plano Negócios' });
             }
+            if (!payloadAccountMatchesFirebaseUID(body.payload, decoded.uid)) {
+                return res.status(403).json({ message: 'Conta do backup não confere com o login Firebase' });
+            }
+            const payload = sanitizedPayloadForStorage(body.payload);
 
             await ref.set({
                 uid: decoded.uid,
                 backupID,
-                payload: body.payload,
+                payload,
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                 source: 'macos'
             }, { merge: true });
@@ -115,7 +116,7 @@ async function syncHandler(req, res) {
 
         const data = snap.data() || {};
         return res.json({
-            payload: data.payload || null,
+            payload: payloadForEntitlement(data.payload || null, entitlement, includesFeature),
             updatedAt: swiftReferenceSeconds(firestoreDate(data.updatedAt))
         });
     } catch (err) {

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct LuumBackdrop: View {
@@ -6,40 +7,64 @@ struct LuumBackdrop: View {
             LuumTheme.pageGradient
                 .ignoresSafeArea()
 
-            Circle()
-                .fill(LuumTheme.accent.opacity(0.18))
-                .frame(width: 520, height: 520)
-                .blur(radius: 180)
-                .offset(x: 420, y: 240)
+            LinearGradient(
+                colors: [
+                    .white.opacity(0.035),
+                    .clear,
+                    .black.opacity(0.18),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
 
-            Circle()
-                .fill(LuumTheme.secondaryAccent.opacity(0.17))
-                .frame(width: 560, height: 560)
-                .blur(radius: 200)
-                .offset(x: -420, y: -260)
+            VStack(spacing: 0) {
+                Rectangle()
+                    .fill(.white.opacity(0.035))
+                    .frame(height: 1)
+                Spacer()
+                Rectangle()
+                    .fill(.white.opacity(0.04))
+                    .frame(height: 1)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 18)
+            .ignoresSafeArea()
 
-            Ellipse()
-                .fill(LuumTheme.electricBlue.opacity(0.08))
-                .frame(width: 880, height: 260)
-                .blur(radius: 120)
-                .offset(x: 0, y: -340)
-
-            RoundedRectangle(cornerRadius: 48, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [
-                            .white.opacity(0.07),
-                            .clear,
-                            LuumTheme.accent.opacity(0.12),
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-                .padding(18)
-                .ignoresSafeArea()
+            HStack(spacing: 0) {
+                Rectangle()
+                    .fill(.white.opacity(0.035))
+                    .frame(width: 1)
+                Spacer()
+                Rectangle()
+                    .fill(.white.opacity(0.035))
+                    .frame(width: 1)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 18)
+            .ignoresSafeArea()
         }
+    }
+}
+
+struct LuumAppMark: View {
+    var size: CGFloat = 28
+
+    var body: some View {
+        Image(nsImage: appIcon)
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
+            .frame(width: size, height: size)
+    }
+
+    private var appIcon: NSImage {
+        if let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+           let image = NSImage(contentsOf: iconURL) {
+            return image
+        }
+
+        return NSApplication.shared.applicationIconImage
     }
 }
 
@@ -51,16 +76,16 @@ struct LuumSectionHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(eyebrow.uppercased())
-                .font(.caption.weight(.semibold))
+                .font(.caption2.weight(.semibold))
                 .foregroundStyle(LuumTheme.textMuted)
-                .tracking(1.9)
+                .tracking(1.2)
 
             Text(title)
-                .font(.system(size: 30, weight: .semibold, design: .rounded))
+                .font(.system(size: 27, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white)
 
             Text(subtitle)
-                .font(.body)
+                .font(.callout)
                 .foregroundStyle(LuumTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -73,19 +98,20 @@ extension View {
         cornerRadius: CGFloat = 30,
         shadowOpacity: Double = 0.24
     ) -> some View {
-        self
+        let radius = min(cornerRadius, 18)
+        return self
             .background {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(LuumTheme.elevatedBlack.opacity(0.92))
-                    .shadow(color: Color.black.opacity(0.36), radius: 28, x: 0, y: 22)
-                    .shadow(color: tint.opacity(shadowOpacity), radius: 26, x: 0, y: 16)
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(LuumTheme.elevatedBlack.opacity(0.88))
+                    .shadow(color: Color.black.opacity(0.28), radius: 18, x: 0, y: 14)
+                    .shadow(color: tint.opacity(min(shadowOpacity, 0.12)), radius: 12, x: 0, y: 8)
                     .overlay {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        RoundedRectangle(cornerRadius: radius, style: .continuous)
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        LuumTheme.panelFillStrong,
                                         LuumTheme.panelFill,
+                                        .white.opacity(0.012),
                                         .clear,
                                     ],
                                     startPoint: .topLeading,
@@ -94,11 +120,11 @@ extension View {
                             )
                     }
                     .overlay(alignment: .top) {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        RoundedRectangle(cornerRadius: radius, style: .continuous)
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        .white.opacity(0.09),
+                                        .white.opacity(0.055),
                                         .clear,
                                     ],
                                     startPoint: .top,
@@ -106,18 +132,18 @@ extension View {
                                 )
                             )
                             .mask {
-                                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                                RoundedRectangle(cornerRadius: radius, style: .continuous)
                             }
                     }
             }
             .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .stroke(
                         LinearGradient(
                             colors: [
-                                LuumTheme.surfaceInnerHighlight,
+                                .white.opacity(0.105),
                                 .white.opacity(0.03),
-                                tint.opacity(0.18),
+                                tint.opacity(0.12),
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -126,8 +152,8 @@ extension View {
                     )
             }
             .glassEffect(
-                .regular.tint(tint.opacity(0.16)).interactive(),
-                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .regular.tint(tint.opacity(0.08)).interactive(),
+                in: RoundedRectangle(cornerRadius: radius, style: .continuous)
             )
     }
 }

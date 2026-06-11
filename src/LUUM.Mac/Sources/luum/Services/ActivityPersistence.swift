@@ -1,12 +1,14 @@
 import Foundation
 
-struct ActivityPersistence {
+struct ActivityPersistence: @unchecked Sendable {
     private let fileManager: FileManager
     private let directoryName = "luum"
     private let fileName = "activity-log.json"
+    private let customDirectoryURL: URL?
 
-    init(fileManager: FileManager = .default) {
+    init(fileManager: FileManager = .default, directoryURL: URL? = nil) {
         self.fileManager = fileManager
+        self.customDirectoryURL = directoryURL
     }
 
     func load(retentionDays: Int = 30) -> [ActivitySample] {
@@ -38,7 +40,11 @@ struct ActivityPersistence {
     }
 
     private var directoryURL: URL {
-        fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        if let customDirectoryURL {
+            return customDirectoryURL
+        }
+
+        return fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(directoryName, isDirectory: true)
     }
 

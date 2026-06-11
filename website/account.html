@@ -63,6 +63,12 @@
         .acct-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--purple-500); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 700; color: white; flex-shrink: 0; }
         .acct-name { font-size: 1.125rem; font-weight: 700; color: var(--text-primary); }
         .acct-email { font-size: 0.875rem; color: var(--text-muted); margin-top: 2px; }
+        .profile-message { display: none; margin-top: 12px; font-size: 0.8125rem; line-height: 1.5; color: var(--text-muted); }
+        .profile-message.success { color: #4ade80; }
+        .profile-message.error { color: #fca5a5; }
+        .account-message { display: none; margin-top: 14px; font-size: 0.8125rem; line-height: 1.5; color: var(--text-muted); }
+        .account-message.success { color: #4ade80; }
+        .account-message.error { color: #fca5a5; }
 
         .empty-devices { text-align: center; padding: 32px 0; color: var(--text-muted); font-size: 0.875rem; }
 
@@ -91,13 +97,13 @@
                     <li><a href="account.html">Minha Conta</a></li>
                 </ul>
                 <div class="nav-actions">
-                    <a href="login.html" class="btn btn-secondary js-auth-login">Entrar</a>
-                    <a href="cadastro.html" class="btn btn-primary js-auth-signup">Começar Grátis</a>
+                    <a href="login.html?redirect=account.html" class="btn btn-secondary js-auth-login">Entrar</a>
+                    <a href="cadastro.html?redirect=account.html" class="btn btn-primary js-auth-signup">Começar Grátis</a>
                 </div>
             </nav>
             <div class="nav-actions header-actions">
-                <a href="login.html" class="btn btn-secondary js-auth-login">Entrar</a>
-                <a href="cadastro.html" class="btn btn-primary js-auth-signup">Começar Grátis</a>
+                <a href="login.html?redirect=account.html" class="btn btn-secondary js-auth-login">Entrar</a>
+                <a href="cadastro.html?redirect=account.html" class="btn btn-primary js-auth-signup">Começar Grátis</a>
             </div>
             <button class="hamburger" aria-label="Abrir Menu">&#9776;</button>
         </div>
@@ -116,7 +122,7 @@
             <div class="logged-out" id="loggedOut">
                 <h2>Você não está logado</h2>
                 <p>Faça login para acessar sua conta.</p>
-                <a href="login.html" class="btn btn-primary">Fazer Login</a>
+                <a href="login.html?redirect=account.html" class="btn btn-primary">Fazer Login</a>
             </div>
 
             <!-- Dashboard -->
@@ -139,9 +145,10 @@
                             </div>
                         </div>
                         <div style="display:flex;gap:12px;flex-wrap:wrap;">
-                            <a href="#" class="btn btn-secondary" style="font-size:0.8125rem;padding:8px 16px;" onclick="alert('Funcionalidade em breve.')">Alterar senha</a>
+                            <button class="btn btn-secondary" id="resetPasswordBtn" style="font-size:0.8125rem;padding:8px 16px;">Alterar senha</button>
                             <a href="admin.html" class="btn btn-secondary" id="adminLink" style="display:none;font-size:0.8125rem;padding:8px 16px;">Admin</a>
                         </div>
+                        <div class="profile-message" id="profileMessage" aria-live="polite"></div>
                     </div>
 
                     <!-- Assinatura -->
@@ -175,6 +182,7 @@
                             <button class="btn btn-secondary" id="cancelBtn" onclick="confirmCancel()">Cancelar assinatura</button>
                             <a href="sucesso.html" class="btn btn-secondary" id="reactivateBtn" style="display:none;">Reativar</a>
                         </div>
+                        <div class="account-message" id="subscriptionMessage" aria-live="polite"></div>
                     </div>
 
                     <!-- Dispositivos conectados -->
@@ -265,6 +273,20 @@
 
         function firebaseReady() {
             return typeof firebase !== 'undefined' && firebase.apps?.length && firebase.auth;
+        }
+
+        function setProfileMessage(message, kind = 'success') {
+            const el = document.getElementById('profileMessage');
+            el.textContent = message;
+            el.className = `profile-message ${kind}`;
+            el.style.display = message ? 'block' : 'none';
+        }
+
+        function setSubscriptionMessage(message, kind = 'success') {
+            const el = document.getElementById('subscriptionMessage');
+            el.textContent = message;
+            el.className = `account-message ${kind}`;
+            el.style.display = message ? 'block' : 'none';
         }
 
         function bootAccount() {
@@ -375,8 +397,12 @@
 
             // Renovação
             const now = Date.now();
-            const end = entitlement.expiresAt || timestampMillis(sub.currentPeriodEnd);
-            const trialEnd = timestampMillis(sub.trialEndsAt) || (timestampMillis(data.createdAt) ? timestampMillis(data.createdAt) + 7 * 24 * 60 * 60 * 1000 : now);
+            const end = timestampMillis(entitlement.expiresAt) || timestampMillis(sub.currentPeriodEnd);
+            const trialEnd =
+                timestampMillis(entitlement.trialEndsAt) ||
+                timestampMillis(entitlement.expiresAt) ||
+                timestampMillis(sub.trialEndsAt) ||
+                (timestampMillis(data.createdAt) ? timestampMillis(data.createdAt) + 7 * 24 * 60 * 60 * 1000 : now);
 
             let renewalEl = document.getElementById('planRenewal');
             let daysEl = document.getElementById('planDaysLeft');
@@ -434,14 +460,35 @@
             });
         });
 
+        document.getElementById('resetPasswordBtn').addEventListener('click', async () => {
+            if (!firebaseReady() || !currentUser?.email) {
+                setProfileMessage('Entre novamente para alterar sua senha.', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('resetPasswordBtn');
+            btn.disabled = true;
+            try {
+                await firebase.auth().sendPasswordResetEmail(currentUser.email);
+                setProfileMessage(`Enviamos um link de alteração de senha para ${currentUser.email}.`);
+            } catch (err) {
+                setProfileMessage(err.message || 'Não foi possível enviar o email de alteração de senha agora.', 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
         // ─── Cancelar ───────────────────────────────
         async function confirmCancel() {
             if (!confirm('Tem certeza que deseja cancelar sua assinatura? Você perderá acesso no fim do ciclo atual.')) return;
             if (!currentUser) {
-                alert('Entre novamente para cancelar sua assinatura.');
+                setSubscriptionMessage('Entre novamente para cancelar sua assinatura.', 'error');
                 return;
             }
 
+            const btn = document.getElementById('cancelBtn');
+            btn.disabled = true;
+            setSubscriptionMessage('Agendando cancelamento...');
             try {
                 const token = await currentUser.getIdToken();
                 const response = await fetch(luumApiUrl('/api/cancel-subscription'), {
@@ -453,10 +500,11 @@
                 });
                 const data = await response.json().catch(() => ({}));
                 if (!response.ok) throw new Error(data.error || 'Erro ao cancelar assinatura.');
-                alert('Cancelamento agendado para o fim do ciclo atual.');
-                location.reload();
+                setSubscriptionMessage('Cancelamento agendado para o fim do ciclo atual.');
+                setTimeout(() => location.reload(), 900);
             } catch (err) {
-                alert(err.message || 'Não foi possível cancelar agora.');
+                setSubscriptionMessage(err.message || 'Não foi possível cancelar agora.', 'error');
+                btn.disabled = false;
             }
         }
     </script>

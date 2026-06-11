@@ -1,13 +1,16 @@
 const { admin, getFirestore } = require('./_firebaseAdmin');
+const { addCors: addSharedCors, handleOptions: handleSharedOptions } = require('./_cors');
 const { entitlementForUser, includesFeature } = require('./_entitlements');
 const { sameHash, secretHash, validID } = require('./_workspaceSecurity');
 
 const SWIFT_REFERENCE_SECONDS = 978307200;
 
-function addCors(res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-    res.setHeader('Access-Control-Allow-Methods', 'PUT, POST, OPTIONS');
+function addCors(req, res) {
+    return addSharedCors(req, res, { methods: 'PUT, POST, OPTIONS' });
+}
+
+function handleOptions(req, res) {
+    return handleSharedOptions(req, res, { methods: 'PUT, POST, OPTIONS' });
 }
 
 function jsonBody(req) {
@@ -101,6 +104,7 @@ module.exports = {
     addCors,
     ensureWorkspace,
     firestoreDate,
+    handleOptions,
     jsonBody,
     requireWorkspaceUser,
     routeValue,

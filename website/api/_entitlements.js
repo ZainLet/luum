@@ -29,10 +29,25 @@ function normalizedPlan(value) {
     return PLAN_RANK[candidate] ? candidate : 'essencial';
 }
 
+function strongestPlan(...values) {
+    return values
+        .map(normalizedPlan)
+        .sort((left, right) => (PLAN_RANK[right] || 0) - (PLAN_RANK[left] || 0))[0] || 'essencial';
+}
+
+function accountPlan(data = {}) {
+    return strongestPlan(
+        data.plan,
+        data.subscription?.plan,
+        data.onboarding?.plan,
+        data.quiz?.plan
+    );
+}
+
 function entitlementForUser(data = {}, now = Date.now()) {
     const subscription = data.subscription || {};
     const status = String(subscription.status || 'trial').trim().toLowerCase();
-    const plan = normalizedPlan(data.plan);
+    const plan = accountPlan(data);
 
     if (status === 'trial') {
         const createdAt = timestampMillis(data.createdAt);
@@ -42,6 +57,7 @@ function entitlementForUser(data = {}, now = Date.now()) {
             locked,
             plan,
             trial: !locked,
+            ...(locked ? {} : { expiresAt: trialEnd, trialEndsAt: trialEnd }),
             daysRemaining: locked ? 0 : Math.ceil((trialEnd - now) / DAY_MS),
             reason: locked ? 'trial_expired' : null
         };
@@ -74,6 +90,8 @@ function includesFeature(entitlement, feature) {
 
     const rank = PLAN_RANK[normalizedPlan(entitlement.plan)] || 0;
     switch (feature) {
+        case 'classification':
+            return true;
         case 'cloudBackup':
             return rank >= PLAN_RANK.profissional;
         case 'rawActivityBackup':
@@ -85,4 +103,4 @@ function includesFeature(entitlement, feature) {
     }
 }
 
-module.exports = { entitlementForUser, includesFeature, normalizedPlan, timestampMillis };
+module.exports = { accountPlan, entitlementForUser, includesFeature, normalizedPlan, strongestPlan, timestampMillis };

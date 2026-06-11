@@ -1,28 +1,28 @@
 import SwiftUI
 
 enum LuumTheme {
-    static let accent = Color(red: 0.70, green: 0.49, blue: 0.98)
-    static let secondaryAccent = Color(red: 0.42, green: 0.24, blue: 0.82)
-    static let electricBlue = Color(red: 0.82, green: 0.76, blue: 1.0)
-    static let hotPink = Color(red: 0.58, green: 0.31, blue: 0.88)
-    static let baseBlack = Color(red: 0.03, green: 0.03, blue: 0.05)
-    static let elevatedBlack = Color(red: 0.08, green: 0.07, blue: 0.11)
-    static let panelFill = Color.white.opacity(0.028)
-    static let panelFillStrong = Color.white.opacity(0.045)
-    static let surfaceOutline = Color.white.opacity(0.085)
-    static let surfaceInnerHighlight = Color.white.opacity(0.06)
-    static let textSecondary = Color.white.opacity(0.72)
-    static let textMuted = Color.white.opacity(0.48)
+    static let accent = Color(red: 0.48, green: 0.34, blue: 0.86)
+    static let secondaryAccent = Color(red: 0.35, green: 0.30, blue: 0.56)
+    static let electricBlue = Color(red: 0.62, green: 0.53, blue: 0.95)
+    static let hotPink = Color(red: 0.82, green: 0.18, blue: 0.39)
+    static let baseBlack = Color(red: 0.035, green: 0.035, blue: 0.045)
+    static let elevatedBlack = Color(red: 0.085, green: 0.082, blue: 0.105)
+    static let sidebarBlack = Color(red: 0.055, green: 0.055, blue: 0.072)
+    static let panelFill = Color.white.opacity(0.035)
+    static let panelFillStrong = Color.white.opacity(0.06)
+    static let surfaceOutline = Color.white.opacity(0.09)
+    static let surfaceInnerHighlight = Color.white.opacity(0.055)
+    static let textSecondary = Color.white.opacity(0.70)
+    static let textMuted = Color.white.opacity(0.46)
     static let pageGradient = LinearGradient(
         colors: [
             baseBlack,
-            Color(red: 0.04, green: 0.03, blue: 0.08),
-            Color(red: 0.08, green: 0.05, blue: 0.14),
-            Color(red: 0.12, green: 0.06, blue: 0.20),
-            Color(red: 0.02, green: 0.02, blue: 0.04),
+            Color(red: 0.055, green: 0.052, blue: 0.072),
+            Color(red: 0.035, green: 0.034, blue: 0.046),
+            Color(red: 0.018, green: 0.018, blue: 0.024),
         ],
         startPoint: .top,
-        endPoint: .bottomTrailing
+        endPoint: .bottom
     )
 }
 

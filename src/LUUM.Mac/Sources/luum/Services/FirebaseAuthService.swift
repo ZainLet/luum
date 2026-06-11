@@ -4,7 +4,9 @@ struct FirebaseSubscriptionStatus: Decodable, Sendable {
     let locked: Bool
     let plan: String?
     let trial: Bool?
+    let canceling: Bool?
     let expiresAt: TimeInterval?
+    let trialEndsAt: TimeInterval?
     let daysRemaining: Int?
     let reason: String?
 }
@@ -30,10 +32,29 @@ enum FirebaseAuthServiceError: LocalizedError {
             "A assinatura nao esta liberada: \(reason)."
         }
     }
+
+    var isExplicitAuthRejection: Bool {
+        switch self {
+        case .missingToken, .invalidToken:
+            true
+        case let .statusRejected(reason):
+            [
+                "HTTP 401",
+                "HTTP 403",
+                "refresh HTTP 400",
+                "refresh HTTP 401",
+                "refresh HTTP 403",
+            ].contains(reason)
+        case .invalidCallback, .invalidStatusEndpoint:
+            false
+        }
+    }
 }
 
 struct FirebaseAuthService {
     static let defaultBaseURL = "https://luum-app.vercel.app"
+    static let firebaseProjectID = "luum-app"
+    static let firebaseIssuer = "https://securetoken.google.com/luum-app"
     static let firebaseAPIKey = "AIzaSyAWV6ulpYb54Qrta1Fu4iuP9ocnyGNJ99M"
 
     var statusBaseURL: String
@@ -66,6 +87,11 @@ struct FirebaseAuthService {
         return official
     }
 
+    static func isOfficialFirebaseTokenPayload(_ payload: FirebaseIDTokenPayload) -> Bool {
+        Self.nonBlank(payload.audience) == firebaseProjectID &&
+        Self.nonBlank(payload.issuer) == firebaseIssuer
+    }
+
     func session(from callbackURL: URL) throws -> LuumAuthSession {
         guard callbackURL.scheme == "luum", callbackURL.host == "auth" else {
             throw FirebaseAuthServiceError.invalidCallback
@@ -78,6 +104,9 @@ struct FirebaseAuthService {
 
         guard let token, !token.isEmpty else { throw FirebaseAuthServiceError.missingToken }
         let payload = try decodeFirebaseToken(token)
+        guard Self.isOfficialFirebaseTokenPayload(payload) else {
+            throw FirebaseAuthServiceError.invalidToken
+        }
         guard let resolvedUID = Self.nonBlank(payload.userID) else {
             throw FirebaseAuthServiceError.invalidToken
         }
@@ -103,12 +132,12 @@ struct FirebaseAuthService {
         )
     }
 
-    func verifiedSession(_ existing: LuumAuthSession) async throws -> LuumAuthSession {
+    func verifiedSession(_ existing: LuumAuthSession, deviceID: String? = nil) async throws -> LuumAuthSession {
         var updated = existing
         let status: FirebaseSubscriptionStatus
 
         do {
-            status = try await fetchSubscriptionStatus(idToken: updated.idToken)
+            status = try await fetchSubscriptionStatus(idToken: updated.idToken, deviceID: deviceID)
         } catch FirebaseAuthServiceError.statusRejected("HTTP 401") {
             guard let refreshToken = Self.nonBlank(updated.refreshToken) else { throw FirebaseAuthServiceError.statusRejected("HTTP 401") }
             let refreshed = try await refreshFirebaseToken(refreshToken)
@@ -117,17 +146,24 @@ struct FirebaseAuthService {
             if let expiresIn = TimeInterval(refreshed.expiresIn ?? "") {
                 updated.expiresAt = Date().addingTimeInterval(expiresIn)
             }
-            status = try await fetchSubscriptionStatus(idToken: updated.idToken)
+            status = try await fetchSubscriptionStatus(idToken: updated.idToken, deviceID: deviceID)
         }
 
         updated.plan = LuumAccountPlan(remoteValue: status.plan ?? (status.trial == true ? "trial" : nil))
-        updated.subscriptionStatus = status.trial == true ? "trial" : (status.locked ? (status.reason ?? "locked") : "active")
+        updated.subscriptionStatus = status.trial == true
+            ? "trial"
+            : (status.locked ? (status.reason ?? "locked") : (status.canceling == true ? "canceling" : "active"))
         updated.lockedReason = status.locked ? status.reason ?? "locked" : nil
         updated.lastVerifiedAt = Date()
 
         if let expiresAt = status.expiresAt {
             let seconds = expiresAt > 9_999_999_999 ? expiresAt / 1000 : expiresAt
             updated.expiresAt = Date(timeIntervalSince1970: seconds)
+        }
+
+        if let trialEndsAt = status.trialEndsAt ?? (status.trial == true ? status.expiresAt : nil) {
+            let seconds = trialEndsAt > 9_999_999_999 ? trialEndsAt / 1000 : trialEndsAt
+            updated.trialEndsAt = Date(timeIntervalSince1970: seconds)
         }
 
         return updated
@@ -153,13 +189,16 @@ struct FirebaseAuthService {
         return try JSONDecoder().decode(FirebaseTokenRefreshResponse.self, from: data)
     }
 
-    private func fetchSubscriptionStatus(idToken: String) async throws -> FirebaseSubscriptionStatus {
+    private func fetchSubscriptionStatus(idToken: String, deviceID: String?) async throws -> FirebaseSubscriptionStatus {
         let trimmed = statusBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        guard let baseURL = URL(string: trimmed) else { throw FirebaseAuthServiceError.invalidStatusEndpoint }
+        guard let baseURL = Self.officialBackendURL(from: trimmed) else { throw FirebaseAuthServiceError.invalidStatusEndpoint }
         let url = baseURL.appending(path: "/api/auth/status")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
+        if let deviceID = Self.nonBlank(deviceID) {
+            request.setValue(deviceID, forHTTPHeaderField: "X-Luum-Device-ID")
+        }
 
         let (data, response) = try await session.data(for: request)
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500

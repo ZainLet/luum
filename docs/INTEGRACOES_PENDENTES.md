@@ -2,14 +2,41 @@
 
 Este arquivo lista o que depende de contas, chaves externas ou decisões que não devem ficar hardcoded no repositório.
 
+## Estado validado em 08/06/2026
+
+- Vercel production atualizado em `https://luum-app.vercel.app` com as APIs de login, admin, checkout, backup, workspace e CORS restrito.
+- Correção publicada em produção: `/api/auth/status` agora resolve o plano efetivo mais forte entre `plan`, `subscription.plan` e campos legados `onboarding.plan`/`quiz.plan`, evitando o caso em que o Firestore mostra `equipes` mas o app continua preso em `Profissional`.
+- Rotas `/api/admin/*` consolidadas em uma única function dinâmica para manter o deploy dentro do limite de 12 Serverless Functions do plano Vercel Hobby.
+- `login.html` e `cadastro.html` em produção usam `user.getIdToken(true)` antes de chamar `/api/auth/upsert-user` e antes de abrir `luum://auth`, reduzindo falhas por token Firebase antigo no app.
+- Firebase Hosting publicado em `https://luum-app.web.app` com `auth.js?v=8`.
+- `OPTIONS /api/auth/upsert-user` aceita `Origin: https://luum-app.web.app` e rejeita origem desconhecida.
+- `auth.js` compartilhado cria/atualiza `users/{uid}` via `/api/auth/upsert-user` antes de abrir o app com `luum://auth`.
+- `login.html?app=mac` é o único fluxo web que abre `luum://auth`; login comum do site redireciona para `account.html`.
+- `cadastro.html?app=mac` preserva o retorno para o app; cadastro comum do site redireciona para `account.html`.
+- App macOS validado localmente com `swift test`, `swift build`, `./script/build_and_run.sh --verify-bundle` e `./script/build_and_run.sh --verify`.
+- Build local do app continua assinado ad-hoc e usa cofre local cifrado por padrão, sem Keychain do macOS, para evitar prompts recorrentes enquanto não houver Apple Developer ID estável.
+- IA de classificação adicionada no app macOS: usa Gemini configurável em Preferências, salva a chave no cofre local cifrado e aplica regras apenas quando o usuário aciona a sugestão em Apps/Sites.
+
+Progresso aproximado para finalizar o produto:
+
+- Login, Firebase e gates por plano: 90%.
+- Backup Firebase: 80-85%.
+- Stripe e billing: 75-80%, pendente de compra/cancelamento real e conferência do webhook no painel.
+- App macOS completo: 70-75%, pendente de QA manual ponta a ponta no Mac.
+- Performance do app macOS: meta contínua adicionada. Otimizações aplicadas no cache de resumos, debounce de lembretes/foco, corte de relatórios por janela de data, cálculo de streak recente, captura em background, persistência local e renderização de histórico grande.
+- Integrações externas de agenda/tarefas/automação: 45-60%, porque dependem de credenciais e contas reais.
+
+Ainda precisa de validação manual com uma conta real: entrar no site, abrir o app pelo deeplink, alterar plano no `admin.html` e clicar em validar assinatura no app.
+
 ## Firebase
 
 - Regras `firestore.rules` publicadas em produção. A política versionada permite ao usuário autenticado ler apenas o próprio perfil e bloqueia gravações diretas, backups e o cofre fora do backend Admin.
 - Confirmar o projeto final (`luum-app`) e domínios autorizados do Firebase Auth.
 - Endpoint `POST /api/auth/upsert-user` validado em produção para criar/atualizar `users/{uid}` via Admin SDK após login/cadastro.
-- Endpoint `GET /api/auth/status` validado em produção recebendo exclusivamente `Authorization: Bearer {firebase_id_token}` e retornando `locked`, `plan`, `trial`, `expiresAt` e `reason`.
+- Endpoint `GET /api/auth/status` validado em produção recebendo exclusivamente `Authorization: Bearer {firebase_id_token}` e retornando `locked`, `plan`, `trial`, `expiresAt`, `trialEndsAt` e `reason`.
 - Configurar `ADMIN_EMAILS` no backend com o primeiro email administrador, separado por vírgula se houver mais de um.
 - Usar `admin.html` para promover usuários e definir `plan`, `subscription.status`, validade, assentos e `role`.
+- Se um usuário antigo tiver plano salvo em `onboarding.plan` ou `quiz.plan`, a API de status já considera esse valor como fallback/compatibilidade. O formato oficial continua sendo `users/{uid}.plan` na raiz.
 - Opcional: manter custom claims `luumAdmin` para admins; a fonte de verdade dos planos deve continuar sendo Firestore/Stripe.
 
 ## Credenciais removidas do histórico ativo
@@ -20,7 +47,7 @@ Este arquivo lista o que depende de contas, chaves externas ou decisões que nã
 
 ## Backend escolhido
 
-Use Vercel para as rotas Node já existentes do site, porque `luum_website/api/*.js` já segue o formato serverless. Firebase Hosting deve continuar servindo o site estático e redirecionar ou chamar a API no domínio escolhido.
+Use Vercel para as rotas Node já existentes do site, porque `website/api/*.js` já segue o formato serverless. Firebase Hosting deve continuar servindo o site estático e chamar a API oficial em `https://luum-app.vercel.app`.
 
 Variáveis necessárias no deploy:
 
@@ -28,6 +55,8 @@ Variáveis necessárias no deploy:
 - `STRIPE_WEBHOOK_SECRET`
 - `PUBLIC_SITE_URL` com a URL pública do site usada no retorno do Checkout; depois do bootstrap também pode ser salva pelo cofre do admin
 - `LUUM_SETTINGS_ENCRYPTION_KEY` com uma chave aleatória longa para criptografar o cofre de integrações no Firestore
+- `GEMINI_API_KEY` para a rota segura `POST /api/ai/classify`
+- Opcional: `GEMINI_MODEL` e `GEMINI_ENDPOINT` se quiser trocar o modelo ou provedor compatível com Gemini
 - `STRIPE_MIN_SEATS_EQUIPES=2` e `STRIPE_MIN_SEATS_NEGOCIOS=5` se quiser sobrescrever os mínimos já protegidos no backend
 - `FIREBASE_SERVICE_ACCOUNT_JSON` com a credencial técnica restrita do Admin SDK
 - `ADMIN_EMAILS` com os emails autorizados a acessar `admin.html`
@@ -54,44 +83,58 @@ Stripe configurado em produção:
 
 ## App macOS
 
-- O app já recebe `luum://auth?token=...&refreshToken=...&uid=...`, exige que o UID do callback confira com o token, renova token Firebase expirado, consulta `/api/auth/status`, aplica gates por plano e salva sessão local com fallback cifrado quando o Keychain falha.
+- O app já recebe `luum://auth?token=...&refreshToken=...&uid=...`, exige que o UID do callback confira com o token, renova token Firebase expirado, consulta `/api/auth/status`, usa a validade de trial enviada pelo backend, aplica gates por plano e salva sessão local em cofre cifrado sem acionar o Keychain do macOS em builds ad-hoc.
 - Sessões locais só mantêm acesso offline por até 24 horas após uma validação real do servidor. Falhas de rede não renovam essa tolerância; rejeições explícitas da API bloqueiam a sessão e exigem novo login.
-- Ao aplicar uma sessão Firebase, o app fixa backup e workspace no domínio oficial, troca o `backupID` para o UID Firebase e desliga backup bruto quando a conta está bloqueada ou não está no plano Negócios.
+- Ao aplicar uma sessão Firebase, o app fixa backup e workspace no domínio oficial, troca o `backupID` para o UID Firebase e desliga backup bruto quando a conta está bloqueada ou não está no plano Negócios. Mesmo que uma preferência antiga esteja suja em disco, push/restore usam o domínio oficial e o UID da sessão.
 - O monitoramento local só inicia depois de uma sessão local ainda válida ou de uma validação real no backend. Logout, sessão bloqueada ou rejeição explícita da API param a captura local.
 - Notificações, lembretes, metas e perfis de foco respeitam os gates de plano antes de pedir permissão do macOS, criar regras ou avaliar alertas locais.
 - Toggles de integrações premium e workspace também respeitam o plano antes de ficarem ativos; Zapier exige integrações avançadas e ranking corporativo exige plano de equipe. O endpoint do workspace fica fixo no domínio oficial da Vercel.
-- Sem Apple Developer, mantenha assinatura ad-hoc (`codesign --sign -`) para builds locais.
-- Verificação local atual: `./script/build_and_run.sh --verify` compila e assina o app ad-hoc. Nesta máquina, `swift test` compila o bundle de testes com sucesso, mas as Command Line Tools não expõem o runner `xctest`.
+- Sem Apple Developer, mantenha assinatura ad-hoc (`codesign --sign -`) para builds locais. O armazenamento local cifrado evita o prompt recorrente “Luum deseja usar as informações confidenciais…” causado pelo Keychain quando a assinatura muda.
+- Verificação local atual: `./script/build_and_run.sh --verify-bundle` compila, assina ad-hoc e valida o bundle sem abrir o app; `--verify` faz a mesma validação e abre o app para teste manual. Nesta máquina, `swift test` compila o bundle de testes com sucesso, mas as Command Line Tools não expõem o runner `xctest`.
 - Para reduzir crack em distribuição real, mover validação final para servidor: expiração curta, refresh obrigatório, device id por instalação e checagem de assinatura no backend. Nenhum bloqueio local é 100% à prova de crack.
+- O app envia `X-Luum-Device-ID` nas validações de plano usando um identificador derivado do segredo local da instalação; o backend registra o último dispositivo visto em `users/{uid}.security`, preparando limite/alerta de dispositivos por plano.
 - O desktop fixa login, backup e ranking em `https://luum-app.vercel.app`: preferências locais não podem redirecionar o Firebase ID token para outro domínio.
+- Otimização agora faz parte das metas de finalização: o app deve permanecer leve durante uso contínuo, evitando recálculo completo de resumos e varreduras de histórico em cada amostra capturada.
+- Primeira correção de performance: `ActivityStore` invalida somente os dias afetados pelo sample editado/capturado e só filtra histórico para lembretes/foco depois do debounce da avaliação.
+- Segunda correção de performance: os samples ficam ordenados ao carregar/restaurar, resumos/relatórios param ao sair da janela de data e lembretes/foco usam somente o streak visível mais recente.
+- Terceira correção de performance: `ActivityMonitor` reduziu a cadência de captura, cacheia a leitura de URL do navegador por janela curta e evita AppleScript repetido a cada pulso.
+- Quarta correção de performance: persistência do `activity-log.json` usa debounce maior e grava em task de background, reduzindo travadas ao salvar histórico local.
+- Quinta correção de performance: Dashboard, Busca e Relatórios limitam renderização inicial de listas grandes; busca prefere resultados recentes e tem teste automatizado para respeitar limite.
 
 ### Roteiro de validação do login e planos
 
-1. Publicar Vercel com `FIREBASE_SERVICE_ACCOUNT_JSON`, `ADMIN_EMAILS`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` e `LUUM_SETTINGS_ENCRYPTION_KEY`.
-2. Abrir `https://luum-app.vercel.app/admin.html` com `oluum.app@gmail.com` e confirmar que `/api/admin/health` mostra Firebase Admin, Firestore e permissão de admin como OK.
+1. Abrir `https://luum-app.vercel.app/admin.html` com `oluum.app@gmail.com` e confirmar que `/api/admin/health` mostra Firebase Admin, Firestore e permissão de admin como OK.
+2. Se `/api/admin/health` acusar configuração ausente, revisar `FIREBASE_SERVICE_ACCOUNT_JSON`, `ADMIN_EMAILS`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` e `LUUM_SETTINGS_ENCRYPTION_KEY` na Vercel e republicar.
 3. Entrar no site com uma conta comum. O login deve chamar `/api/auth/upsert-user` e criar/atualizar `users/{uid}` no Firestore.
-4. No app macOS, clicar em Entrar. O site deve abrir `login.html?app=mac` e retornar para o app com `luum://auth?token=...&refreshToken=...&uid=...`.
-5. No app, confirmar que o status muda para `Plano {nome} validado.`. Sem token ou com UID divergente, o app deve rejeitar o callback.
-6. No `admin.html`, alterar o plano/status do usuário. No app, clicar em `Validar assinatura` e confirmar que telas premium liberam ou bloqueiam conforme o plano.
-7. Testar logout no app. A captura local deve parar e as telas voltam para o bloqueio de login.
-8. Testar offline por menos de 24 horas após uma validação real: o app pode manter recursos do plano localmente. Depois dessa janela, deve pedir nova validação online.
-9. Validar backup: em plano Profissional ou maior, `Sincronizar agora` deve gravar em `/api/sync/{uid}`. Backup bruto só deve ficar disponível no plano Negócios.
+4. No site, clicar em Entrar ou Começar Grátis sem `app=mac` deve terminar em `account.html`, sem tentar abrir o app.
+5. Em `login.html?app=mac`, clicar em `Criar conta` deve manter o fluxo em `cadastro.html?app=mac`; em `cadastro.html?app=mac`, clicar em `Faça login` deve voltar para `login.html?app=mac`.
+6. No app macOS, clicar em Entrar. O site deve abrir `login.html?app=mac` e retornar para o app com `luum://auth?token=...&refreshToken=...&uid=...`.
+7. No app, confirmar que o status muda para `Plano {nome} validado.`. Sem token ou com UID divergente, o app deve rejeitar o callback.
+8. No `admin.html`, alterar o plano/status do usuário. No app, clicar em `Validar assinatura` e confirmar que telas premium liberam ou bloqueiam conforme o plano.
+9. Testar logout no app. A captura local deve parar e as telas voltam para o bloqueio de login.
+10. Testar offline por menos de 24 horas após uma validação real: o app pode manter recursos do plano localmente. Depois dessa janela, deve pedir nova validação online.
+11. Validar backup: em plano Profissional ou maior, `Sincronizar agora` deve gravar em `/api/sync/{uid}`. Backup bruto só deve ficar disponível no plano Negócios.
 
 ## Calendários e integrações
 
-- Google Calendar: criar OAuth Client tipo Desktop app e colar Client ID no app.
-- Outlook: registrar app no Azure/Microsoft Entra e revisar escopos Graph.
-- Notion: criar integração interna e compartilhar databases com ela.
-- ClickUp/Linear: gerar tokens/API keys por workspace.
-- Zapier: criar webhook Catch Hook e colar URL no app.
+- IA de classificação: em `Preferências > IA de classificação`, ative o recurso. O endpoint padrão do app já é `https://luum-app.vercel.app/api/ai/classify`, usando Firebase ID token e `GEMINI_API_KEY` na Vercel.
+- Para teste local rápido, ainda é possível trocar o endpoint para Gemini direto e colar uma chave Gemini no app; ela fica no cofre local cifrado. Em produção, prefira sempre a rota Vercel para não expor chave no binário macOS.
+- No código, os defaults ficam em `AIClassificationSettings.default`, a escolha entre backend Luum e Gemini direto fica em `AIClassificationService`, e o envio do Firebase ID token acontece em `ActivityStore.runAIClassification`.
+- Google Calendar: criar OAuth Client tipo Desktop app, autorizar redirect local do fluxo nativo e colar o Client ID no app. Client secret é opcional no app desktop e, se usado, fica no cofre local cifrado.
+- Outlook: registrar app no Azure/Microsoft Entra, gerar token Microsoft Graph com permissões de calendário e colar no app.
+- Notion: criar integração interna, copiar token, compartilhar as data sources com ela e informar os IDs/URLs no app.
+- ClickUp: gerar API token pessoal ou de workspace e informar os List IDs que devem entrar na agenda.
+- Linear: gerar API key e informar Workspace/Team IDs.
+- Zapier: criar webhook Catch Hook e colar URL no app. O backup remove a URL completa antes de enviar preferências ao Firebase.
 
 ## Backup Firebase
 
-- API criada no site/backend: `luum_website/api/sync/[backupID].js`.
+- API criada no site/backend: `website/api/sync/[backupID].js`.
 - O app macOS envia backup com `Authorization: Bearer {firebase_id_token}` para `/api/sync/{backupID}`.
 - `backupID` vira obrigatoriamente o UID Firebase após login e a API rejeita identificadores alternativos.
 - Atividades brutas continuam desligadas por privacidade e só podem ser armadas/enviadas se o app estiver com sessão validada em plano `rawActivityBackup` (Negócios).
 - Antes do envio, o app remove tokens OAuth, client secret Google, URL privada do webhook Zapier e eventos temporários da agenda Google. O Firestore recebe estrutura de contas, configurações sanitizadas e resumos.
+- O backup mantém metadados úteis de integração, como IDs de databases/listas/times e labels de workspace, para facilitar restauração. Tokens/API keys de Notion, Outlook, ClickUp, Linear, Google, segredo de workspace e webhook completo do Zapier continuam somente no cofre local deste Mac.
 - A API também valida assinatura e plano no Firestore antes de aceitar push ou restore. Essa checagem server-side impede que um binário desktop modificado libere backup ou atividades brutas apenas removendo gates locais.
 - Não salvar tokens OAuth de calendários no Firestore sem criptografia por usuário/dispositivo.
 
@@ -106,8 +149,8 @@ Stripe configurado em produção:
 
 ## Admin de planos
 
-- Página criada no site: `luum_website/admin.html`.
-- APIs criadas no backend Vercel: `luum_website/api/admin/users.js` e `luum_website/api/admin/health.js`.
+- Página criada no site: `website/admin.html`.
+- APIs criadas no backend Vercel por rota dinâmica: `website/api/admin/[action].js`, com ações `health`, `users`, `integrations` e `stripe-health`.
 - Ao abrir `admin.html` logado, o painel testa `/api/admin/health` e mostra API base, Firebase Admin, Firestore, `ADMIN_EMAILS` e sua permissão.
 - A tela usa `window.LUUM_API_BASE` para chamar o backend. O padrão atual é `https://luum-app.vercel.app`; se publicar em outro domínio, altere em `firebase-config.js`.
 - O admin inicial autorizado no backend é `oluum.app@gmail.com`. Use `ADMIN_EMAILS` na Vercel para incluir emails adicionais; depois disso, a página também pode promover outros usuários para `role: admin`.
@@ -115,7 +158,7 @@ Stripe configurado em produção:
 - A seção `Cofre de integrações` em `admin.html` salva segredos criptografados no Firestore e nunca devolve valores completos ao navegador. Para ativá-la, configure uma vez `LUUM_SETTINGS_ENCRYPTION_KEY` na Vercel.
 - A API exige Firebase ID token e só permite acesso para emails em `ADMIN_EMAILS` ou usuários com custom claim `luumAdmin: true`.
 - Para dar plano manual, o usuário precisa existir no Firebase Auth. Busque por email ou UID, selecione plano/status/dias/assentos e salve.
-- Depois de alterar um plano, peça para a pessoa clicar em `Validar plano` no app ou fazer login novamente, porque o app mantém uma sessão local para funcionar offline.
+- Depois de alterar um plano, confirme que o email exibido no app é o mesmo email alterado no admin. Em seguida, peça para a pessoa clicar em `Validar plano` no app ou fazer login novamente, porque o app mantém uma sessão local para funcionar offline.
 
 
 ## Marca e ícone
@@ -128,6 +171,6 @@ Stripe configurado em produção:
 1. Criar uma conta técnica restrita para o backend Vercel no projeto Firebase `luum-app`.
 2. Salvar o JSON diretamente na variável sensível `FIREBASE_SERVICE_ACCOUNT_JSON` da Vercel.
 3. Gerar uma chave aleatória longa e salvar diretamente em `LUUM_SETTINGS_ENCRYPTION_KEY`.
-4. Republicar a Vercel e validar `/api/auth/upsert-user`, `/api/auth/status` e `/api/admin/health`.
-5. Publicar `firestore.rules` e o Hosting Firebase para remover arquivos operacionais da superfície pública.
+4. Republicar a Vercel quando variáveis sensíveis mudarem e validar `/api/auth/upsert-user`, `/api/auth/status` e `/api/admin/health`.
+5. Publicar `firestore.rules` e o Hosting Firebase quando regras ou arquivos estáticos mudarem.
 6. Entrar como `oluum.app@gmail.com` em `admin.html` e preencher integrações adicionais pelo cofre.

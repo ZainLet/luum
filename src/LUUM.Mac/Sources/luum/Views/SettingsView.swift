@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var linearTokenDraft = ""
     @State private var linearTeamDraft = ""
     @State private var workspaceSecretDraft = ""
+    @State private var aiClassificationAPIKeyDraft = ""
 
     var body: some View {
         ScrollView {
@@ -22,6 +23,8 @@ struct SettingsView: View {
                 )
 
                 integrationHubCard
+                localVaultCard
+                aiClassificationCard
                 googleCalendarCard
                 notionCalendarCard
                 outlookCalendarCard
@@ -100,6 +103,18 @@ struct SettingsView: View {
         .luumGlassCard(tint: LuumTheme.accent.opacity(0.12), cornerRadius: 30)
     }
 
+    private var localVaultCard: some View {
+        settingsCard(
+            title: "Conta e cofre local",
+            lines: [
+                "Conta: \(store.accountEmail.isEmpty ? "Entre com sua conta Luum" : store.accountEmail)",
+                "Armazenamento: \(store.secretStorageDescription)",
+                store.authStatusMessage ?? "Sessao local ainda nao validada.",
+            ],
+            tint: LuumTheme.secondaryAccent.opacity(0.16)
+        )
+    }
+
     private var googleCalendarCard: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
@@ -156,7 +171,7 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("Os tokens OAuth ficam guardados no Keychain deste Mac e nao entram no backup em nuvem.")
+            Text("Os tokens OAuth ficam guardados em um cofre local cifrado neste Mac e nao entram no backup em nuvem.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -503,6 +518,100 @@ struct SettingsView: View {
         }
         .padding(22)
         .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.12), cornerRadius: 30)
+    }
+
+    private var aiClassificationCard: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("IA de classificacao")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.white)
+
+                    Text("Use a IA server-side do Luum para sugerir categorias de apps e sites na tela de classificacao rapida. A IA cria regras somente quando voce aciona o botao.")
+                        .foregroundStyle(LuumTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                CompactStatPill(
+                    title: store.aiClassificationConfigured ? "Pronta" : "Pendente",
+                    detail: store.aiClassificationSettings.model
+                )
+            }
+
+            Toggle("Ativar sugestoes por IA", isOn: Binding(
+                get: { store.aiClassificationSettings.isEnabled },
+                set: { store.updateAIClassificationEnabled($0) }
+            ))
+            .toggleStyle(.switch)
+
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                TextField("Endpoint Gemini", text: Binding(
+                    get: { store.aiClassificationSettings.endpointURL },
+                    set: { store.updateAIClassificationEndpointURL($0) }
+                ))
+                .textFieldStyle(.roundedBorder)
+
+                TextField("Modelo", text: Binding(
+                    get: { store.aiClassificationSettings.model },
+                    set: { store.updateAIClassificationModel($0) }
+                ))
+                .textFieldStyle(.roundedBorder)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Confianca minima: \(Int(store.aiClassificationSettings.minimumConfidence * 100))%")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.72))
+
+                Slider(
+                    value: Binding(
+                        get: { store.aiClassificationSettings.minimumConfidence },
+                        set: { store.updateAIClassificationMinimumConfidence($0) }
+                    ),
+                    in: 0.4 ... 0.95,
+                    step: 0.01
+                )
+            }
+
+            SecureField(
+                store.hasAIClassificationAPIKey ? "Chave Gemini local salva. Digite uma nova para trocar." : "Chave Gemini local opcional",
+                text: $aiClassificationAPIKeyDraft
+            )
+            .textFieldStyle(.roundedBorder)
+
+            HStack(spacing: 10) {
+                Button("Salvar chave") {
+                    store.updateAIClassificationAPIKey(aiClassificationAPIKeyDraft)
+                    aiClassificationAPIKeyDraft = ""
+                }
+                .buttonStyle(.glassProminent)
+                .disabled(aiClassificationAPIKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                Button("Remover chave") {
+                    store.updateAIClassificationAPIKey("")
+                    aiClassificationAPIKeyDraft = ""
+                }
+                .buttonStyle(.bordered)
+                .disabled(!store.hasAIClassificationAPIKey)
+            }
+
+            if let message = store.aiClassificationStatusMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Text("O endpoint padrao usa a Vercel do Luum e exige login Firebase. A chave local so e usada se voce trocar o endpoint para Gemini direto; em producao, prefira GEMINI_API_KEY na Vercel.")
+                .font(.caption)
+                .foregroundStyle(LuumTheme.textMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(22)
+        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.12), cornerRadius: 30)
     }
 
     private var clickUpCard: some View {
@@ -1073,6 +1182,7 @@ struct SettingsView: View {
 
     private var activeIntegrationCount: Int {
         [
+            store.aiClassificationConfigured,
             store.isGoogleCalendarConnected,
             store.notionCalendarSettings.isEnabled && store.notionCalendarConfigured,
             store.outlookCalendarSettings.isEnabled && store.outlookCalendarConfigured,
@@ -1087,6 +1197,35 @@ struct SettingsView: View {
 
     private func integrationSnapshot(for kind: IntegrationKind) -> IntegrationSnapshot {
         switch kind {
+        case .aiClassification:
+            if store.aiClassificationConfigured {
+                return IntegrationSnapshot(
+                    kind: kind,
+                    status: "Ativo",
+                    detail: AIClassificationService.isLuumBackendEndpoint(store.aiClassificationSettings.endpointURL)
+                        ? "Backend seguro com Firebase"
+                        : "\(store.aiClassificationSettings.providerName) \(store.aiClassificationSettings.model)",
+                    tint: LuumTheme.secondaryAccent
+                )
+            }
+
+            if store.aiClassificationSettings.isEnabled {
+                return IntegrationSnapshot(
+                    kind: kind,
+                    status: "Parcial",
+                    detail: AIClassificationService.isLuumBackendEndpoint(store.aiClassificationSettings.endpointURL)
+                        ? "Entre no Luum para liberar"
+                        : "Chave Gemini local pendente",
+                    tint: LuumTheme.hotPink
+                )
+            }
+
+            return IntegrationSnapshot(
+                kind: kind,
+                status: "Desativado",
+                detail: "Sugestoes opcionais",
+                tint: LuumTheme.textMuted
+            )
         case .googleCalendar:
             if store.isGoogleCalendarConnected {
                 return IntegrationSnapshot(

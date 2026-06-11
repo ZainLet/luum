@@ -111,11 +111,52 @@ struct LuumAuthSession: Codable, Equatable, Sendable {
     var isLocked: Bool {
         if let lockedReason, !lockedReason.isEmpty { return true }
         if ["canceled", "past_due", "expired", "trial_expired"].contains(subscriptionStatus) { return true }
-        if subscriptionStatus == "active", let expiresAt { return expiresAt < Date() }
+        if ["active", "canceling"].contains(subscriptionStatus), let expiresAt { return expiresAt < Date() }
         if subscriptionStatus == "trial", let trialEndsAt { return trialEndsAt < Date() }
         guard let lastVerifiedAt else { return true }
         if Date().timeIntervalSince(lastVerifiedAt) > Self.offlineGracePeriod { return true }
         return false
+    }
+
+    func includes(_ feature: LuumFeature) -> Bool {
+        if isLocked { return false }
+        if subscriptionStatus == "trial",
+           feature == .teamWorkspace || feature == .rawActivityBackup {
+            return false
+        }
+        return plan.includes(feature)
+    }
+
+    var lockExplanation: String? {
+        if let lockedReason = Self.nonBlank(lockedReason) {
+            return "Sua assinatura esta bloqueada: \(lockedReason)."
+        }
+
+        if ["canceled", "expired", "trial_expired"].contains(subscriptionStatus) {
+            return "Seu acesso expirou. Reative seu plano pelo site para liberar o app."
+        }
+
+        if subscriptionStatus == "past_due" {
+            return "Seu pagamento esta pendente. Atualize a assinatura pelo site para liberar o app."
+        }
+
+        if ["active", "canceling"].contains(subscriptionStatus), let expiresAt, expiresAt < Date() {
+            return "Seu periodo de acesso terminou. Revalide ou reative seu plano pelo site."
+        }
+
+        if subscriptionStatus == "trial", let trialEndsAt, trialEndsAt < Date() {
+            return "Seu trial terminou. Assine pelo site para continuar usando o app."
+        }
+
+        guard let lastVerifiedAt else {
+            return "Valide seu plano com o Firebase para liberar este recurso neste Mac."
+        }
+
+        if Date().timeIntervalSince(lastVerifiedAt) > Self.offlineGracePeriod {
+            return "Sua validacao local expirou. Revalide seu plano com o Firebase para liberar este recurso."
+        }
+
+        return nil
     }
 
     var accountLabel: String {
@@ -133,6 +174,8 @@ struct FirebaseIDTokenPayload: Decodable, Sendable {
     let userID: String?
     let email: String?
     let name: String?
+    let audience: String?
+    let issuer: String?
     let issuedAt: TimeInterval?
     let expiresAt: TimeInterval?
 
@@ -140,6 +183,8 @@ struct FirebaseIDTokenPayload: Decodable, Sendable {
         case userID = "user_id"
         case email
         case name
+        case audience = "aud"
+        case issuer = "iss"
         case issuedAt = "iat"
         case expiresAt = "exp"
     }

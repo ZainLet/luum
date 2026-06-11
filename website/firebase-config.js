@@ -1,21 +1,14 @@
 // ════════════════════════════════════════════════════════
 //  Firebase Configuration — Luum
 //  ════════════════════════════════════════════════════════
-//  COMO CONFIGURAR:
-//   1. Acesse https://console.firebase.google.com
-//   2. Crie um projeto (ex: "luum-prod")
-//   3. Ative Authentication:
-//      → Sign-in method → Ative "Email/Senha" + "Google"
-//   4. Ative Firestore Database:
-//      → Criar banco → modo de produção
-//      → Cole as regras de segurança abaixo
-//   5. Vá em Project Settings → General → Seus apps → Web
-//      → Copie o objeto firebaseConfig
-//   6. Cole abaixo no lugar dos placeholders (SUA_*)
-//   7. Descomente as tags <script> no <head> de:
-//      - login.html
-//      - cadastro.html
-//      - sucesso.html
+//  CONFIGURAÇÃO ATUAL:
+//   - Firebase Auth e Firestore ficam no projeto "luum-app".
+//   - O site estático principal fica no Firebase Hosting:
+//     https://luum-app.web.app
+//   - O backend oficial fica na Vercel:
+//     https://luum-app.vercel.app
+//   - O app macOS nunca usa Admin SDK local. Ele recebe um Firebase ID token
+//     pelo deeplink luum://auth e valida plano/backup nas APIs Vercel.
 //  ════════════════════════════════════════════════════════
 
 const firebaseConfig = {
@@ -28,7 +21,13 @@ const firebaseConfig = {
     measurementId: "G-Q5T5Z63NQF"
 };
 
-window.LUUM_API_BASE = window.LUUM_API_BASE || "https://luum-app.vercel.app";
+window.LUUM_CONFIG = Object.freeze({
+    firebase: firebaseConfig,
+    apiBase: "https://luum-app.vercel.app",
+    siteBase: "https://luum-app.web.app"
+});
+
+window.LUUM_API_BASE = window.LUUM_API_BASE || window.LUUM_CONFIG.apiBase;
 window.luumApiUrl = function luumApiUrl(path) {
     const base = String(window.LUUM_API_BASE || '').replace(/\/+$/, '');
     const suffix = String(path || '').startsWith('/') ? String(path) : `/${path}`;
@@ -96,49 +95,15 @@ const firestoreReady = Boolean(db);
 // ════════════════════════════════════════════════════════
 //  COMO O APP DESKTOP LÊ A ASSINATURA
 //  ════════════════════════════════════════════════════════
-//  ESCOLHA UMA DAS DUAS FORMAS:
+//  Fluxo oficial:
+//  1. O usuário entra em login.html?app=mac ou cadastro.html?app=mac.
+//  2. O site chama /api/auth/upsert-user com o Firebase ID token.
+//  3. O site abre luum://auth?token=...&refreshToken=...&uid=...
+//  4. O app macOS valida a sessão em https://luum-app.vercel.app/api/auth/status.
 //
-//  ─── FORMA A (RECOMENDADA) ───
-//  App desktop usa Firebase Admin SDK diretamente:
+//  Exemplo do contrato usado pelo app:
 //
-//  1. Crie uma service account:
-//     Console Firebase → Project Settings → Service accounts
-//     → "Gerar nova chave privada" → baixar service-account.json
-//
-//  2. No app Electron/Node.js (main process):
-//
-//     const admin = require('firebase-admin');
-//     Use FIREBASE_SERVICE_ACCOUNT_JSON no backend, nunca uma chave privada
-//     versionada no repositorio.
-//     const db = admin.firestore();
-//
-//     async function checkSubscription(uid) {
-//       const doc = await db.collection('users').doc(uid).get();
-//       if (!doc.exists) return { locked: true };
-//
-//       const { subscription, plan, createdAt } = doc.data();
-//       const now = Date.now();
-//
-//       // Trial
-//       if (!subscription || subscription.status === 'trial') {
-//         const trialEnd = (createdAt?.toMillis() || now) + 604800000;
-//         return { locked: now > trialEnd, plan, trial: true };
-//       }
-//
-//       // Ativa
-//       if (subscription.status === 'active') {
-//         const end = subscription.currentPeriodEnd?.toMillis() || 0;
-//         return { locked: now > end, plan, trial: false };
-//       }
-//
-//       // Cancelada
-//       return { locked: true, plan };
-//     }
-//
-//  ─── FORMA B (via API) ───
-//  App desktop chama o endpoint /api/auth/status:
-//
-//     fetch('https://sua-api.com/api/auth/status', {
+//     fetch(luumApiUrl('/api/auth/status'), {
 //       headers: { 'Authorization': 'Bearer ' + firebaseToken }
 //     })
 //     .then(r => r.json())
@@ -146,6 +111,9 @@ const firestoreReady = Boolean(db);
 //       if (status.locked) // mostra paywall
 //       else               // libera app
 //     });
+//
+//  FIREBASE_SERVICE_ACCOUNT_JSON deve existir somente no backend Vercel.
+//  Nunca coloque chave privada Firebase no app macOS, no site público ou no Git.
 //
 //  ════════════════════════════════════════════════════════
 //  CHECKLIST DE IMPLANTAÇÃO

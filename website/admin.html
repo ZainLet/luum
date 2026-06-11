@@ -71,13 +71,13 @@
                     <li><a href="account.html">Minha Conta</a></li>
                 </ul>
                 <div class="nav-actions">
-                    <a href="login.html" class="btn btn-secondary js-auth-login">Entrar</a>
-                    <a href="cadastro.html" class="btn btn-primary js-auth-signup">Começar Grátis</a>
+                    <a href="login.html?redirect=account.html" class="btn btn-secondary js-auth-login">Entrar</a>
+                    <a href="cadastro.html?redirect=account.html" class="btn btn-primary js-auth-signup">Começar Grátis</a>
                 </div>
             </nav>
             <div class="nav-actions header-actions">
-                <a href="login.html" class="btn btn-secondary js-auth-login">Entrar</a>
-                <a href="cadastro.html" class="btn btn-primary js-auth-signup">Começar Grátis</a>
+                <a href="login.html?redirect=account.html" class="btn btn-secondary js-auth-login">Entrar</a>
+                <a href="cadastro.html?redirect=account.html" class="btn btn-primary js-auth-signup">Começar Grátis</a>
             </div>
             <button class="hamburger" aria-label="Abrir Menu">&#9776;</button>
         </div>
@@ -222,6 +222,25 @@
                 .replace(/'/g, '&#39;');
         }
 
+        function timestampMillis(value) {
+            if (!value) return 0;
+            if (typeof value === 'number') return value;
+            if (value.seconds) return value.seconds * 1000;
+            if (value._seconds) return value._seconds * 1000;
+            if (typeof value.toMillis === 'function') return value.toMillis();
+            return 0;
+        }
+
+        function formatDate(value) {
+            const millis = timestampMillis(value);
+            if (!millis) return '-';
+            return new Intl.DateTimeFormat('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            }).format(new Date(millis));
+        }
+
         function lookupPayload() {
             const value = document.getElementById('lookup').value.trim();
             if (!value) throw new Error('Informe email ou UID.');
@@ -348,18 +367,28 @@
         function renderUser(user) {
             if (!user) return;
             const sub = user.subscription || {};
+            const effectivePlan = user.plan || '-';
+            const storedPlan = user.storedPlan || '-';
+            const legacyPlan = user.legacyOnboardingPlan || '-';
+            const seats = sub.seats || sub.quantity || user.seats || 1;
+            const periodEnd = formatDate(sub.currentPeriodEnd || sub.trialEndsAt);
             resultEl.innerHTML = `
                 <dl>
                     <div><dt>Email</dt><dd>${escapeHTML(user.email || '-')}</dd></div>
                     <div><dt>UID</dt><dd>${escapeHTML(user.uid)}</dd></div>
-                    <div><dt>Plano</dt><dd>${escapeHTML(user.plan || '-')}</dd></div>
+                    <div><dt>Plano efetivo lido pelo app</dt><dd>${escapeHTML(effectivePlan)}</dd></div>
+                    <div><dt>Plano raiz Firestore</dt><dd>${escapeHTML(storedPlan)}</dd></div>
+                    <div><dt>Plano legado onboarding</dt><dd>${escapeHTML(legacyPlan)}</dd></div>
                     <div><dt>Status</dt><dd>${escapeHTML(sub.status || '-')}</dd></div>
+                    <div><dt>Assentos</dt><dd>${escapeHTML(seats)}</dd></div>
+                    <div><dt>Validade</dt><dd>${escapeHTML(periodEnd)}</dd></div>
                     <div><dt>Perfil</dt><dd>${escapeHTML(user.role || 'user')}${user.luumAdmin ? ' / claim admin' : ''}</dd></div>
-                </dl>`;
-            document.getElementById('plan').value = user.plan || 'essencial';
+                </dl>
+                <p class="admin-note">No app desktop, confira se o e-mail acima aparece no painel lateral antes de revalidar o plano.</p>`;
+            document.getElementById('plan').value = effectivePlan === '-' ? 'essencial' : effectivePlan;
             document.getElementById('status').value = sub.status || 'active';
             document.getElementById('role').value = user.role || (user.luumAdmin ? 'admin' : 'user');
-            document.getElementById('seats').value = sub.seats || user.seats || 1;
+            document.getElementById('seats').value = seats;
         }
 
         async function fetchUser() {
@@ -394,7 +423,8 @@
             const data = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(data.error || `Não foi possível salvar. Verifique se ${window.LUUM_API_BASE} está publicado e com ADMIN_EMAILS configurado.`);
             renderUser(data.user);
-            setStatus('Acesso atualizado com sucesso. No app da pessoa, clique em Validar plano ou faça login novamente.', 'ok');
+            const saved = data.user || {};
+            setStatus(`Acesso atualizado para ${saved.email || saved.uid || 'usuário selecionado'}. No app, confira esta mesma conta e clique em Validar plano ou faça login novamente.`, 'ok');
         }
 
         if (typeof firebase === 'undefined' || !firebase.auth) {
@@ -433,6 +463,6 @@
             loadIntegrations().catch((err) => setVaultStatus(err.message, 'error'));
         });
     </script>
-    <script src="auth.js?v=4"></script>
+    <script src="auth.js?v=8"></script>
 </body>
 </html>

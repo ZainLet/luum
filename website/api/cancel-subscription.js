@@ -1,10 +1,11 @@
 const { admin, getFirestore } = require('./_firebaseAdmin');
+const { addCors, handleOptions } = require('./_cors');
 const { getStripe } = require('./_stripe');
+const { cancellableStripeSubscriptionID } = require('./_subscriptionGuards');
 
 async function cancelSubscriptionHandler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    addCors(req, res, { methods: 'POST, OPTIONS' });
+    if (req.method === 'OPTIONS') return handleOptions(req, res, { methods: 'POST, OPTIONS' });
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
@@ -22,10 +23,10 @@ async function cancelSubscriptionHandler(req, res) {
         }
         const doc = await db.collection('users').doc(decoded.uid).get();
         const data = doc.exists ? doc.data() : null;
-        const subscriptionId = data?.subscription?.stripeSubscriptionId;
+        const subscriptionId = cancellableStripeSubscriptionID(data);
 
         if (!subscriptionId) {
-            return res.status(400).json({ error: 'Assinatura Stripe não encontrada' });
+            return res.status(400).json({ error: 'Assinatura Stripe ativa não encontrada para esta conta' });
         }
 
         const stripe = await getStripe();

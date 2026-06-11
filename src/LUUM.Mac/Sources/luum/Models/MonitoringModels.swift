@@ -130,7 +130,9 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
     var clickUpSettings: ClickUpSettings
     var linearSettings: LinearSettings
     var zapierSettings: ZapierSettings
+    var aiClassificationSettings: AIClassificationSettings
     var teamSettings: TeamSettings
+    var businessSettings: BusinessWorkspaceSettings
     var privacySettings: PrivacySettings
     var cloudSyncSettings: CloudSyncSettings
     var hasCompletedOnboarding: Bool
@@ -149,7 +151,9 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
             clickUpSettings: .default,
             linearSettings: .default,
             zapierSettings: .default,
+            aiClassificationSettings: .default,
             teamSettings: .default,
+            businessSettings: .default,
             privacySettings: .default,
             cloudSyncSettings: .default,
             hasCompletedOnboarding: false
@@ -169,7 +173,9 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
         case clickUpSettings
         case linearSettings
         case zapierSettings
+        case aiClassificationSettings
         case teamSettings
+        case businessSettings
         case privacySettings
         case cloudSyncSettings
         case hasCompletedOnboarding
@@ -188,7 +194,9 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
         clickUpSettings: ClickUpSettings = .default,
         linearSettings: LinearSettings = .default,
         zapierSettings: ZapierSettings = .default,
+        aiClassificationSettings: AIClassificationSettings = .default,
         teamSettings: TeamSettings = .default,
+        businessSettings: BusinessWorkspaceSettings = .default,
         privacySettings: PrivacySettings = .default,
         cloudSyncSettings: CloudSyncSettings = .default,
         hasCompletedOnboarding: Bool = false
@@ -205,7 +213,9 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
         self.clickUpSettings = clickUpSettings
         self.linearSettings = linearSettings
         self.zapierSettings = zapierSettings
+        self.aiClassificationSettings = aiClassificationSettings
         self.teamSettings = teamSettings
+        self.businessSettings = businessSettings
         self.privacySettings = privacySettings
         self.cloudSyncSettings = cloudSyncSettings
         self.hasCompletedOnboarding = hasCompletedOnboarding
@@ -225,7 +235,9 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
         clickUpSettings = try container.decodeIfPresent(ClickUpSettings.self, forKey: .clickUpSettings) ?? .default
         linearSettings = try container.decodeIfPresent(LinearSettings.self, forKey: .linearSettings) ?? .default
         zapierSettings = try container.decodeIfPresent(ZapierSettings.self, forKey: .zapierSettings) ?? .default
+        aiClassificationSettings = try container.decodeIfPresent(AIClassificationSettings.self, forKey: .aiClassificationSettings) ?? .default
         teamSettings = try container.decodeIfPresent(TeamSettings.self, forKey: .teamSettings) ?? .default
+        businessSettings = try container.decodeIfPresent(BusinessWorkspaceSettings.self, forKey: .businessSettings) ?? .default
         privacySettings = try container.decodeIfPresent(PrivacySettings.self, forKey: .privacySettings) ?? .default
         cloudSyncSettings = try container.decodeIfPresent(CloudSyncSettings.self, forKey: .cloudSyncSettings) ?? .default
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
@@ -245,7 +257,9 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
         try container.encode(clickUpSettings, forKey: .clickUpSettings)
         try container.encode(linearSettings, forKey: .linearSettings)
         try container.encode(zapierSettings, forKey: .zapierSettings)
+        try container.encode(aiClassificationSettings, forKey: .aiClassificationSettings)
         try container.encode(teamSettings, forKey: .teamSettings)
+        try container.encode(businessSettings, forKey: .businessSettings)
         try container.encode(privacySettings, forKey: .privacySettings)
         try container.encode(cloudSyncSettings, forKey: .cloudSyncSettings)
         try container.encode(hasCompletedOnboarding, forKey: .hasCompletedOnboarding)
@@ -377,7 +391,9 @@ struct MonitoringPreferencesSnapshot: Codable, Sendable {
             clickUpSettings: clickUpSettings.normalized(),
             linearSettings: linearSettings.normalized(),
             zapierSettings: zapierSettings.normalized(),
+            aiClassificationSettings: aiClassificationSettings.normalized(),
             teamSettings: teamSettings.normalized(),
+            businessSettings: businessSettings.normalized(),
             privacySettings: privacySettings,
             cloudSyncSettings: cloudSyncSettings,
             hasCompletedOnboarding: hasCompletedOnboarding

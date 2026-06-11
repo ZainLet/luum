@@ -50,6 +50,8 @@ final class ActivityStore {
     private(set) var workspaceSyncLastSyncAt: Date?
     private(set) var workspaceRankingEntries: [TeamRankingEntry] = []
     private(set) var isSyncingWorkspace = false
+    private(set) var aiClassificationStatusMessage: String?
+    private(set) var isClassifyingWithAI = false
 
     let classifier = ClassificationEngine()
 
@@ -68,17 +70,24 @@ final class ActivityStore {
     @ObservationIgnored private let cloudSyncService: CloudSyncService
     @ObservationIgnored private let workspaceSyncService: WorkspaceSyncService
     @ObservationIgnored private let authService: FirebaseAuthService
+    @ObservationIgnored private let aiClassificationService: AIClassificationService
     @ObservationIgnored private let sessionGapTolerance: TimeInterval = 15
     @ObservationIgnored private var calendarTokensByConnectionID: [String: GoogleCalendarTokens] = [:]
     @ObservationIgnored private var summaryCache: [Date: DailySummary] = [:]
     @ObservationIgnored private var focusModeDeliveries: [UUID: Date] = [:]
     @ObservationIgnored private var focusBlockDeliveries: [String: Date] = [:]
     @ObservationIgnored private var persistTask: Task<Void, Never>?
+    @ObservationIgnored private var persistenceWriteTask: Task<Void, Never>?
     @ObservationIgnored private var reminderEvaluationTask: Task<Void, Never>?
+    @ObservationIgnored private var authRefreshTask: Task<Void, Never>?
+    @ObservationIgnored private var authRefreshGeneration = 0
     @ObservationIgnored private var cloudSyncTask: Task<Void, Never>?
     @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
     @ObservationIgnored private let calendarRefreshInterval: TimeInterval = 900
     @ObservationIgnored private let cloudSyncInterval: TimeInterval = 900
+    @ObservationIgnored private let activityPersistenceDebounce: Duration = .seconds(5)
+    @ObservationIgnored private let liveSummaryRefreshInterval: TimeInterval = 30
+    @ObservationIgnored private var lastLiveSummaryRefreshAt: Date?
     @ObservationIgnored private var notionAgendaDay: Date?
     @ObservationIgnored private var outlookAgendaDay: Date?
     @ObservationIgnored private var clickUpAgendaDay: Date?
@@ -100,7 +109,8 @@ final class ActivityStore {
         keychainService: KeychainService = KeychainService(),
         cloudSyncService: CloudSyncService = CloudSyncService(),
         workspaceSyncService: WorkspaceSyncService = WorkspaceSyncService(),
-        authService: FirebaseAuthService = FirebaseAuthService()
+        authService: FirebaseAuthService = FirebaseAuthService(),
+        aiClassificationService: AIClassificationService = AIClassificationService()
     ) {
         self.persistence = persistence
         self.monitor = monitor ?? ActivityMonitor()
@@ -117,12 +127,16 @@ final class ActivityStore {
         self.cloudSyncService = cloudSyncService
         self.workspaceSyncService = workspaceSyncService
         self.authService = authService
+        self.aiClassificationService = aiClassificationService
 
         let monitoringPreferences = monitoringPreferencesPersistence.load().normalized()
         let calendarSnapshot = googleCalendarPersistence.load()
+        let loadedSamples = persistence
+            .load(retentionDays: monitoringPreferences.privacySettings.retentionDays)
+            .sorted(by: Self.sampleSortOrder)
 
         self.monitoringPreferences = monitoringPreferences
-        self.samples = persistence.load(retentionDays: monitoringPreferences.privacySettings.retentionDays)
+        self.samples = loadedSamples
         self.googleCalendarClientID = calendarSnapshot.clientID
         self.googleCalendarClientSecret = keychainService.string(for: Self.googleCalendarClientSecretKey) ?? calendarSnapshot.clientSecret
         self.googleCalendarConnections = calendarSnapshot.connections
@@ -134,6 +148,7 @@ final class ActivityStore {
         self.zapierStatusMessage = monitoringPreferences.zapierSettings.isEnabled ? "Zapier pronto para disparar automacoes." : nil
         self.cloudSyncStatusMessage = nil
         self.workspaceSyncStatusMessage = nil
+        self.aiClassificationStatusMessage = nil
         self.authSession = keychainService.codable(LuumAuthSession.self, for: Self.firebaseAuthSessionKey)
         self.authStatusMessage = self.authSession.map { "Conectado como \($0.accountLabel) • plano \($0.plan.title)" }
 
@@ -174,6 +189,26 @@ final class ActivityStore {
 
     var categoryRules: [CategoryRule] {
         monitoringPreferences.categoryRules
+    }
+
+    var aiClassificationSettings: AIClassificationSettings {
+        monitoringPreferences.aiClassificationSettings
+    }
+
+    var hasAIClassificationAPIKey: Bool {
+        !(keychainService.string(for: Self.aiClassificationAPIKeyKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }
+
+    var secretStorageDescription: String {
+        keychainService.storageDescription
+    }
+
+    var aiClassificationConfigured: Bool {
+        guard aiClassificationSettings.isEnabled else { return false }
+        if AIClassificationService.isLuumBackendEndpoint(aiClassificationSettings.endpointURL) {
+            return authSession != nil
+        }
+        return hasAIClassificationAPIKey
     }
 
     var ignoredApplications: [String] {
@@ -224,6 +259,10 @@ final class ActivityStore {
         monitoringPreferences.teamSettings
     }
 
+    var businessSettings: BusinessWorkspaceSettings {
+        monitoringPreferences.businessSettings
+    }
+
     var privacySettings: PrivacySettings {
         monitoringPreferences.privacySettings
     }
@@ -258,8 +297,8 @@ final class ActivityStore {
     }
 
     func canUse(_ feature: LuumFeature) -> Bool {
-        guard let authSession, !authSession.isLocked else { return false }
-        return authSession.plan.includes(feature)
+        guard let authSession else { return false }
+        return authSession.includes(feature)
     }
 
     func lockMessage(for feature: LuumFeature) -> String {
@@ -267,8 +306,8 @@ final class ActivityStore {
             return "Entre com sua conta Firebase do Luum para liberar o app neste Mac."
         }
 
-        if let reason = authSession?.lockedReason {
-            return "Sua assinatura esta bloqueada: \(reason)."
+        if let explanation = authSession?.lockExplanation {
+            return explanation
         }
 
         return "O recurso \(feature.title) exige um plano maior. Seu plano atual e \(accountPlan.title)."
@@ -283,48 +322,85 @@ final class ActivityStore {
         do {
             let session = try authService.session(from: url)
             applyAuthSession(session, message: "Login recebido. Validando plano no Firebase...")
-            refreshAccountStatus()
+            refreshAccountStatus(restartInFlight: true)
         } catch {
             authStatusMessage = error.localizedDescription
         }
     }
 
     func refreshAccountStatus() {
+        refreshAccountStatus(restartInFlight: false)
+    }
+
+    private func refreshAccountStatus(restartInFlight: Bool) {
         guard let authSession else {
             authStatusMessage = "Entre com sua conta Luum para validar o plano."
             return
         }
 
+        if isCheckingAuth {
+            guard restartInFlight else { return }
+            authRefreshTask?.cancel()
+        }
+
+        authRefreshGeneration += 1
+        let generation = authRefreshGeneration
+        let sessionToValidate = authSession
         isCheckingAuth = true
-        Task { [weak self] in
+        authRefreshTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let verified = try await authService.verifiedSession(authSession)
+                let verified = try await authService.verifiedSession(
+                    sessionToValidate,
+                    deviceID: keychainService.installationID()
+                )
                 await MainActor.run {
+                    guard self.isCurrentAuthRefresh(generation, for: sessionToValidate) else { return }
                     self.applyAuthSession(verified, message: "Plano \(verified.plan.title) validado.")
                     self.isCheckingAuth = false
+                    self.authRefreshTask = nil
                 }
             } catch {
+                let wasCancelled = Task.isCancelled
                 await MainActor.run {
+                    guard self.isCurrentAuthRefresh(generation, for: sessionToValidate) else { return }
+                    if wasCancelled {
+                        self.isCheckingAuth = false
+                        self.authRefreshTask = nil
+                        return
+                    }
+
                     if error is URLError {
-                        let offline = authSession
+                        let offline = sessionToValidate
                         let message = offline.isLocked
                             ? "Conecte-se a internet e valide seu plano para liberar o app."
                             : "Sem conexao com a API. Usando sessao local validada por ate 24 horas."
                         self.applyAuthSession(offline, message: message)
+                    } else if Self.isExplicitAuthRejection(error) {
+                        self.rejectAuthSession(sessionToValidate)
                     } else {
-                        var rejected = authSession
-                        rejected.lockedReason = "auth_validation_failed"
-                        rejected.lastVerifiedAt = nil
-                        self.applyAuthSession(rejected, message: "A sessao nao foi aceita pela API. Entre novamente para liberar o app.")
+                        let offline = sessionToValidate
+                        let message = offline.isLocked
+                            ? "Nao foi possivel validar o plano agora. Tente novamente em instantes."
+                            : "A API de assinatura respondeu de forma temporaria. Usando sessao local validada por ate 24 horas."
+                        self.applyAuthSession(offline, message: message)
                     }
                     self.isCheckingAuth = false
+                    self.authRefreshTask = nil
                 }
             }
         }
     }
 
     func signOut() {
+        authRefreshTask?.cancel()
+        authRefreshTask = nil
+        authRefreshGeneration += 1
+        isCheckingAuth = false
+        cloudSyncTask?.cancel()
+        cloudSyncTask = nil
+        isSyncingCloud = false
+        isSyncingWorkspace = false
         stopMonitoring()
         authSession = nil
         authStatusMessage = "Conta desconectada deste Mac."
@@ -332,6 +408,10 @@ final class ActivityStore {
     }
 
     private func applyAuthSession(_ session: LuumAuthSession, message: String) {
+        persistAuthSession(session, message: message, scheduleCloudSync: true)
+    }
+
+    private func persistAuthSession(_ session: LuumAuthSession, message: String, scheduleCloudSync: Bool) {
         authSession = session
         authStatusMessage = message
         do {
@@ -349,13 +429,66 @@ final class ActivityStore {
         )
 
         persistMonitoringPreferences()
-        scheduleCloudSyncIfNeeded(reason: "auth-session")
+        if scheduleCloudSync {
+            scheduleCloudSyncIfNeeded(reason: "auth-session")
+        }
 
         if canUse(.coreTracking) {
             startMonitoring()
         } else {
             stopMonitoring()
         }
+    }
+
+    private func verifiedAuthSessionForProtectedRequest() async throws -> LuumAuthSession {
+        guard let sessionToValidate = authSession else {
+            throw FirebaseAuthServiceError.statusRejected("missing_session")
+        }
+
+        do {
+            let verified = try await authService.verifiedSession(
+                sessionToValidate,
+                deviceID: keychainService.installationID()
+            )
+            guard isCurrentAuthSession(sessionToValidate) else { throw CancellationError() }
+            persistAuthSession(verified, message: "Plano \(verified.plan.title) validado.", scheduleCloudSync: false)
+            return verified
+        } catch {
+            if Self.isExplicitAuthRejection(error) {
+                rejectAuthSession(sessionToValidate)
+            }
+            throw error
+        }
+    }
+
+    private static func isExplicitAuthRejection(_ error: Error) -> Bool {
+        (error as? FirebaseAuthServiceError)?.isExplicitAuthRejection ?? false
+    }
+
+    private func isCurrentAuthRefresh(_ generation: Int, for session: LuumAuthSession) -> Bool {
+        guard generation == authRefreshGeneration else { return false }
+        return isCurrentAuthSession(session)
+    }
+
+    private func isCurrentAuthSession(_ session: LuumAuthSession) -> Bool {
+        guard let current = authSession else { return false }
+        return current.uid == session.uid && current.idToken == session.idToken
+    }
+
+    private func isCurrentVerifiedSession(_ verified: LuumAuthSession) -> Bool {
+        guard let current = authSession else { return false }
+        return current.uid == verified.uid && current.idToken == verified.idToken
+    }
+
+    private func rejectAuthSession(_ session: LuumAuthSession) {
+        var rejected = session
+        rejected.lockedReason = "auth_validation_failed"
+        rejected.lastVerifiedAt = nil
+        persistAuthSession(
+            rejected,
+            message: "A sessao nao foi aceita pela API. Entre novamente para liberar o app.",
+            scheduleCloudSync: false
+        )
     }
 
     static func cloudSyncSettings(
@@ -366,12 +499,21 @@ final class ActivityStore {
         sanitized.endpointURL = FirebaseAuthService.defaultBaseURL
         sanitized.backupID = session.uid
 
-        sanitized.isEnabled = !session.isLocked && session.plan.includes(.cloudBackup)
-        if session.isLocked || !session.plan.includes(.rawActivityBackup) {
+        sanitized.isEnabled = session.includes(.cloudBackup)
+        if !session.includes(.rawActivityBackup) {
             sanitized.syncRawActivities = false
         }
 
         return sanitized
+    }
+
+    static func isCloudSyncConfigured(
+        _ settings: CloudSyncSettings,
+        for session: LuumAuthSession?
+    ) -> Bool {
+        settings.endpointURL == FirebaseAuthService.defaultBaseURL &&
+        settings.backupID == session?.uid &&
+        !(session?.idToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
     }
 
     var onboardingChecklist: [OnboardingChecklistItem] {
@@ -550,18 +692,13 @@ final class ActivityStore {
     }
 
     var cloudSyncConfigured: Bool {
-        !cloudSyncSettings.endpointURL.isEmpty &&
-        !cloudSyncSettings.backupID.isEmpty &&
-        !(authSession?.idToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        Self.isCloudSyncConfigured(cloudSyncSettings, for: authSession)
     }
 
     func bootstrap(selectedDay: Date = Date()) {
         startMaintenanceLoop()
 
         if authSession != nil {
-            if canUse(.coreTracking) {
-                startMonitoring()
-            }
             refreshAccountStatus()
         }
 
@@ -1104,6 +1241,55 @@ final class ActivityStore {
         }
     }
 
+    func updateAIClassificationEnabled(_ value: Bool) {
+        monitoringPreferences.aiClassificationSettings.isEnabled = value
+        aiClassificationStatusMessage = value
+            ? "IA de classificacao ativada. Salve uma chave Gemini para usar nas listas de apps e sites."
+            : "IA de classificacao desativada."
+        persistMonitoringPreferences()
+    }
+
+    func updateAIClassificationEndpointURL(_ value: String) {
+        monitoringPreferences.aiClassificationSettings.endpointURL = value
+        persistMonitoringPreferences()
+    }
+
+    func updateAIClassificationModel(_ value: String) {
+        monitoringPreferences.aiClassificationSettings.model = value
+        persistMonitoringPreferences()
+    }
+
+    func updateAIClassificationMinimumConfidence(_ value: Double) {
+        monitoringPreferences.aiClassificationSettings.minimumConfidence = value
+        persistMonitoringPreferences()
+    }
+
+    func updateAIClassificationAPIKey(_ value: String) {
+        do {
+            if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                keychainService.removeValue(for: Self.aiClassificationAPIKeyKey)
+                aiClassificationStatusMessage = "Chave da IA removida deste Mac."
+            } else {
+                try keychainService.setString(value, for: Self.aiClassificationAPIKeyKey)
+                aiClassificationStatusMessage = "Chave da IA salva no cofre local cifrado."
+            }
+        } catch {
+            aiClassificationStatusMessage = "Nao foi possivel salvar a chave da IA."
+        }
+    }
+
+    func classifyApplicationWithAI(_ item: UsageBreakdownItem) {
+        Task { [weak self] in
+            await self?.runAIClassification(kind: .application, item: item)
+        }
+    }
+
+    func classifyDomainWithAI(_ item: UsageBreakdownItem) {
+        Task { [weak self] in
+            await self?.runAIClassification(kind: .domain, item: item)
+        }
+    }
+
     func updateTeamOrganizationName(_ value: String) {
         monitoringPreferences.teamSettings.organizationName = value
         persistMonitoringPreferences()
@@ -1179,6 +1365,72 @@ final class ActivityStore {
         }
     }
 
+    func addBusinessClient(name: String, domain: String = "") {
+        let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty else { return }
+
+        monitoringPreferences.businessSettings.clients.append(
+            WorkClientProfile(name: cleanName, domain: domain)
+        )
+        persistMonitoringPreferences()
+    }
+
+    func updateBusinessClient(_ client: WorkClientProfile) {
+        guard let index = monitoringPreferences.businessSettings.clients.firstIndex(where: { $0.id == client.id }) else { return }
+        monitoringPreferences.businessSettings.clients[index] = client
+        persistMonitoringPreferences()
+    }
+
+    func removeBusinessClient(id: UUID) {
+        monitoringPreferences.businessSettings.clients.removeAll { $0.id == id }
+        monitoringPreferences.businessSettings.projects.removeAll { $0.clientID == id }
+        persistMonitoringPreferences()
+    }
+
+    func addBusinessProject(clientID: UUID, title: String) {
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanTitle.isEmpty,
+              monitoringPreferences.businessSettings.clients.contains(where: { $0.id == clientID })
+        else { return }
+
+        monitoringPreferences.businessSettings.projects.append(
+            WorkProjectProfile(clientID: clientID, title: cleanTitle)
+        )
+        persistMonitoringPreferences()
+    }
+
+    func updateBusinessProject(_ project: WorkProjectProfile) {
+        guard monitoringPreferences.businessSettings.clients.contains(where: { $0.id == project.clientID }),
+              let index = monitoringPreferences.businessSettings.projects.firstIndex(where: { $0.id == project.id })
+        else { return }
+
+        monitoringPreferences.businessSettings.projects[index] = project
+        persistMonitoringPreferences()
+    }
+
+    func removeBusinessProject(id: UUID) {
+        monitoringPreferences.businessSettings.projects.removeAll { $0.id == id }
+        persistMonitoringPreferences()
+    }
+
+    func addBusinessTask(projectID: UUID, title: String) {
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanTitle.isEmpty,
+              let index = monitoringPreferences.businessSettings.projects.firstIndex(where: { $0.id == projectID })
+        else { return }
+
+        monitoringPreferences.businessSettings.projects[index].tasks.append(
+            WorkTaskProfile(title: cleanTitle)
+        )
+        persistMonitoringPreferences()
+    }
+
+    func removeBusinessTask(projectID: UUID, taskID: UUID) {
+        guard let index = monitoringPreferences.businessSettings.projects.firstIndex(where: { $0.id == projectID }) else { return }
+        monitoringPreferences.businessSettings.projects[index].tasks.removeAll { $0.id == taskID }
+        persistMonitoringPreferences()
+    }
+
     func updatePrivacyStorePageTitles(_ value: Bool) {
         monitoringPreferences.privacySettings.storesPageTitles = value
         persistMonitoringPreferences()
@@ -1219,12 +1471,12 @@ final class ActivityStore {
     }
 
     func updateCloudSyncEndpointURL(_ value: String) {
-        monitoringPreferences.cloudSyncSettings.endpointURL = value
+        monitoringPreferences.cloudSyncSettings.endpointURL = FirebaseAuthService.defaultBaseURL
         persistMonitoringPreferences()
     }
 
     func updateCloudSyncBackupID(_ value: String) {
-        monitoringPreferences.cloudSyncSettings.backupID = value
+        monitoringPreferences.cloudSyncSettings.backupID = authSession?.uid ?? ""
         persistMonitoringPreferences()
     }
 
@@ -1569,35 +1821,39 @@ final class ActivityStore {
         if let categoryID, monitoringPreferences.category(for: categoryID) == nil {
             return
         }
+        let affectedSample = samples[index]
         samples[index].manualCategoryID = categoryID
-        invalidateSummaries()
+        invalidateSummaries(touching: affectedSample)
         schedulePersistence()
         evaluateReminders()
     }
 
     func setActivityHidden(sampleID: UUID, isHidden: Bool) {
         guard let index = samples.firstIndex(where: { $0.id == sampleID }) else { return }
+        let affectedSample = samples[index]
         samples[index].isHidden = isHidden
-        invalidateSummaries()
+        invalidateSummaries(touching: affectedSample)
         schedulePersistence()
         evaluateReminders()
     }
 
     func resetActivityEdits(sampleID: UUID) {
         guard let index = samples.firstIndex(where: { $0.id == sampleID }) else { return }
+        let affectedSample = samples[index]
         samples[index].manualCategoryID = nil
         samples[index].isHidden = false
         samples[index].note = nil
-        invalidateSummaries()
+        invalidateSummaries(touching: affectedSample)
         schedulePersistence()
         evaluateReminders()
     }
 
     func updateActivityNote(sampleID: UUID, note: String) {
         guard let index = samples.firstIndex(where: { $0.id == sampleID }) else { return }
+        let affectedSample = samples[index]
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
         samples[index].note = trimmedNote.isEmpty ? nil : trimmedNote
-        invalidateSummaries()
+        invalidateSummaries(touching: affectedSample)
         schedulePersistence()
     }
 
@@ -1632,7 +1888,7 @@ final class ActivityStore {
         samples[index] = firstPart
         samples.insert(secondPart, at: index + 1)
         sortSamples()
-        invalidateSummaries()
+        invalidateSummaries(touching: sample)
         schedulePersistence()
         evaluateReminders()
     }
@@ -1659,7 +1915,7 @@ final class ActivityStore {
         samples.remove(at: higherIndex)
         samples[lowerIndex] = merged
         sortSamples()
-        invalidateSummaries()
+        invalidateSummaries(from: min(current.startDate, adjacent.startDate), to: max(current.endDate, adjacent.endDate))
         schedulePersistence()
         evaluateReminders()
     }
@@ -1831,8 +2087,10 @@ final class ActivityStore {
 
         for sample in samples {
             guard !sample.isHidden else { continue }
-            guard !isIgnored(sample: sample) else { continue }
+            if sample.startDate >= dayEnd { break }
+            guard sampleOverlaps(sample, from: dayStart, to: dayEnd) else { continue }
             guard let clipped = clip(sample: sample, from: dayStart, to: dayEnd) else { continue }
+            guard !isIgnored(sample: clipped) else { continue }
 
             let category = classifier.classify(sample: clipped, preferences: monitoringPreferences)
             let applicationIgnored = classifier.isApplicationIgnored(
@@ -1921,9 +2179,7 @@ final class ActivityStore {
     }
 
     func focusProfileInsights(at date: Date = Date()) -> [FocusProfileInsight] {
-        let orderedSamples = samples
-            .filter { !$0.isHidden && !isIgnored(sample: $0) }
-            .sorted { $0.endDate < $1.endDate }
+        let orderedSamples = visibleSamplesForCurrentStreak()
 
         return focusProfiles.compactMap { profile in
             let categories = profile.categoryIDs.compactMap { category(for: $0) }
@@ -2063,9 +2319,7 @@ final class ActivityStore {
             cursor = calendar.date(byAdding: .day, value: 1, to: cursor) ?? weekEnd
         }
 
-        let weekSamples = samples
-            .filter { !$0.isHidden && !isIgnored(sample: $0) }
-            .compactMap { clip(sample: $0, from: weekStart, to: weekEnd) }
+        let weekSamples = visibleSamples(from: weekStart, to: weekEnd)
             .sorted { $0.startDate < $1.startDate }
 
         let contextSwitches = max(weekSamples.count - 1, 0)
@@ -2213,30 +2467,34 @@ final class ActivityStore {
         }
     }
 
-    func searchResults(matching rawQuery: String) -> [GlobalSearchResult] {
+    func searchResults(matching rawQuery: String, limit: Int = 80) -> [GlobalSearchResult] {
         let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return [] }
         let normalizedQuery = query.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
 
-        let activityResults = samples
-            .filter { !$0.isHidden && !isIgnored(sample: $0) }
-            .compactMap { sample -> GlobalSearchResult? in
-                let haystack = [
-                    sample.applicationName,
-                    sample.bundleIdentifier ?? "",
-                    sample.webDomain ?? "",
-                    sample.pageTitle ?? "",
-                    sample.webURL ?? "",
-                    sample.note ?? "",
-                    classifier.searchQuery(from: sample.webURL) ?? "",
-                ]
-                .joined(separator: " ")
-                .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+        var activityResults: [GlobalSearchResult] = []
+        activityResults.reserveCapacity(min(limit, 80))
 
-                guard haystack.contains(normalizedQuery) else { return nil }
+        for sample in samples.reversed() where activityResults.count < limit {
+            guard !sample.isHidden && !isIgnored(sample: sample) else { continue }
 
-                let resolvedCategory = classifier.classify(sample: sample, preferences: monitoringPreferences)
-                return GlobalSearchResult(
+            let haystack = [
+                sample.applicationName,
+                sample.bundleIdentifier ?? "",
+                sample.webDomain ?? "",
+                sample.pageTitle ?? "",
+                sample.webURL ?? "",
+                sample.note ?? "",
+                classifier.searchQuery(from: sample.webURL) ?? "",
+            ]
+            .joined(separator: " ")
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+
+            guard haystack.contains(normalizedQuery) else { continue }
+
+            let resolvedCategory = classifier.classify(sample: sample, preferences: monitoringPreferences)
+            activityResults.append(
+                GlobalSearchResult(
                     id: sample.id.uuidString,
                     kind: .activity,
                     date: sample.startDate,
@@ -2245,7 +2503,13 @@ final class ActivityStore {
                     footnote: LuumFormatters.timeRange(start: sample.startDate, end: sample.endDate),
                     category: resolvedCategory
                 )
-            }
+            )
+        }
+
+        let remainingLimit = max(0, limit - activityResults.count)
+        guard remainingLimit > 0 else {
+            return activityResults.sorted { $0.date > $1.date }
+        }
 
         let planningEvents =
             googleCalendarConnections
@@ -2257,6 +2521,7 @@ final class ActivityStore {
             + linearAgendaItems
 
         let agendaResults = planningEvents
+            .sorted { $0.startDate > $1.startDate }
             .compactMap { event -> GlobalSearchResult? in
                 let haystack = [
                     event.title,
@@ -2280,8 +2545,9 @@ final class ActivityStore {
                     category: nil
                 )
             }
+            .prefix(remainingLimit)
 
-        return (activityResults + agendaResults).sorted { $0.date > $1.date }
+        return (activityResults + Array(agendaResults)).sorted { $0.date > $1.date }
     }
 
     func exportWeeklyReport(containing day: Date, format: ExportFormat) {
@@ -2764,13 +3030,6 @@ final class ActivityStore {
     }
 
     private func runWorkspaceSync(for day: Date, force: Bool) async {
-        guard canUse(.teamWorkspace) else {
-            if force {
-                workspaceSyncStatusMessage = lockMessage(for: .teamWorkspace)
-            }
-            return
-        }
-
         guard teamSettings.sharesAnonymousMetrics else {
             if force {
                 workspaceSyncStatusMessage = "Ative o compartilhamento de metricas para usar o ranking corporativo."
@@ -2796,89 +3055,187 @@ final class ActivityStore {
         defer { isSyncingWorkspace = false }
 
         do {
+            let verified = try await verifiedAuthSessionForProtectedRequest()
+            guard verified.includes(.teamWorkspace) else {
+                workspaceSyncStatusMessage = lockMessage(for: .teamWorkspace)
+                return
+            }
             let payload = makeWorkspaceMemberPayload(for: day)
             let updatedAt = try await workspaceSyncService.push(
                 baseURL: FirebaseAuthService.defaultBaseURL,
                 workspaceID: teamSettings.workspaceID,
                 memberID: teamSettings.workspaceMemberID,
                 secret: secret,
-                firebaseToken: authSession?.idToken,
+                firebaseToken: verified.idToken,
                 payload: payload
             )
+            guard isCurrentVerifiedSession(verified) else { return }
             let ranking = try await workspaceSyncService.fetchRanking(
                 baseURL: FirebaseAuthService.defaultBaseURL,
                 workspaceID: teamSettings.workspaceID,
                 memberID: teamSettings.workspaceMemberID,
                 secret: secret,
-                firebaseToken: authSession?.idToken
+                firebaseToken: verified.idToken
             )
+            guard isCurrentVerifiedSession(verified) else { return }
             workspaceRankingEntries = ranking.entries
             workspaceSyncLastSyncAt = ranking.updatedAt ?? updatedAt
             workspaceSyncStatusMessage = workspaceRankingEntries.isEmpty
                 ? "Workspace sincronizado sem membros suficientes para ranking."
                 : "Workspace sincronizado com \(workspaceRankingEntries.count) membro(s)."
             await sendZapierWorkspaceEventIfNeeded(memberCount: workspaceRankingEntries.count)
+        } catch is CancellationError {
+            return
         } catch {
             workspaceSyncStatusMessage = error.localizedDescription
         }
     }
 
+    private func runAIClassification(kind: AIClassificationRequest.TargetKind, item: UsageBreakdownItem) async {
+        guard !isClassifyingWithAI else { return }
+
+        guard canUse(.classification) else {
+            aiClassificationStatusMessage = lockMessage(for: .classification)
+            return
+        }
+
+        let settings = aiClassificationSettings
+        guard settings.isEnabled else {
+            aiClassificationStatusMessage = "Ative a IA de classificacao nas preferencias."
+            return
+        }
+
+        let usesLuumBackend = AIClassificationService.isLuumBackendEndpoint(settings.endpointURL)
+        let apiKey = keychainService.string(for: Self.aiClassificationAPIKeyKey)
+        let verifiedSession: LuumAuthSession?
+
+        if usesLuumBackend {
+            do {
+                let verified = try await verifiedAuthSessionForProtectedRequest()
+                guard verified.includes(.classification) else {
+                    aiClassificationStatusMessage = lockMessage(for: .classification)
+                    return
+                }
+                verifiedSession = verified
+            } catch {
+                aiClassificationStatusMessage = error.localizedDescription
+                return
+            }
+        } else {
+            guard !(apiKey?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) else {
+                aiClassificationStatusMessage = "Salve uma chave Gemini em Preferencias para usar a IA."
+                return
+            }
+            verifiedSession = nil
+        }
+
+        isClassifyingWithAI = true
+        aiClassificationStatusMessage = "IA analisando \(item.label)..."
+        defer { isClassifyingWithAI = false }
+
+        do {
+            let result = try await aiClassificationService.classify(
+                request: AIClassificationRequest(
+                    kind: kind,
+                    label: item.label,
+                    secondaryLabel: item.secondaryLabel,
+                    currentCategory: item.category,
+                    categories: categories
+                ),
+                settings: settings,
+                apiKey: apiKey,
+                firebaseToken: verifiedSession?.idToken
+            )
+
+            if let verifiedSession, !isCurrentVerifiedSession(verifiedSession) {
+                return
+            }
+
+            guard let category = category(for: result.categoryID) else {
+                throw AIClassificationServiceError.unknownCategory(result.categoryID)
+            }
+
+            switch kind {
+            case .application:
+                assignCategory(toApplication: item.label, categoryID: category.id)
+            case .domain:
+                assignCategory(toDomain: item.label, categoryID: category.id)
+            }
+
+            let confidence = Int((result.confidence * 100).rounded())
+            let reason = result.reason.trimmingCharacters(in: .whitespacesAndNewlines)
+            aiClassificationStatusMessage = reason.isEmpty
+                ? "IA classificou \(item.label) como \(category.title) (\(confidence)%)."
+                : "IA classificou \(item.label) como \(category.title) (\(confidence)%): \(reason)"
+        } catch is CancellationError {
+            return
+        } catch {
+            aiClassificationStatusMessage = error.localizedDescription
+        }
+    }
+
     private func runCloudSync() async {
         guard monitoringPreferences.cloudSyncSettings.isEnabled else { return }
-        guard canUse(.cloudBackup) else {
-            cloudSyncStatusMessage = lockMessage(for: .cloudBackup)
-            return
-        }
-        guard cloudSyncConfigured else {
-            cloudSyncStatusMessage = "Entre na conta Luum ou preencha endpoint, Backup ID e chave para ativar o sync."
-            return
-        }
 
         isSyncingCloud = true
         defer { isSyncingCloud = false }
 
         do {
+            let verified = try await verifiedAuthSessionForProtectedRequest()
+            guard verified.includes(.cloudBackup) else {
+                cloudSyncStatusMessage = lockMessage(for: .cloudBackup)
+                return
+            }
+            guard cloudSyncConfigured else {
+                cloudSyncStatusMessage = "Entre na conta Luum e valide o plano para ativar o backup Firebase."
+                return
+            }
             let updatedAt = try await cloudSyncService.push(
-                baseURL: monitoringPreferences.cloudSyncSettings.endpointURL,
-                backupID: monitoringPreferences.cloudSyncSettings.backupID,
-                firebaseToken: authSession?.idToken,
+                baseURL: FirebaseAuthService.defaultBaseURL,
+                backupID: verified.uid,
+                firebaseToken: verified.idToken,
                 payload: makeCloudBackupPayload()
             )
+            guard isCurrentVerifiedSession(verified) else { return }
             cloudSyncLastSyncAt = updatedAt
             cloudSyncStatusMessage = "Backup sincronizado com sucesso."
+        } catch is CancellationError {
+            return
         } catch {
             cloudSyncStatusMessage = error.localizedDescription
         }
     }
 
     private func runCloudRestore() async {
-        guard cloudSyncConfigured else {
-            cloudSyncStatusMessage = "Configure o sync antes de restaurar."
-            return
-        }
-        guard canUse(.cloudBackup) else {
-            cloudSyncStatusMessage = lockMessage(for: .cloudBackup)
-            return
-        }
-
         isSyncingCloud = true
         defer { isSyncingCloud = false }
 
         do {
+            let verified = try await verifiedAuthSessionForProtectedRequest()
+            guard verified.includes(.cloudBackup) else {
+                cloudSyncStatusMessage = lockMessage(for: .cloudBackup)
+                return
+            }
+            guard cloudSyncConfigured else {
+                cloudSyncStatusMessage = "Entre na conta Luum e valide o plano antes de restaurar."
+                return
+            }
             guard let payload = try await cloudSyncService.pull(
-                baseURL: monitoringPreferences.cloudSyncSettings.endpointURL,
-                backupID: monitoringPreferences.cloudSyncSettings.backupID,
-                firebaseToken: authSession?.idToken
+                baseURL: FirebaseAuthService.defaultBaseURL,
+                backupID: verified.uid,
+                firebaseToken: verified.idToken
             ) else {
                 cloudSyncStatusMessage = "Nenhum backup encontrado para esse identificador."
                 return
             }
+            guard isCurrentVerifiedSession(verified) else { return }
 
             monitoringPreferences = mergeRestoredMonitoringPreferences(payload.monitoringPreferences)
             googleCalendarClientID = payload.googleCalendarSnapshot.clientID
             googleCalendarConnections = payload.googleCalendarSnapshot.connections
-            if let rawActivities = payload.rawActivities {
+            if canUse(.rawActivityBackup), let rawActivities = payload.rawActivities {
                 samples = rawActivities
+                sortSamples()
             }
 
             if !googleCalendarConnections.isEmpty {
@@ -2890,6 +3247,8 @@ final class ActivityStore {
             schedulePersistence()
             invalidateSummaries()
             cloudSyncStatusMessage = "Backup restaurado com sucesso."
+        } catch is CancellationError {
+            return
         } catch {
             cloudSyncStatusMessage = error.localizedDescription
         }
@@ -2927,6 +3286,15 @@ final class ActivityStore {
             schemaVersion: 1,
             exportedAt: Date(),
             deviceName: Host.current().localizedName ?? "Mac",
+            account: authSession.map {
+                CloudAccountSnapshot(
+                    uid: $0.uid,
+                    email: $0.email,
+                    displayName: $0.displayName,
+                    plan: $0.plan,
+                    subscriptionStatus: $0.subscriptionStatus
+                )
+            },
             monitoringPreferences: CloudSyncService.cloudSafePreferences(monitoringPreferences),
             googleCalendarSnapshot: CloudSyncService.cloudSafeGoogleCalendarSnapshot(
                 clientID: googleCalendarClientID,
@@ -3027,21 +3395,38 @@ final class ActivityStore {
 
         currentSnapshot = snapshot
 
+        var affectedStart = snapshot.timestamp
+        var affectedEnd = snapshot.timestamp
+        var extendedCurrentSample = false
+
         if let lastIndex = samples.indices.last,
            samples[lastIndex].canExtend(with: snapshot, maximumGap: sessionGapTolerance, sanitizedURL: sanitizedURL, sanitizedTitle: sanitizedTitle) {
+            extendedCurrentSample = true
+            affectedStart = samples[lastIndex].startDate
             samples[lastIndex].endDate = snapshot.timestamp
             samples[lastIndex].webURL = sanitizedURL
             samples[lastIndex].webDomain = domain
             samples[lastIndex].pageTitle = sanitizedTitle
+            affectedEnd = samples[lastIndex].endDate
         } else {
             if let lastIndex = samples.indices.last, snapshot.timestamp.timeIntervalSince(samples[lastIndex].endDate) <= sessionGapTolerance {
+                affectedStart = min(affectedStart, samples[lastIndex].startDate)
                 samples[lastIndex].endDate = max(samples[lastIndex].endDate, snapshot.timestamp)
+                affectedEnd = max(affectedEnd, samples[lastIndex].endDate)
             }
 
-            samples.append(ActivitySample(snapshot: snapshot, domain: domain, sanitizedURL: sanitizedURL, sanitizedTitle: sanitizedTitle))
+            let newSample = ActivitySample(snapshot: snapshot, domain: domain, sanitizedURL: sanitizedURL, sanitizedTitle: sanitizedTitle)
+            samples.append(newSample)
+            affectedStart = min(affectedStart, newSample.startDate)
+            affectedEnd = max(affectedEnd, newSample.endDate)
         }
 
-        invalidateSummaries()
+        invalidateSummariesForActivity(
+            from: affectedStart,
+            to: affectedEnd,
+            at: snapshot.timestamp,
+            coalescingLiveExtension: extendedCurrentSample
+        )
         schedulePersistence()
         evaluateReminders()
     }
@@ -3050,7 +3435,11 @@ final class ActivityStore {
         guard currentSnapshot != nil || !samples.isEmpty else { return }
 
         if let lastIndex = samples.indices.last, timestamp.timeIntervalSince(samples[lastIndex].endDate) <= sessionGapTolerance {
+            let previousEndDate = samples[lastIndex].endDate
             samples[lastIndex].endDate = max(samples[lastIndex].endDate, timestamp)
+            if samples[lastIndex].endDate != previousEndDate {
+                invalidateSummaries(touching: samples[lastIndex])
+            }
         }
 
         currentSnapshot = nil
@@ -3062,20 +3451,27 @@ final class ActivityStore {
     private func schedulePersistence() {
         persistTask?.cancel()
         persistTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(1))
+            try? await Task.sleep(for: self?.activityPersistenceDebounce ?? .seconds(5))
             self?.flushPersistence()
         }
-
-        scheduleCloudSyncIfNeeded(reason: "activity")
     }
 
     private func flushPersistence() {
-        samples = persistence.trim(samples: samples, retentionDays: monitoringPreferences.privacySettings.retentionDays)
+        let retentionDays = monitoringPreferences.privacySettings.retentionDays
+        let cleanedSamples = persistence.trim(samples: samples, retentionDays: retentionDays)
+        samples = cleanedSamples
 
-        do {
-            try persistence.save(samples: samples, retentionDays: monitoringPreferences.privacySettings.retentionDays)
-        } catch {
-            automationStatusMessage = "Nao foi possivel salvar o historico local do luum."
+        persistenceWriteTask?.cancel()
+        let persistence = persistence
+
+        persistenceWriteTask = Task.detached(priority: .utility) { [cleanedSamples, retentionDays, persistence, weak self] in
+            do {
+                try persistence.save(samples: cleanedSamples, retentionDays: retentionDays)
+            } catch {
+                await MainActor.run {
+                    self?.automationStatusMessage = "Nao foi possivel salvar o historico local do luum."
+                }
+            }
         }
     }
 
@@ -3166,10 +3562,10 @@ final class ActivityStore {
             return
         }
 
-        let filteredSamples = samples.filter { !$0.isHidden && !isIgnored(sample: $0) }
         reminderEvaluationTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(350))
             guard let self else { return }
+            let filteredSamples = self.visibleSamplesForCurrentStreak()
             if canEvaluateReminders {
                 await self.reminderEngine.evaluate(
                     samples: filteredSamples,
@@ -3281,6 +3677,43 @@ final class ActivityStore {
         return clipped
     }
 
+    private func visibleSamples(from start: Date, to end: Date) -> [ActivitySample] {
+        var visibleSamples: [ActivitySample] = []
+
+        for sample in samples {
+            guard !sample.isHidden else { continue }
+            if sample.startDate >= end { break }
+            guard sampleOverlaps(sample, from: start, to: end) else { continue }
+            guard let clipped = clip(sample: sample, from: start, to: end) else { continue }
+            guard !isIgnored(sample: clipped) else { continue }
+            visibleSamples.append(clipped)
+        }
+
+        return visibleSamples
+    }
+
+    private func visibleSamplesForCurrentStreak() -> [ActivitySample] {
+        var reversedVisibleSamples: [ActivitySample] = []
+        var nextSample: ActivitySample?
+
+        for sample in samples.reversed() {
+            guard !sample.isHidden, !isIgnored(sample: sample) else { continue }
+
+            if let nextSample, nextSample.startDate.timeIntervalSince(sample.endDate) > 90 {
+                break
+            }
+
+            reversedVisibleSamples.append(sample)
+            nextSample = sample
+        }
+
+        return reversedVisibleSamples.reversed()
+    }
+
+    private func sampleOverlaps(_ sample: ActivitySample, from start: Date, to end: Date) -> Bool {
+        sample.endDate > start && sample.startDate < end
+    }
+
     private func continuousStreakDuration(for categoryIDs: Set<String>, in samples: [ActivitySample]) -> TimeInterval {
         guard let lastSample = samples.last else { return 0 }
         let lastCategoryID = classifier.classify(sample: lastSample, preferences: monitoringPreferences).id
@@ -3352,6 +3785,50 @@ final class ActivityStore {
     private func invalidateSummaries() {
         summaryCache.removeAll()
         summaryRevision &+= 1
+    }
+
+    private func invalidateSummaries(touching sample: ActivitySample) {
+        invalidateSummaries(from: sample.startDate, to: sample.endDate)
+    }
+
+    private func invalidateSummaries(from startDate: Date, to endDate: Date) {
+        guard !summaryCache.isEmpty else {
+            summaryRevision &+= 1
+            return
+        }
+
+        let calendar = Calendar.autoupdatingCurrent
+        var day = calendar.startOfDay(for: min(startDate, endDate))
+        let lastDay = calendar.startOfDay(for: max(startDate, endDate))
+
+        while day <= lastDay {
+            summaryCache.removeValue(forKey: day)
+            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = nextDay
+        }
+
+        summaryRevision &+= 1
+    }
+
+    private func invalidateSummariesForActivity(
+        from startDate: Date,
+        to endDate: Date,
+        at timestamp: Date,
+        coalescingLiveExtension: Bool
+    ) {
+        guard coalescingLiveExtension else {
+            lastLiveSummaryRefreshAt = timestamp
+            invalidateSummaries(from: startDate, to: endDate)
+            return
+        }
+
+        if let lastLiveSummaryRefreshAt,
+           timestamp.timeIntervalSince(lastLiveSummaryRefreshAt) < liveSummaryRefreshInterval {
+            return
+        }
+
+        lastLiveSummaryRefreshAt = timestamp
+        invalidateSummaries(from: startDate, to: endDate)
     }
 
     private func normalizedDay(_ day: Date) -> Date {
@@ -3480,13 +3957,15 @@ final class ActivityStore {
     }
 
     private func sortSamples() {
-        samples.sort {
-            if $0.startDate == $1.startDate {
-                return $0.endDate < $1.endDate
-            }
+        samples.sort(by: Self.sampleSortOrder)
+    }
 
-            return $0.startDate < $1.startDate
+    private static func sampleSortOrder(_ lhs: ActivitySample, _ rhs: ActivitySample) -> Bool {
+        if lhs.startDate == rhs.startDate {
+            return lhs.endDate < rhs.endDate
         }
+
+        return lhs.startDate < rhs.startDate
     }
 
     private func canMerge(lhs: ActivitySample, rhs: ActivitySample) -> Bool {
@@ -3620,6 +4099,7 @@ final class ActivityStore {
     private static let outlookCalendarTokenKey = "outlook-calendar-token"
     private static let clickUpTokenKey = "clickup-api-token"
     private static let linearTokenKey = "linear-api-key"
+    private static let aiClassificationAPIKeyKey = "ai-classification-api-key"
     private static let teamWorkspaceSecretKey = "team-workspace-secret"
 
     private static func googleCalendarTokenKey(_ connectionID: String) -> String {

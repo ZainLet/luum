@@ -202,7 +202,7 @@
                     <span>Criando conta...</span>
                 </div>
                 <div class="info">
-                    <p>Já tem conta? <a href="login.html">Faça login</a></p>
+                    <p>Já tem conta? <a href="login.html?redirect=account.html" id="loginLink">Faça login</a></p>
                     <p style="margin-top:4px;">Ao criar conta, você aceita os <a href="termos.html">Termos</a>.</p>
                 </div>
                 <div class="fallback-link" id="fallbackLink" style="display:none;">
@@ -213,8 +213,6 @@
     </div>
 
     <script>
-        const API_BASE = 'https://api.luum-app.com';
-
         const state = { step: 0, answers: { cargo: null, time: null, tools: [], objetivo: null } };
         let signingUp = false; // evita conflito com onAuthStateChanged
         let redirecting = false;
@@ -269,14 +267,18 @@
 
         function shouldOpenApp() {
             const params = new URLSearchParams(window.location.search);
-            return params.get('app') === 'mac' || !getRedirectTarget();
+            return params.get('app') === 'mac';
+        }
+
+        function postSignupTarget() {
+            return getRedirectTarget() || 'account.html';
         }
 
         async function exchangeTokenAndRedirect(user) {
             if (redirecting) return;
             redirecting = true;
             try {
-                const idToken = await user.getIdToken();
+                const idToken = await user.getIdToken(true);
                 const accountResponse = await fetch(luumApiUrl('/api/auth/upsert-user'), {
                     method: 'POST',
                     headers: {
@@ -299,11 +301,9 @@
                     throw new Error(accountData.error || 'Backend de conta indisponível.');
                 }
 
-                const redirectTarget = getRedirectTarget();
-
-                if (!shouldOpenApp() && redirectTarget) {
+                if (!shouldOpenApp()) {
                     showSuccess('Conta criada! Redirecionando...');
-                    window.location.href = redirectTarget;
+                    window.location.href = postSignupTarget();
                     return;
                 }
 
@@ -336,6 +336,10 @@
                 disableSignup('Firebase não carregou. Recarregue a página ou verifique sua conexão.');
                 return;
             }
+
+            document.getElementById('loginLink').href = shouldOpenApp()
+                ? 'login.html?app=mac'
+                : 'login.html?redirect=account.html';
 
             document.getElementById('signupForm').addEventListener('submit', async (e) => {
                 e.preventDefault();

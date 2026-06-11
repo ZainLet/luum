@@ -4,6 +4,7 @@ private enum LUUMSection: String, CaseIterable, Identifiable {
     case overview
     case search
     case agenda
+    case clients
     case apps
     case websites
     case team
@@ -22,6 +23,8 @@ private enum LUUMSection: String, CaseIterable, Identifiable {
             "Busca"
         case .agenda:
             "Agenda"
+        case .clients:
+            "Clientes"
         case .apps:
             "Apps"
         case .websites:
@@ -47,6 +50,8 @@ private enum LUUMSection: String, CaseIterable, Identifiable {
             .search
         case .agenda:
             .agendaIntegrations
+        case .clients:
+            .reports
         case .apps, .websites, .categories:
             .classification
         case .team:
@@ -68,6 +73,8 @@ private enum LUUMSection: String, CaseIterable, Identifiable {
             "magnifyingglass"
         case .agenda:
             "calendar.badge.clock"
+        case .clients:
+            "briefcase.fill"
         case .apps:
             "app.connected.to.app.below.fill"
         case .websites:
@@ -107,7 +114,7 @@ struct ContentView: View {
     }
 
     private var primarySections: [LUUMSection] {
-        [.overview, .search, .agenda, .apps, .websites, .team]
+        [.overview, .search, .agenda, .clients, .apps, .websites, .team]
     }
 
     private var controlSections: [LUUMSection] {
@@ -121,14 +128,14 @@ struct ContentView: View {
             if store.isSignedIn {
                 HStack(alignment: .top, spacing: 22) {
                     sidebar
-                        .frame(width: 296, alignment: .topLeading)
+                        .frame(width: 244, alignment: .topLeading)
 
                     detailContent
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
-                .padding(.horizontal, 22)
-                .padding(.top, 56)
-                .padding(.bottom, 18)
+                .padding(.horizontal, 14)
+                .padding(.top, 42)
+                .padding(.bottom, 14)
             } else {
                 LoginRequiredView(store: store)
                     .padding(40)
@@ -199,6 +206,8 @@ struct ContentView: View {
                 title: selection.title,
                 feature: selection.requiredFeature,
                 message: store.lockMessage(for: selection.requiredFeature),
+                accountEmail: store.accountEmail,
+                accountPlan: store.accountPlan,
                 openPlans: { store.openLoginPage() },
                 refresh: { store.refreshAccountStatus() }
             )
@@ -227,6 +236,8 @@ struct ContentView: View {
             }
         case .agenda:
             AgendaView(store: store, selectedDay: selectedDay, agenda: agenda)
+        case .clients:
+            BusinessWorkspaceView(store: store)
         case .apps:
             QuickClassificationView(
                 store: store,
@@ -261,10 +272,10 @@ struct ContentView: View {
 
     private var sidebar: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 10) {
                 SidebarHero(store: store, summary: summary, agenda: agenda)
 
-                SidebarSectionCard(title: "Fluxo do dia", subtitle: "Navegue pelo que voce quer entender agora.") {
+                SidebarSectionCard(title: "Principal", subtitle: "Seu dia de trabalho.") {
                     VStack(spacing: 8) {
                         ForEach(primarySections) { section in
                             Button {
@@ -277,7 +288,7 @@ struct ContentView: View {
                     }
                 }
 
-                SidebarSectionCard(title: "Ajustes", subtitle: "Controles do motor do luum.") {
+                SidebarSectionCard(title: "Ajustes", subtitle: "Motor e relatorios.") {
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                         ForEach(controlSections) { section in
                             Button {
@@ -318,16 +329,14 @@ private struct LoginRequiredView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: "person.crop.circle.badge.checkmark")
-                .font(.system(size: 56, weight: .semibold))
-                .foregroundStyle(LuumTheme.accent)
+            LuumAppMark(size: 72)
 
             VStack(spacing: 8) {
                 Text("Entre no Luum")
                     .font(.largeTitle.weight(.bold))
                     .foregroundStyle(.white)
 
-                Text("Use a mesma conta Firebase do site para liberar seu plano, backup e integracoes neste Mac. O app salva a sessao localmente com fallback quando o Keychain nao esta disponivel.")
+                Text("Use a mesma conta Firebase do site para liberar seu plano, backup e integracoes neste Mac. O app salva a sessao em um cofre local cifrado para evitar prompts das Chaves do macOS em builds ad-hoc.")
                     .font(.body)
                     .foregroundStyle(LuumTheme.textSecondary)
                     .multilineTextAlignment(.center)
@@ -364,6 +373,8 @@ private struct LockedFeatureView: View {
     let title: String
     let feature: LuumFeature
     let message: String
+    let accountEmail: String
+    let accountPlan: LuumAccountPlan
     let openPlans: () -> Void
     let refresh: () -> Void
 
@@ -376,6 +387,22 @@ private struct LockedFeatureView: View {
             Text(message)
                 .foregroundStyle(LuumTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if !accountEmail.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Conta atual")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LuumTheme.textMuted)
+                        .textCase(.uppercase)
+
+                    Text("\(accountEmail) • Plano \(accountPlan.title)")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .textSelection(.enabled)
+                }
+                .padding(.vertical, 2)
+            }
 
             HStack(spacing: 10) {
                 Button("Ver planos / entrar") { openPlans() }
@@ -399,30 +426,20 @@ private struct SidebarHero: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center, spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [LuumTheme.accent, LuumTheme.secondaryAccent],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
-                .frame(width: 38, height: 38)
+                LuumAppMark(size: 32)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("luum")
-                        .font(.headline.weight(.semibold))
+                    Text("Luum")
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Plano \(store.accountPlan.title) • \(store.isMonitoring ? "monitorando" : "pausado")")
-                        .font(.caption)
+                    Text(store.accountEmail.isEmpty
+                        ? "Plano \(store.accountPlan.title) • \(store.isMonitoring ? "monitorando" : "pausado")"
+                        : "\(store.accountEmail) • \(store.accountPlan.title)"
+                    )
+                        .font(.caption2)
                         .foregroundStyle(LuumTheme.textSecondary)
+                        .lineLimit(2)
                 }
 
                 Spacer()
@@ -434,7 +451,7 @@ private struct SidebarHero: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(store.currentActivityTitle)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.callout.weight(.semibold))
                     .foregroundStyle(.white)
                     .lineLimit(2)
 
@@ -467,9 +484,9 @@ private struct SidebarHero: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
+        .padding(14)
         .fixedSize(horizontal: false, vertical: true)
-        .luumGlassCard(tint: LuumTheme.accent.opacity(0.14), cornerRadius: 28, shadowOpacity: 0.14)
+        .luumGlassCard(tint: LuumTheme.accent.opacity(0.10), cornerRadius: 16, shadowOpacity: 0.08)
     }
 }
 
@@ -485,12 +502,12 @@ private struct SidebarSectionCard<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(LuumTheme.textMuted)
-                    .tracking(1.1)
+                    .tracking(0.8)
 
                 Text(subtitle)
                     .font(.caption)
@@ -500,8 +517,8 @@ private struct SidebarSectionCard<Content: View>: View {
 
             content
         }
-        .padding(14)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.14), cornerRadius: 24, shadowOpacity: 0.14)
+        .padding(12)
+        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.08), cornerRadius: 14, shadowOpacity: 0.08)
     }
 }
 
@@ -528,15 +545,19 @@ private struct SidebarButtonRow: View {
                     .foregroundStyle(LuumTheme.textMuted)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(isSelected ? LuumTheme.accent.opacity(0.14) : LuumTheme.panelFill)
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(isSelected ? .white.opacity(0.085) : .clear)
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(isSelected ? LuumTheme.surfaceInnerHighlight : .white.opacity(0.02))
+            HStack {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(isSelected ? LuumTheme.accent : .clear)
+                    .frame(width: 3)
+                Spacer()
+            }
         }
     }
 }
@@ -565,15 +586,15 @@ private struct SidebarToolTile: View {
                 .foregroundStyle(isSelected ? .white : LuumTheme.textSecondary)
                 .lineLimit(1)
         }
-        .frame(maxWidth: .infinity, minHeight: 74, alignment: .topLeading)
-        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 66, alignment: .topLeading)
+        .padding(10)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(isSelected ? LuumTheme.accent.opacity(0.14) : LuumTheme.panelFill)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(isSelected ? .white.opacity(0.085) : LuumTheme.panelFill)
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(isSelected ? LuumTheme.surfaceInnerHighlight : .white.opacity(0.02))
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(isSelected ? .white.opacity(0.12) : .white.opacity(0.025))
         }
     }
 }
@@ -630,14 +651,18 @@ private struct SidebarMetricPill: View {
             Text(title.uppercased())
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(LuumTheme.textMuted)
-                .tracking(1.0)
+                .tracking(0.6)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
 
             Text(value)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)

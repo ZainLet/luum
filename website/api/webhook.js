@@ -1,7 +1,14 @@
 // Stripe Webhook -> Firestore — Luum
 
 const { admin, getFirestore } = require('./_firebaseAdmin');
+const { addNoStoreHeaders } = require('./_httpHeaders');
 const { getStripe, isStripePlan, requireSetting } = require('./_stripe');
+const {
+    invoiceSubscriptionID,
+    invoiceSubscriptionMetadata,
+    normalizeStripeStatus,
+    planPatch
+} = require('./_stripeWebhookShape');
 
 function readRawBody(req) {
     return new Promise((resolve, reject) => {
@@ -27,25 +34,30 @@ async function subscriptionSnapshot(stripe, subscriptionId) {
     };
 }
 
-function normalizeStripeStatus(status) {
-    return status === 'active' || status === 'trialing' ? 'active' : status;
-}
-
-async function writeSubscription(db, uid, plan, subscription) {
+function subscriptionDocumentPatch(plan, subscription) {
     if (plan && !isStripePlan(plan)) {
-        throw new Error('Plano Stripe inválido');
+        console.warn('[Webhook] Ignorando plano Stripe inválido:', plan);
     }
 
-    await db.collection('users').doc(uid).set({
-        ...(plan ? { plan } : {}),
+    const patch = {
+        ...planPatch(plan, isStripePlan),
         subscription: {
             ...subscription,
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         }
+    };
+    return patch;
+}
+
+async function writeSubscription(db, uid, plan, subscription) {
+    await db.collection('users').doc(uid).set({
+        ...subscriptionDocumentPatch(plan, subscription)
     }, { merge: true });
 }
 
 async function webhookHandler(req, res) {
+    addNoStoreHeaders(res);
+
     if (req.method !== 'POST') return res.status(405).end();
 
     const sig = req.headers['stripe-signature'];
@@ -87,20 +99,21 @@ async function webhookHandler(req, res) {
 
             case 'invoice.payment_succeeded': {
                 const invoice = event.data.object;
-                const subscriptionId = invoice.subscription;
+                const subscriptionId = invoiceSubscriptionID(invoice);
                 if (!subscriptionId) break;
 
                 const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-                const uid = subscription.metadata?.uid || invoice.subscription_details?.metadata?.uid;
+                const invoiceMetadata = invoiceSubscriptionMetadata(invoice);
+                const uid = subscription.metadata?.uid || invoiceMetadata.uid;
                 if (!uid) break;
 
                 const period = await subscriptionSnapshot(stripe, subscriptionId);
-                await writeSubscription(db, uid, subscription.metadata?.plan, {
+                await writeSubscription(db, uid, subscription.metadata?.plan || invoiceMetadata.plan, {
                     status: period.status,
                     stripeSubscriptionId: subscriptionId,
                     currentPeriodStart: period.currentPeriodStart,
                     currentPeriodEnd: period.currentPeriodEnd,
-                    billing: subscription.metadata?.billing || period.billing,
+                    billing: subscription.metadata?.billing || invoiceMetadata.billing || period.billing,
                     quantity: period.quantity,
                 });
                 break;

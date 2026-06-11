@@ -68,6 +68,16 @@ enum QuickClassificationKind {
             store.addIgnoredDomain(item.label)
         }
     }
+
+    @MainActor
+    func classifyWithAI(_ item: UsageBreakdownItem, using store: ActivityStore) {
+        switch self {
+        case .applications:
+            store.classifyApplicationWithAI(item)
+        case .websites:
+            store.classifyDomainWithAI(item)
+        }
+    }
 }
 
 struct QuickClassificationView: View {
@@ -203,6 +213,13 @@ struct QuickClassificationView: View {
             Text(kind.helperText)
                 .foregroundStyle(LuumTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if let message = store.aiClassificationStatusMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(20)
         .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.1), cornerRadius: 28, shadowOpacity: 0.1)
@@ -259,6 +276,16 @@ private struct QuickClassificationRow: View {
                 CategoryMenuLabel(category: selectedCategory)
             }
             .menuStyle(.borderlessButton)
+
+            Button {
+                kind.classifyWithAI(item, using: store)
+            } label: {
+                Image(systemName: "sparkles")
+                    .frame(width: 32, height: 32)
+            }
+            .buttonStyle(.borderless)
+            .disabled(!store.aiClassificationConfigured || store.isClassifyingWithAI)
+            .help(store.aiClassificationConfigured ? "Classificar com IA" : "Configure a IA nas preferencias")
 
             Button(role: .destructive) {
                 kind.ignore(item, using: store)

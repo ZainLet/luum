@@ -11,6 +11,9 @@ struct SearchView: View {
     }
 
     var body: some View {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let visibleResults = trimmedQuery.isEmpty ? [] : results
+
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 LuumSectionHeader(
@@ -19,21 +22,21 @@ struct SearchView: View {
                     subtitle: "Pesquise por apps, sites, notas, buscas no navegador e compromissos da agenda a partir de uma unica caixa."
                 )
 
-                searchCard
+                searchCard(resultsCount: visibleResults.count)
 
-                if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if trimmedQuery.isEmpty {
                     helperCard(
                         title: "Comece digitando",
                         message: "Busque por um app, um dominio, um termo da aba, uma nota manual ou um evento do Google Calendar."
                     )
-                } else if results.isEmpty {
+                } else if visibleResults.isEmpty {
                     helperCard(
                         title: "Nenhum resultado",
                         message: "O luum nao encontrou nada nesse historico local ou na janela de agenda sincronizada."
                     )
                 } else {
                     VStack(spacing: 12) {
-                        ForEach(results) { result in
+                        ForEach(visibleResults) { result in
                             Button {
                                 jumpToResult(result)
                             } label: {
@@ -49,7 +52,7 @@ struct SearchView: View {
         .scrollIndicators(.hidden)
     }
 
-    private var searchCard: some View {
+    private func searchCard(resultsCount: Int) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
                 HStack(spacing: 10) {
@@ -67,7 +70,7 @@ struct SearchView: View {
                 )
 
                 CompactStatPill(
-                    title: "\(results.count)",
+                    title: "\(resultsCount)",
                     detail: "resultados"
                 )
             }

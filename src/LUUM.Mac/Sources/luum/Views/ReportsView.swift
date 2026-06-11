@@ -20,9 +20,9 @@ struct ReportsView: View {
                 summaryCard
                 highlightsCard
                 goalsCard
-                breakdownCard(title: "Top categorias", items: report.topCategories.map { ($0.category.title, LuumFormatters.duration($0.duration), $0.category.tint) })
-                breakdownCard(title: "Top apps", items: report.topApps.map { ($0.label, LuumFormatters.duration($0.duration), $0.category?.tint ?? LuumTheme.accent) })
-                breakdownCard(title: "Top sites", items: report.topSites.map { ($0.label, LuumFormatters.duration($0.duration), $0.category?.tint ?? LuumTheme.electricBlue) })
+                breakdownCard(title: "Top categorias", items: report.topCategories.prefix(8).map { ($0.category.title, LuumFormatters.duration($0.duration), $0.category.tint) })
+                breakdownCard(title: "Top apps", items: report.topApps.prefix(12).map { ($0.label, LuumFormatters.duration($0.duration), $0.category?.tint ?? LuumTheme.accent) })
+                breakdownCard(title: "Top sites", items: report.topSites.prefix(12).map { ($0.label, LuumFormatters.duration($0.duration), $0.category?.tint ?? LuumTheme.electricBlue) })
                 exportCard
             }
             .padding(28)

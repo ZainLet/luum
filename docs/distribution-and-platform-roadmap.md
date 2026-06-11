@@ -196,7 +196,7 @@ Usar Firebase para:
 - `Firebase Auth` para identidade
 - `Firestore` para preferencias, ranking, resumos e metadados
 - `Cloud Functions` ou API existente para tarefas sensiveis
-- `Keychain` local para segredos do desktop quando possivel
+- cofre local cifrado para segredos do desktop em builds ad-hoc; Keychain do macOS apenas quando houver assinatura Apple Developer estável
 
 ## Ranking entre pessoas da mesma empresa
 

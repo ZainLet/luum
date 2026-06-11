@@ -14,6 +14,7 @@ CODESIGN_IDENTITY="${APPLE_CODESIGN_IDENTITY:--}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKAGE_DIR="$ROOT_DIR/src/LUUM.Mac"
 DIST_DIR="$ROOT_DIR/dist"
+SWIFT_BUILD_DIR="${SWIFT_BUILD_DIR:-$DIST_DIR/swift-build}"
 ICON_SOURCE="$ROOT_DIR/src/LUUM.Client/wwwroot/favicon.png"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
@@ -24,8 +25,8 @@ INFO_PLIST="$APP_CONTENTS/Info.plist"
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
-swift build --package-path "$PACKAGE_DIR"
-BUILD_BINARY="$(swift build --package-path "$PACKAGE_DIR" --show-bin-path)/$APP_NAME"
+swift build --package-path "$PACKAGE_DIR" --build-path "$SWIFT_BUILD_DIR"
+BUILD_BINARY="$(swift build --package-path "$PACKAGE_DIR" --build-path "$SWIFT_BUILD_DIR" --show-bin-path)/$APP_NAME"
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS"
@@ -107,6 +108,20 @@ PLIST
 
 codesign --force --deep --sign "$CODESIGN_IDENTITY" --timestamp=none "$APP_BUNDLE"
 
+verify_bundle() {
+  plutil -lint "$INFO_PLIST" >/dev/null
+
+  local registered_scheme
+  registered_scheme="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes:0:CFBundleURLSchemes:0' "$INFO_PLIST")"
+  if [[ "$registered_scheme" != "luum" ]]; then
+    echo "Info.plist não registra o callback luum://auth." >&2
+    exit 1
+  fi
+
+  codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE" >/dev/null
+  test -x "$APP_BINARY"
+}
+
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
 }
@@ -126,13 +141,19 @@ case "$MODE" in
     open_app
     /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
     ;;
+  --package|package)
+    ;;
+  --verify-bundle|verify-bundle)
+    verify_bundle
+    ;;
   --verify|verify)
+    verify_bundle
     open_app
     sleep 1
     pgrep -x "$APP_NAME" >/dev/null
     ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify]" >&2
+    echo "usage: $0 [run|--debug|--logs|--telemetry|--package|--verify-bundle|--verify]" >&2
     exit 2
     ;;
 esac

@@ -1,10 +1,10 @@
 (function () {
     const STORAGE_USER_KEY = 'luum_user';
-    const DEFAULT_API_BASE = 'https://luum-app.vercel.app';
 
     function apiUrl(path) {
         if (window.luumApiUrl) return window.luumApiUrl(path);
-        const base = String(window.LUUM_API_BASE || DEFAULT_API_BASE).replace(/\/+$/, '');
+        const base = String(window.LUUM_API_BASE || window.LUUM_CONFIG?.apiBase || '').replace(/\/+$/, '');
+        if (!base) throw new Error('Configuração da API do Luum não carregou.');
         const suffix = String(path || '').startsWith('/') ? String(path) : `/${path}`;
         return `${base}${suffix}`;
     }
@@ -42,13 +42,13 @@
 
         loginBtns.forEach((el) => {
             el.textContent = user ? 'Minha Conta' : 'Entrar';
-            el.href = user ? 'account.html' : 'login.html';
+            el.href = user ? 'account.html' : 'login.html?redirect=account.html';
             el.className = 'btn btn-secondary js-auth-login';
         });
 
         signupBtns.forEach((el) => {
             el.textContent = user ? 'Sair' : 'Comecar Gratis';
-            el.href = user ? '#' : 'cadastro.html';
+            el.href = user ? '#' : 'cadastro.html?redirect=account.html';
             el.className = user ? 'btn btn-secondary js-auth-signup' : 'btn btn-primary js-auth-signup';
             el.onclick = user ? signOut : null;
         });
@@ -72,7 +72,7 @@
             throw new Error('Sessao Firebase incompleta para abrir o app.');
         }
 
-        const token = await currentUser.getIdToken(true);
+        const token = await upsertAccount(currentUser);
         const refreshToken = currentUser.refreshToken || '';
         const redirectURL = `luum://auth?token=${encodeURIComponent(token)}&refreshToken=${encodeURIComponent(refreshToken)}&uid=${encodeURIComponent(currentUser.uid)}`;
 
@@ -85,6 +85,50 @@
         }, { once: true });
 
         window.location.href = redirectURL;
+    }
+
+    function getRedirectTarget() {
+        const params = new URLSearchParams(window.location.search);
+        const redirect = params.get('redirect');
+        if (!redirect) return 'account.html';
+
+        const target = new URL(redirect, window.location.href);
+        if (target.origin !== window.location.origin) return 'account.html';
+        return `${target.pathname.replace(/^\//, '')}${target.search}${target.hash}`;
+    }
+
+    function shouldOpenApp() {
+        return new URLSearchParams(window.location.search).get('app') === 'mac';
+    }
+
+    async function finishAuth(user) {
+        if (shouldOpenApp()) {
+            await redirectToApp(user);
+            return;
+        }
+
+        await upsertAccount(user);
+        window.location.href = getRedirectTarget();
+    }
+
+    async function upsertAccount(user) {
+        const token = await user.getIdToken(true);
+        const response = await fetch(apiUrl('/api/auth/upsert-user'), {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: user.email || '',
+                name: user.displayName || ''
+            })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data.error || 'Backend de conta indisponivel.');
+        }
+        return token;
     }
 
     async function currentCheckoutUser() {
@@ -167,8 +211,21 @@
         const loginForm = document.getElementById('loginForm');
         const signupForm = document.getElementById('signupForm');
         const googleBtn = document.getElementById('googleSignIn');
+        const loginFieldsReady = Boolean(
+            loginForm &&
+            loginForm.dataset.luumSharedAuth === 'true' &&
+            document.getElementById('email') &&
+            document.getElementById('password')
+        );
+        const signupFieldsReady = Boolean(
+            signupForm &&
+            signupForm.dataset.luumSharedAuth === 'true' &&
+            document.getElementById('signupName') &&
+            document.getElementById('signupEmail') &&
+            document.getElementById('signupPassword')
+        );
 
-        if (loginForm) {
+        if (loginFieldsReady) {
             loginForm.addEventListener('submit', async (event) => {
                 event.preventDefault();
                 const auth = getFirebaseAuth();
@@ -178,11 +235,11 @@
 
                 const credential = await auth.signInWithEmailAndPassword(email, password);
                 rememberUser(credential.user);
-                await redirectToApp(credential.user);
+                await finishAuth(credential.user);
             });
         }
 
-        if (signupForm) {
+        if (signupFieldsReady) {
             signupForm.addEventListener('submit', async (event) => {
                 event.preventDefault();
                 const auth = getFirebaseAuth();
@@ -194,19 +251,19 @@
                 const credential = await auth.createUserWithEmailAndPassword(email, password);
                 await credential.user.updateProfile({ displayName: name });
                 rememberUser(credential.user);
-                await redirectToApp(credential.user);
+                await finishAuth(credential.user);
             });
         }
 
-        if (googleBtn) {
+        if (googleBtn?.dataset.luumSharedAuth === 'true') {
             googleBtn.addEventListener('click', async () => {
                 const auth = getFirebaseAuth();
-                if (!auth || !firebase.GoogleAuthProvider) return;
+                if (!auth || !firebase.auth?.GoogleAuthProvider) return;
 
                 const provider = new firebase.auth.GoogleAuthProvider();
                 const credential = await auth.signInWithPopup(provider);
                 rememberUser(credential.user);
-                await redirectToApp(credential.user);
+                await finishAuth(credential.user);
             });
         }
     }

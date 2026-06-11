@@ -27,84 +27,372 @@ struct ClassificationEngine {
         partialResult.insert(item)
     }
 
-    static let defaultRules: [CategoryRule] = [
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .domain, pattern: "github.com"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .domain, pattern: "gitlab.com"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .domain, pattern: "linear.app"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .domain, pattern: "notion.so"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .domain, pattern: "notion.site"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .domain, pattern: "figma.com"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .domain, pattern: "vercel.com"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .domain, pattern: "atlassian.net"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .domain, pattern: "docs.google.com"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .domain, pattern: "drive.google.com"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .domain, pattern: "openai.com"),
-        CategoryRule(categoryID: ActivityCategory.entertainment.id, matchTarget: .domain, pattern: "youtube.com"),
-        CategoryRule(categoryID: ActivityCategory.entertainment.id, matchTarget: .domain, pattern: "netflix.com"),
-        CategoryRule(categoryID: ActivityCategory.entertainment.id, matchTarget: .domain, pattern: "twitch.tv"),
-        CategoryRule(categoryID: ActivityCategory.entertainment.id, matchTarget: .domain, pattern: "spotify.com"),
-        CategoryRule(categoryID: ActivityCategory.entertainment.id, matchTarget: .domain, pattern: "disneyplus.com"),
-        CategoryRule(categoryID: ActivityCategory.entertainment.id, matchTarget: .domain, pattern: "primevideo.com"),
-        CategoryRule(categoryID: ActivityCategory.entertainment.id, matchTarget: .domain, pattern: "max.com"),
-        CategoryRule(categoryID: ActivityCategory.entertainment.id, matchTarget: .domain, pattern: "crunchyroll.com"),
-        CategoryRule(categoryID: ActivityCategory.communication.id, matchTarget: .domain, pattern: "slack.com"),
-        CategoryRule(categoryID: ActivityCategory.communication.id, matchTarget: .domain, pattern: "discord.com"),
-        CategoryRule(categoryID: ActivityCategory.communication.id, matchTarget: .domain, pattern: "teams.microsoft.com"),
-        CategoryRule(categoryID: ActivityCategory.communication.id, matchTarget: .domain, pattern: "meet.google.com"),
-        CategoryRule(categoryID: ActivityCategory.communication.id, matchTarget: .domain, pattern: "web.whatsapp.com"),
-        CategoryRule(categoryID: ActivityCategory.communication.id, matchTarget: .domain, pattern: "mail.google.com"),
-        CategoryRule(categoryID: ActivityCategory.communication.id, matchTarget: .domain, pattern: "telegram.org"),
-        CategoryRule(categoryID: ActivityCategory.learning.id, matchTarget: .domain, pattern: "developer.apple.com"),
-        CategoryRule(categoryID: ActivityCategory.learning.id, matchTarget: .domain, pattern: "docs.swift.org"),
-        CategoryRule(categoryID: ActivityCategory.learning.id, matchTarget: .domain, pattern: "learn.microsoft.com"),
-        CategoryRule(categoryID: ActivityCategory.learning.id, matchTarget: .domain, pattern: "developer.mozilla.org"),
-        CategoryRule(categoryID: ActivityCategory.learning.id, matchTarget: .domain, pattern: "coursera.org"),
-        CategoryRule(categoryID: ActivityCategory.learning.id, matchTarget: .domain, pattern: "udemy.com"),
-        CategoryRule(categoryID: ActivityCategory.learning.id, matchTarget: .domain, pattern: "stackoverflow.com"),
-        CategoryRule(categoryID: ActivityCategory.learning.id, matchTarget: .domain, pattern: "freecodecamp.org"),
-        CategoryRule(categoryID: ActivityCategory.utilities.id, matchTarget: .domain, pattern: "calendar.google.com"),
-        CategoryRule(categoryID: ActivityCategory.utilities.id, matchTarget: .domain, pattern: "keep.google.com"),
-        CategoryRule(categoryID: ActivityCategory.utilities.id, matchTarget: .domain, pattern: "todoist.com"),
-        CategoryRule(categoryID: ActivityCategory.utilities.id, matchTarget: .domain, pattern: "icloud.com"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .applicationName, pattern: "xcode"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .applicationName, pattern: "visual studio code"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .applicationName, pattern: "cursor"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .applicationName, pattern: "terminal"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .applicationName, pattern: "warp"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .applicationName, pattern: "iterm"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .applicationName, pattern: "figma"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .applicationName, pattern: "docker"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .applicationName, pattern: "postman"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .applicationName, pattern: "tableplus"),
-        CategoryRule(categoryID: ActivityCategory.work.id, matchTarget: .applicationName, pattern: "simulator"),
-        CategoryRule(categoryID: ActivityCategory.entertainment.id, matchTarget: .applicationName, pattern: "music"),
-        CategoryRule(categoryID: ActivityCategory.entertainment.id, matchTarget: .applicationName, pattern: "spotify"),
-        CategoryRule(categoryID: ActivityCategory.entertainment.id, matchTarget: .applicationName, pattern: "tv"),
-        CategoryRule(categoryID: ActivityCategory.entertainment.id, matchTarget: .applicationName, pattern: "steam"),
-        CategoryRule(categoryID: ActivityCategory.entertainment.id, matchTarget: .applicationName, pattern: "vlc"),
-        CategoryRule(categoryID: ActivityCategory.entertainment.id, matchTarget: .applicationName, pattern: "iina"),
-        CategoryRule(categoryID: ActivityCategory.communication.id, matchTarget: .applicationName, pattern: "slack"),
-        CategoryRule(categoryID: ActivityCategory.communication.id, matchTarget: .applicationName, pattern: "discord"),
-        CategoryRule(categoryID: ActivityCategory.communication.id, matchTarget: .applicationName, pattern: "zoom"),
-        CategoryRule(categoryID: ActivityCategory.communication.id, matchTarget: .applicationName, pattern: "teams"),
-        CategoryRule(categoryID: ActivityCategory.communication.id, matchTarget: .applicationName, pattern: "mail"),
-        CategoryRule(categoryID: ActivityCategory.communication.id, matchTarget: .applicationName, pattern: "messages"),
-        CategoryRule(categoryID: ActivityCategory.communication.id, matchTarget: .applicationName, pattern: "telegram"),
-        CategoryRule(categoryID: ActivityCategory.learning.id, matchTarget: .applicationName, pattern: "books"),
-        CategoryRule(categoryID: ActivityCategory.learning.id, matchTarget: .applicationName, pattern: "kindle"),
-        CategoryRule(categoryID: ActivityCategory.learning.id, matchTarget: .applicationName, pattern: "obsidian"),
-        CategoryRule(categoryID: ActivityCategory.utilities.id, matchTarget: .applicationName, pattern: "finder"),
-        CategoryRule(categoryID: ActivityCategory.utilities.id, matchTarget: .applicationName, pattern: "preview"),
-        CategoryRule(categoryID: ActivityCategory.utilities.id, matchTarget: .applicationName, pattern: "system settings"),
-        CategoryRule(categoryID: ActivityCategory.utilities.id, matchTarget: .applicationName, pattern: "calendar"),
-        CategoryRule(categoryID: ActivityCategory.utilities.id, matchTarget: .applicationName, pattern: "notes"),
+    static let defaultRules: [CategoryRule] =
+        rules(
+            categoryID: ActivityCategory.work.id,
+            matchTarget: .domain,
+            patterns: [
+                "github.com",
+                "gitlab.com",
+                "bitbucket.org",
+                "linear.app",
+                "clickup.com",
+                "asana.com",
+                "trello.com",
+                "monday.com",
+                "notion.so",
+                "notion.site",
+                "figma.com",
+                "miro.com",
+                "canva.com",
+                "vercel.com",
+                "atlassian.net",
+                "docs.google.com",
+                "drive.google.com",
+                "sheets.google.com",
+                "slides.google.com",
+                "airtable.com",
+                "openai.com",
+                "chatgpt.com",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.entertainment.id,
+            matchTarget: .domain,
+            patterns: [
+                "youtube.com",
+                "netflix.com",
+                "twitch.tv",
+                "spotify.com",
+                "disneyplus.com",
+                "primevideo.com",
+                "max.com",
+                "crunchyroll.com",
+                "reddit.com",
+                "instagram.com",
+                "tiktok.com",
+                "x.com",
+                "twitter.com",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.communication.id,
+            matchTarget: .domain,
+            patterns: [
+                "slack.com",
+                "discord.com",
+                "teams.microsoft.com",
+                "meet.google.com",
+                "zoom.us",
+                "web.whatsapp.com",
+                "mail.google.com",
+                "outlook.live.com",
+                "telegram.org",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.learning.id,
+            matchTarget: .domain,
+            patterns: [
+                "developer.apple.com",
+                "docs.swift.org",
+                "learn.microsoft.com",
+                "developer.mozilla.org",
+                "coursera.org",
+                "udemy.com",
+                "stackoverflow.com",
+                "freecodecamp.org",
+                "medium.com",
+                "substack.com",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.utilities.id,
+            matchTarget: .domain,
+            patterns: [
+                "calendar.google.com",
+                "keep.google.com",
+                "todoist.com",
+                "icloud.com",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.work.id,
+            matchTarget: .applicationName,
+            patterns: [
+                "xcode",
+                "visual studio code",
+                "vs code",
+                "cursor",
+                "codex",
+                "windsurf",
+                "intellij idea",
+                "android studio",
+                "pycharm",
+                "webstorm",
+                "sublime text",
+                "nova",
+                "terminal",
+                "warp",
+                "iterm",
+                "opencode",
+                "figma",
+                "sketch",
+                "docker",
+                "postman",
+                "tableplus",
+                "sequel ace",
+                "datagrip",
+                "filezilla",
+                "simulator",
+                "notion",
+                "clickup",
+                "linear",
+                "google docs",
+                "google sheets",
+                "google slides",
+                "windows app",
+                "adobe premiere pro",
+                "adobe premiere",
+                "adobe photoshop",
+                "adobe illustrator",
+                "adobe after effects",
+                "adobe media encoder",
+                "adobe lightroom",
+                "final cut pro",
+                "davinci resolve",
+                "blender",
+                "canva",
+                "obs",
+                "mister horse product manager",
+                "dagger",
+                "spell book",
+                "blinkl.io",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.work.id,
+            matchTarget: .bundleIdentifier,
+            patterns: [
+                "com.microsoft.vscode",
+                "com.todesktop.230313mzl4w4u92",
+                "com.openai.codex",
+                "ai.opencode.desktop",
+                "com.figma.desktop",
+                "org.filezilla-project.filezilla",
+                "com.google.drivefs.shortcuts.docs",
+                "com.google.drivefs.shortcuts.sheets",
+                "com.google.drivefs.shortcuts.slides",
+                "com.microsoft.rdc.macos",
+                "com.adobe.premierepro",
+                "com.adobe.photoshop",
+                "com.adobe.aftereffects",
+                "com.adobe.ame.application",
+                "org.blenderfoundation.blender",
+                "com.obsproject.obs-studio",
+                "com.misterhorse.productmanager",
+                "knights.of.the.editing.table.dagger",
+                "knights.of.the.editing.table.spellbook",
+                "io.blinkl.ea",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.entertainment.id,
+            matchTarget: .applicationName,
+            patterns: [
+                "music",
+                "spotify",
+                "tv",
+                "steam",
+                "epic games",
+                "battle.net",
+                "vlc",
+                "iina",
+                "plex",
+                "netflix",
+                "qbittorrent",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.entertainment.id,
+            matchTarget: .bundleIdentifier,
+            patterns: [
+                "com.spotify.client",
+                "com.valvesoftware.steam",
+                "org.qbittorrent.qbittorrent",
+                "com.apple.music",
+                "com.apple.tv",
+                "com.apple.podcasts",
+                "com.apple.chess",
+                "com.apple.games",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.communication.id,
+            matchTarget: .applicationName,
+            patterns: [
+                "slack",
+                "discord",
+                "zoom",
+                "microsoft teams",
+                "gather",
+                "mail",
+                "messages",
+                "telegram",
+                "whatsapp",
+                "facetime",
+                "spark",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.communication.id,
+            matchTarget: .bundleIdentifier,
+            patterns: [
+                "com.tinyspeck.slackmacgap",
+                "com.hnc.discord",
+                "com.gather.gather",
+                "com.gather.gatherv2",
+                "net.whatsapp.whatsapp",
+                "com.apple.mail",
+                "com.apple.mobilesms",
+                "com.apple.facetime",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.learning.id,
+            matchTarget: .applicationName,
+            patterns: [
+                "books",
+                "kindle",
+                "obsidian",
+                "bear",
+                "notability",
+                "goodnotes",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.learning.id,
+            matchTarget: .bundleIdentifier,
+            patterns: [
+                "md.obsidian",
+                "com.apple.ibooksx",
+                "com.apple.dictionary",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.utilities.id,
+            matchTarget: .applicationName,
+            patterns: [
+                "preview",
+                "calendar",
+                "notes",
+                "reminders",
+                "todoist",
+                "things",
+                "numbers",
+                "pages",
+                "keynote",
+                "microsoft excel",
+                "microsoft word",
+                "microsoft powerpoint",
+                "raycast",
+                "1password",
+                "bitwarden",
+                "google drive",
+                "rize",
+                "tailscale",
+                "rar extractor",
+                "unarchiver",
+                "appcleaner",
+            ]
+        )
+        + rules(
+            categoryID: ActivityCategory.utilities.id,
+            matchTarget: .bundleIdentifier,
+            patterns: [
+                "com.bitwarden.desktop",
+                "com.google.drivefs",
+                "io.rize",
+                "io.tailscale.ipn.macsys",
+                "net.freemacsoft.appcleaner",
+                "com.ababe.rarextractorfree",
+                "com.apple.preview",
+                "com.apple.ical",
+                "com.apple.notes",
+                "com.apple.reminders",
+                "com.apple.calculator",
+                "com.apple.passwords",
+            ]
+        )
+
+    private static let defaultIgnoredApplicationPatterns: Set<String> = [
+        "com.apple.controlcenter",
+        "control center",
+        "com.apple.notificationcenterui",
+        "notification center",
+        "com.apple.dock",
+        "com.apple.finder",
+        "finder",
+        "com.apple.systemuiserver",
+        "systemuiserver",
+        "com.apple.systempreferences",
+        "com.apple.systemsettings",
+        "system settings",
+        "com.apple.activitymonitor",
+        "activity monitor",
+        "com.apple.console",
+        "console",
+        "com.apple.diskutility",
+        "disk utility",
+        "com.apple.systemprofiler",
+        "system information",
+        "com.apple.screenshot.launcher",
+        "screenshot",
+        "com.apple.printcenter",
+        "print center",
+        "com.apple.migrateassistant",
+        "migration assistant",
+        "com.apple.bootcampassistant",
+        "boot camp assistant",
+        "com.apple.audio.audiomidisetup",
+        "audio midi setup",
+        "com.apple.bluetoothfileexchange",
+        "bluetooth file exchange",
+        "com.apple.colorsyncutility",
+        "colorsync utility",
+        "com.apple.digitalcolormeter",
+        "digital color meter",
+        "com.apple.airport.airportutility",
+        "airport utility",
+        "com.apple.voiceoverutility",
+        "voiceover utility",
+        "windowserver",
+        "loginwindow",
+        "spotlight",
+        "siri",
+        "textinputmenuagent",
+        "coreservicesuiagent",
+        "usernotificationcenter",
+        "keyboardsetupassistant",
+        "screensaverengine",
+        "wallpaper",
     ]
+
+    private static func rules(
+        categoryID: String,
+        matchTarget: RuleMatchTarget,
+        patterns: [String]
+    ) -> [CategoryRule] {
+        patterns.map {
+            CategoryRule(categoryID: categoryID, matchTarget: matchTarget, pattern: $0)
+        }
+    }
 
     func classify(
         applicationName: String,
         bundleIdentifier: String?,
         webURL: String?,
-        preferences: MonitoringPreferencesSnapshot
+        preferences: MonitoringPreferencesSnapshot = .default
     ) -> ActivityCategory {
         for rule in preferences.categoryRules {
             guard let category = preferences.category(for: rule.categoryID) else {
@@ -172,6 +460,10 @@ struct ClassificationEngine {
         let appFingerprint = [applicationName, bundleIdentifier ?? ""]
             .joined(separator: " ")
             .lowercased()
+
+        if Self.defaultIgnoredApplicationPatterns.contains(where: { appFingerprint.contains($0) }) {
+            return true
+        }
 
         return preferences.ignoredApplications.contains(where: { normalizedPattern in
             appFingerprint.contains(normalizedPattern)
