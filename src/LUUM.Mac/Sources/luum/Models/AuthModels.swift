@@ -129,6 +129,9 @@ struct LuumAuthSession: Codable, Equatable, Sendable {
 
     var lockExplanation: String? {
         if let lockedReason = Self.nonBlank(lockedReason) {
+            if lockedReason == "device_limit_exceeded" {
+                return "Esta conta atingiu o limite de Macs autorizados. Remova um dispositivo no admin do Luum ou valide com outra conta."
+            }
             return "Sua assinatura esta bloqueada: \(lockedReason)."
         }
 
