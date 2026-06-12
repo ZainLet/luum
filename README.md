@@ -62,7 +62,7 @@ O objetivo de produto e que cada integracao tenha um botao de conexao, sem pedir
 - Stripe: checkout e webhook ficam no backend Vercel e escrevem o plano no Firestore.
 - Notion, Outlook, ClickUp, Linear e Zapier: ainda mantem fallback manual no app enquanto faltam callbacks OAuth/backend proprios para uma conexao 100% guiada.
 
-As integracoes que ainda dependem de configuracao externa estao detalhadas em `docs/INTEGRACOES_PENDENTES.md`.
+As integracoes que ainda dependem de configuracao externa estao detalhadas em `docs/INTEGRACOES_PENDENTES.md` e no checklist operacional `docs/CHECKLIST_INTEGRACOES_EXTERNAS.md`.
 
 ### Privacidade e backup
 
@@ -140,3 +140,7 @@ Para subir API + Firestore Emulator em um comando so:
 ```
 
 O app macOS de produção não usa esse endpoint local para plano ou backup Firebase. Ele valida conta em `/api/auth/status` na Vercel e salva backup em `/api/sync/{uid}` com `Authorization: Bearer {firebase_id_token}`.
+
+## Distribuicao Windows/Linux
+
+O caminho de portabilidade esta documentado em `docs/MANUAL_DISTRIBUICAO_WINDOWS_LINUX.md`. A recomendacao atual e criar um cliente Windows nativo com WinUI 3/Windows App SDK, reaproveitando backend e contratos JSON, e tratar Linux como pesquisa posterior.
