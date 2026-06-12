@@ -5,7 +5,7 @@ MODE="${1:-run}"
 APP_NAME="luum"
 APP_DISPLAY_NAME="Luum"
 BUNDLE_ID="com.zainlet.luum"
-APP_VERSION="0.0.1"
+APP_VERSION="0.0.2"
 APP_BUILD="1"
 APP_CATEGORY="public.app-category.productivity"
 MIN_SYSTEM_VERSION="26.0"
@@ -80,6 +80,8 @@ cat >"$INFO_PLIST" <<PLIST
   <string>APPL</string>
   <key>CFBundleVersion</key>
   <string>$APP_BUILD</string>
+  <key>LuumReleaseChannel</key>
+  <string>$RELEASE_CHANNEL</string>
   <key>LSApplicationCategoryType</key>
   <string>$APP_CATEGORY</string>
   <key>NSAppleEventsUsageDescription</key>

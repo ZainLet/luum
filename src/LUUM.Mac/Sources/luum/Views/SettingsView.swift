@@ -3,17 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var store: ActivityStore
 
-    @State private var notionTokenDraft = ""
-    @State private var notionDataSourceDraft = ""
-    @State private var outlookTokenDraft = ""
-    @State private var clickUpTokenDraft = ""
-    @State private var clickUpListDraft = ""
-    @State private var linearTokenDraft = ""
-    @State private var linearTeamDraft = ""
     @State private var workspaceSecretDraft = ""
-    @State private var aiClassificationAPIKeyDraft = ""
-    @State private var showsGoogleAdvancedSettings = false
-    @State private var showsAIAdvancedSettings = false
 
     var body: some View {
         ScrollView {
@@ -24,6 +14,7 @@ struct SettingsView: View {
                     subtitle: "Concentre aqui Google, Notion, Outlook, ClickUp, Linear, Zapier e o setup corporativo real do luum."
                 )
 
+                appVersionCard
                 integrationHubCard
                 localVaultCard
                 aiClassificationCard
@@ -72,6 +63,18 @@ struct SettingsView: View {
             .padding(28)
         }
         .background(LuumTheme.pageGradient.opacity(0.46))
+    }
+
+    private var appVersionCard: some View {
+        settingsCard(
+            title: "Versao do app",
+            lines: [
+                "Luum \(AppVersionInfo.current.displayVersion)",
+                "Build \(AppVersionInfo.current.build) • \(AppVersionInfo.current.channel)",
+                "Bundle \(AppVersionInfo.current.bundleIdentifier)",
+            ],
+            tint: LuumTheme.accent.opacity(0.12)
+        )
     }
 
     private var integrationHubCard: some View {
@@ -125,7 +128,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conecte varias contas Google e escolha exatamente quais calendarios entram no luum.")
+                    Text("Conecte sua conta Google em um fluxo guiado e deixe o luum importar sua agenda automaticamente.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -170,38 +173,6 @@ struct SettingsView: View {
                 .disabled(!store.isGoogleCalendarConnected)
             }
 
-            DisclosureGroup("Configuracao avancada", isExpanded: $showsGoogleAdvancedSettings) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("O app busca o Client ID publico em /api/public/integrations. Use estes campos apenas para desenvolvimento local ou diagnostico.")
-                        .font(.caption)
-                        .foregroundStyle(LuumTheme.textMuted)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    TextField(
-                        "1234567890-abcdef.apps.googleusercontent.com",
-                        text: Binding(
-                            get: { store.googleCalendarClientID },
-                            set: { store.updateGoogleCalendarClientID($0) }
-                        )
-                    )
-                    .textFieldStyle(.roundedBorder)
-
-                    SecureField(
-                        "Client secret opcional para diagnostico",
-                        text: Binding(
-                            get: { store.googleCalendarClientSecret },
-                            set: { store.updateGoogleCalendarClientSecret($0) }
-                        )
-                    )
-                    .textFieldStyle(.roundedBorder)
-
-                    Link("Configurar OAuth do Google uma vez", destination: URL(string: "https://console.cloud.google.com/apis/credentials")!)
-                        .font(.caption)
-                }
-                .padding(.top, 10)
-            }
-            .foregroundStyle(LuumTheme.textSecondary)
-
             if store.googleCalendarConnections.isEmpty {
                 Text("Nenhuma conta conectada ainda.")
                     .foregroundStyle(LuumTheme.textSecondary)
@@ -214,8 +185,6 @@ struct SettingsView: View {
                 }
             }
 
-            Link("Calendarios e eventos", destination: URL(string: "https://developers.google.com/calendar/api/concepts/events-calendars")!)
-                .font(.caption)
         }
         .padding(22)
         .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.14), cornerRadius: 30)
@@ -229,7 +198,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("O luum usa a API oficial do Notion sobre data sources com propriedades de data para trazer eventos e paginas para a agenda integrada.")
+                    Text("Conecte o Notion com um fluxo simples para trazer eventos e paginas para a agenda integrada.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -242,146 +211,19 @@ struct SettingsView: View {
                 )
             }
 
-            Toggle("Ativar integracao do Notion", isOn: Binding(
-                get: { store.notionCalendarSettings.isEnabled },
-                set: { store.updateNotionCalendarEnabled($0) }
-            ))
-            .toggleStyle(.switch)
+            integrationConnectRow(
+                title: store.hasNotionToken ? "Notion conectado neste Mac" : "Conectar Notion",
+                subtitle: store.hasNotionToken ? "A conexao local esta salva neste Mac." : "Abra o Notion para autorizar o acesso quando o OAuth estiver disponivel.",
+                url: "https://www.notion.so/my-integrations",
+                systemImage: "doc.text.image"
+            )
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Workspace")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.7))
-
-                    TextField("Notion", text: Binding(
-                        get: { store.notionCalendarSettings.workspaceLabel },
-                        set: { store.updateNotionWorkspaceLabel($0) }
-                    ))
-                    .textFieldStyle(.roundedBorder)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Token da integracao")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.7))
-
-                    SecureField(
-                        store.hasNotionToken ? "Token salvo neste Mac. Digite um novo para trocar." : "secret_xxxxx",
-                        text: $notionTokenDraft
-                    )
-                    .textFieldStyle(.roundedBorder)
-                }
-            }
-
-            HStack(spacing: 10) {
-                Button("Salvar token") {
-                    let value = notionTokenDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                    store.updateNotionToken(value)
-                    notionTokenDraft = ""
-                }
-                .buttonStyle(.glassProminent)
-                .disabled(notionTokenDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                if store.hasNotionToken {
-                    Button("Remover token") {
-                        store.updateNotionToken("")
-                        notionTokenDraft = ""
-                    }
-                    .buttonStyle(.bordered)
-                }
-
+            if store.notionCalendarConfigured {
                 Button("Sincronizar Notion") {
                     store.refreshNotionCalendar()
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!store.notionCalendarSettings.isEnabled || !store.notionCalendarConfigured || store.isSyncingNotionCalendar)
-            }
-
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Propriedade de data")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.7))
-
-                    TextField("Date", text: Binding(
-                        get: { store.notionCalendarSettings.datePropertyName },
-                        set: { store.updateNotionDatePropertyName($0) }
-                    ))
-                    .textFieldStyle(.roundedBorder)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Propriedade de titulo")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.7))
-
-                    TextField("Name", text: Binding(
-                        get: { store.notionCalendarSettings.titlePropertyName },
-                        set: { store.updateNotionTitlePropertyName($0) }
-                    ))
-                    .textFieldStyle(.roundedBorder)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Data source IDs")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.7))
-
-                HStack(spacing: 10) {
-                    TextField("Cole a URL ou o ID do data source", text: $notionDataSourceDraft)
-                        .textFieldStyle(.roundedBorder)
-
-                    Button("Adicionar fonte") {
-                        let value = notionDataSourceDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                        store.addNotionDataSourceID(value)
-                        notionDataSourceDraft = ""
-                    }
-                    .buttonStyle(.glassProminent)
-                    .disabled(notionDataSourceDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-
-                if store.notionCalendarSettings.databaseIDs.isEmpty {
-                    Text("Nenhuma fonte adicionada ainda. Voce pode colar a URL completa do Notion que o luum extrai o ID automaticamente.")
-                        .font(.caption)
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    VStack(spacing: 10) {
-                        ForEach(store.notionCalendarSettings.databaseIDs, id: \.self) { sourceID in
-                            HStack(spacing: 12) {
-                                Image(systemName: "doc.text.image")
-                                    .foregroundStyle(LuumTheme.secondaryAccent)
-
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(sourceID)
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(.white)
-                                        .textSelection(.enabled)
-
-                                    Text("Fonte usada para extrair paginas e compromissos com propriedade de data.")
-                                        .font(.caption2)
-                                        .foregroundStyle(LuumTheme.textSecondary)
-                                }
-
-                                Spacer()
-
-                                Button(role: .destructive) {
-                                    store.removeNotionDataSourceID(sourceID)
-                                } label: {
-                                    Image(systemName: "trash")
-                                }
-                                .buttonStyle(.borderless)
-                            }
-                            .padding(14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                    .fill(.white.opacity(0.03))
-                            )
-                        }
-                    }
-                }
             }
 
             if let message = store.notionCalendarStatusMessage {
@@ -397,12 +239,6 @@ struct SettingsView: View {
                     .foregroundStyle(LuumTheme.textMuted)
             }
 
-            HStack(spacing: 16) {
-                Link("API oficial do Notion", destination: URL(string: "https://developers.notion.com/reference/intro")!)
-                Link("Consultar data source", destination: URL(string: "https://developers.notion.com/reference/query-a-data-source")!)
-                Link("Ajuda do Notion Calendar", destination: URL(string: "https://www.notion.com/help/notion-calendar")!)
-            }
-            .font(.caption)
         }
         .padding(22)
         .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.14), cornerRadius: 30)
@@ -416,7 +252,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conecte o Microsoft Graph com um access token e escolha quais calendarios do Outlook entram na agenda integrada.")
+                    Text("Conecte sua conta Microsoft para trazer os compromissos do Outlook para a agenda integrada.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -429,47 +265,14 @@ struct SettingsView: View {
                 )
             }
 
-            Toggle("Ativar Outlook Calendar", isOn: Binding(
-                get: { store.outlookCalendarSettings.isEnabled },
-                set: { store.updateOutlookCalendarEnabled($0) }
-            ))
-            .toggleStyle(.switch)
+            integrationConnectRow(
+                title: store.hasOutlookToken ? "Outlook conectado neste Mac" : "Conectar Outlook",
+                subtitle: store.hasOutlookToken ? "A conexao local esta salva neste Mac." : "Abra o login Microsoft quando o OAuth estiver disponivel.",
+                url: "https://developer.microsoft.com/graph/graph-explorer",
+                systemImage: "calendar"
+            )
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Workspace / label")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.7))
-
-                    TextField("Outlook", text: Binding(
-                        get: { store.outlookCalendarSettings.workspaceLabel },
-                        set: { store.updateOutlookWorkspaceLabel($0) }
-                    ))
-                    .textFieldStyle(.roundedBorder)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Access token")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.7))
-
-                    SecureField(
-                        store.hasOutlookToken ? "Token salvo neste Mac. Digite outro para trocar." : "eyJ...",
-                        text: $outlookTokenDraft
-                    )
-                    .textFieldStyle(.roundedBorder)
-                }
-            }
-
-            HStack(spacing: 10) {
-                Button("Salvar token") {
-                    let value = outlookTokenDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                    store.updateOutlookToken(value)
-                    outlookTokenDraft = ""
-                }
-                .buttonStyle(.glassProminent)
-                .disabled(outlookTokenDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
+            if store.outlookCalendarConfigured {
                 Button("Sincronizar Outlook") {
                     store.refreshOutlookCalendar()
                 }
@@ -512,11 +315,6 @@ struct SettingsView: View {
                     .foregroundStyle(LuumTheme.textSecondary)
             }
 
-            HStack(spacing: 16) {
-                Link("Microsoft Graph Calendar", destination: URL(string: "https://learn.microsoft.com/graph/api/resources/calendar?view=graph-rest-1.0")!)
-                Link("Graph calendarView", destination: URL(string: "https://learn.microsoft.com/graph/api/calendar-list-calendarview?view=graph-rest-1.0")!)
-            }
-            .font(.caption)
         }
         .padding(22)
         .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.12), cornerRadius: 30)
@@ -568,48 +366,6 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
 
-            DisclosureGroup("Configuracao avancada", isExpanded: $showsAIAdvancedSettings) {
-                VStack(alignment: .leading, spacing: 12) {
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                        TextField("Endpoint Gemini", text: Binding(
-                            get: { store.aiClassificationSettings.endpointURL },
-                            set: { store.updateAIClassificationEndpointURL($0) }
-                        ))
-                        .textFieldStyle(.roundedBorder)
-
-                        TextField("Modelo", text: Binding(
-                            get: { store.aiClassificationSettings.model },
-                            set: { store.updateAIClassificationModel($0) }
-                        ))
-                        .textFieldStyle(.roundedBorder)
-                    }
-
-                    SecureField(
-                        store.hasAIClassificationAPIKey ? "Chave Gemini local salva. Digite uma nova para trocar." : "Chave Gemini local opcional",
-                        text: $aiClassificationAPIKeyDraft
-                    )
-                    .textFieldStyle(.roundedBorder)
-
-                    HStack(spacing: 10) {
-                        Button("Salvar chave") {
-                            store.updateAIClassificationAPIKey(aiClassificationAPIKeyDraft)
-                            aiClassificationAPIKeyDraft = ""
-                        }
-                        .buttonStyle(.glassProminent)
-                        .disabled(aiClassificationAPIKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                        Button("Remover chave") {
-                            store.updateAIClassificationAPIKey("")
-                            aiClassificationAPIKeyDraft = ""
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(!store.hasAIClassificationAPIKey)
-                    }
-                }
-                .padding(.top, 10)
-            }
-            .foregroundStyle(LuumTheme.textSecondary)
-
             if let message = store.aiClassificationStatusMessage {
                 Text(message)
                     .font(.caption)
@@ -634,7 +390,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Traga tarefas com prazo do ClickUp para a agenda integrada usando token real e List IDs.")
+                    Text("Conecte o ClickUp para trazer tarefas com prazo para a agenda integrada.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -647,60 +403,14 @@ struct SettingsView: View {
                 )
             }
 
-            Toggle("Ativar ClickUp", isOn: Binding(
-                get: { store.clickUpSettings.isEnabled },
-                set: { store.updateClickUpEnabled($0) }
-            ))
-            .toggleStyle(.switch)
+            integrationConnectRow(
+                title: store.hasClickUpToken ? "ClickUp conectado neste Mac" : "Conectar ClickUp",
+                subtitle: store.hasClickUpToken ? "A conexao local esta salva neste Mac." : "Abra o ClickUp para autorizar a conta quando o OAuth estiver disponivel.",
+                url: "https://app.clickup.com/settings/apps",
+                systemImage: "checklist"
+            )
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                TextField("Workspace label", text: Binding(
-                    get: { store.clickUpSettings.workspaceLabel },
-                    set: { store.updateClickUpWorkspaceLabel($0) }
-                ))
-                .textFieldStyle(.roundedBorder)
-
-                SecureField(
-                    store.hasClickUpToken ? "Token salvo neste Mac. Digite outro para trocar." : "pk_...",
-                    text: $clickUpTokenDraft
-                )
-                .textFieldStyle(.roundedBorder)
-            }
-
-            TextField("Workspace ID (opcional)", text: Binding(
-                get: { store.clickUpSettings.workspaceID },
-                set: { store.updateClickUpWorkspaceID($0) }
-            ))
-            .textFieldStyle(.roundedBorder)
-
-            Toggle("Incluir tarefas fechadas", isOn: Binding(
-                get: { store.clickUpSettings.includeClosedTasks },
-                set: { store.updateClickUpIncludeClosedTasks($0) }
-            ))
-            .toggleStyle(.switch)
-
-            HStack(spacing: 10) {
-                TextField("Cole um List ID", text: $clickUpListDraft)
-                    .textFieldStyle(.roundedBorder)
-
-                Button("Adicionar lista") {
-                    let value = clickUpListDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                    store.addClickUpListID(value)
-                    clickUpListDraft = ""
-                }
-                .buttonStyle(.glassProminent)
-                .disabled(clickUpListDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-
-            HStack(spacing: 10) {
-                Button("Salvar token") {
-                    let value = clickUpTokenDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                    store.updateClickUpToken(value)
-                    clickUpTokenDraft = ""
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(clickUpTokenDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
+            if store.clickUpConfigured {
                 Button("Sincronizar ClickUp") {
                     store.refreshClickUp()
                 }
@@ -736,7 +446,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Puxe issues com prazo e ciclos do Linear usando API key real e Team IDs.")
+                    Text("Conecte o Linear para puxar issues com prazo e ciclos para sua rotina.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -749,60 +459,14 @@ struct SettingsView: View {
                 )
             }
 
-            Toggle("Ativar Linear", isOn: Binding(
-                get: { store.linearSettings.isEnabled },
-                set: { store.updateLinearEnabled($0) }
-            ))
-            .toggleStyle(.switch)
+            integrationConnectRow(
+                title: store.hasLinearToken ? "Linear conectado neste Mac" : "Conectar Linear",
+                subtitle: store.hasLinearToken ? "A conexao local esta salva neste Mac." : "Abra o Linear para autorizar o workspace quando o OAuth estiver disponivel.",
+                url: "https://linear.app/settings/api",
+                systemImage: "arrow.up.right.square"
+            )
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                TextField("Workspace label", text: Binding(
-                    get: { store.linearSettings.workspaceLabel },
-                    set: { store.updateLinearWorkspaceLabel($0) }
-                ))
-                .textFieldStyle(.roundedBorder)
-
-                SecureField(
-                    store.hasLinearToken ? "API key salva neste Mac. Digite outra para trocar." : "lin_api_...",
-                    text: $linearTokenDraft
-                )
-                .textFieldStyle(.roundedBorder)
-            }
-
-            TextField("Workspace ID (opcional)", text: Binding(
-                get: { store.linearSettings.workspaceID },
-                set: { store.updateLinearWorkspaceID($0) }
-            ))
-            .textFieldStyle(.roundedBorder)
-
-            Toggle("Incluir issues concluidas", isOn: Binding(
-                get: { store.linearSettings.includeCompletedIssues },
-                set: { store.updateLinearIncludeCompletedIssues($0) }
-            ))
-            .toggleStyle(.switch)
-
-            HStack(spacing: 10) {
-                TextField("Cole um Team ID", text: $linearTeamDraft)
-                    .textFieldStyle(.roundedBorder)
-
-                Button("Adicionar time") {
-                    let value = linearTeamDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                    store.addLinearTeamID(value)
-                    linearTeamDraft = ""
-                }
-                .buttonStyle(.glassProminent)
-                .disabled(linearTeamDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-
-            HStack(spacing: 10) {
-                Button("Salvar API key") {
-                    let value = linearTokenDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                    store.updateLinearToken(value)
-                    linearTokenDraft = ""
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(linearTokenDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
+            if store.linearConfigured {
                 Button("Sincronizar Linear") {
                     store.refreshLinear()
                 }
@@ -838,7 +502,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Dispare automacoes reais a partir de bloqueios de foco, syncs de agenda e atualizacoes do ranking corporativo.")
+                    Text("Conecte o Zapier para automatizar eventos importantes do Luum.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -851,37 +515,14 @@ struct SettingsView: View {
                 )
             }
 
-            Toggle("Ativar Zapier", isOn: Binding(
-                get: { store.zapierSettings.isEnabled },
-                set: { store.updateZapierEnabled($0) }
-            ))
-            .toggleStyle(.switch)
+            integrationConnectRow(
+                title: store.zapierConfigured ? "Zapier conectado" : "Conectar Zapier",
+                subtitle: store.zapierConfigured ? "A automacao esta pronta neste Mac." : "Abra o Zapier para conectar a conta quando o OAuth estiver disponivel.",
+                url: "https://zapier.com/app/zaps",
+                systemImage: "bolt.horizontal"
+            )
 
-            TextField("Webhook URL do Zapier", text: Binding(
-                get: { store.zapierSettings.webhookURL },
-                set: { store.updateZapierWebhookURL($0) }
-            ))
-            .textFieldStyle(.roundedBorder)
-
-            Toggle("Enviar eventos de foco", isOn: Binding(
-                get: { store.zapierSettings.sendsFocusEvents },
-                set: { store.updateZapierSendsFocusEvents($0) }
-            ))
-            .toggleStyle(.switch)
-
-            Toggle("Enviar eventos de sincronizacao da agenda", isOn: Binding(
-                get: { store.zapierSettings.sendsCalendarSyncEvents },
-                set: { store.updateZapierSendsCalendarSyncEvents($0) }
-            ))
-            .toggleStyle(.switch)
-
-            Toggle("Enviar eventos do ranking corporativo", isOn: Binding(
-                get: { store.zapierSettings.sendsWorkspaceRankingEvents },
-                set: { store.updateZapierSendsWorkspaceRankingEvents($0) }
-            ))
-            .toggleStyle(.switch)
-
-            HStack(spacing: 10) {
+            if store.zapierConfigured {
                 Button("Testar webhook") {
                     store.sendZapierTestEvent()
                 }
@@ -1277,7 +918,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Parcial",
-                    detail: "Ative token e data source",
+                    detail: "Conexao pendente",
                     tint: LuumTheme.hotPink
                 )
             }
@@ -1302,7 +943,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Parcial",
-                    detail: "Token pendente ou sem sync",
+                    detail: "Conexao pendente",
                     tint: LuumTheme.hotPink
                 )
             }
@@ -1327,7 +968,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Parcial",
-                    detail: "Token ou listas pendentes",
+                    detail: "Conexao pendente",
                     tint: LuumTheme.secondaryAccent
                 )
             }
@@ -1352,7 +993,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Parcial",
-                    detail: "API key ou Team IDs pendentes",
+                    detail: "Conexao pendente",
                     tint: LuumTheme.hotPink
                 )
             }
@@ -1430,6 +1071,57 @@ struct SettingsView: View {
         }
         .padding(22)
         .luumGlassCard(tint: tint, cornerRadius: 30)
+    }
+
+    private func integrationConnectRow(title: String, subtitle: String, url: String, systemImage: String) -> some View {
+        HStack(alignment: .center, spacing: 14) {
+            Image(systemName: systemImage)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+
+            Link("Conectar", destination: URL(string: url)!)
+                .buttonStyle(.glassProminent)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.white.opacity(0.045))
+        )
+    }
+}
+
+private struct AppVersionInfo {
+    let version: String
+    let build: String
+    let channel: String
+    let bundleIdentifier: String
+
+    static var current: AppVersionInfo {
+        let bundle = Bundle.main
+        return AppVersionInfo(
+            version: bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev",
+            build: bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "local",
+            channel: bundle.object(forInfoDictionaryKey: "LuumReleaseChannel") as? String ?? "development",
+            bundleIdentifier: bundle.bundleIdentifier ?? "swiftpm.local"
+        )
+    }
+
+    var displayVersion: String {
+        channel == "development" ? version : "\(version)-\(channel)"
     }
 }
 
