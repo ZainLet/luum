@@ -9,10 +9,18 @@ test('admin page makes the effective app entitlement visible', () => {
     assert.match(adminHTML, /Plano efetivo lido pelo app/);
     assert.match(adminHTML, /Plano raiz Firestore/);
     assert.match(adminHTML, /Plano legado onboarding/);
+    assert.match(adminHTML, /Macs autorizados/);
+    assert.match(adminHTML, /Limpar Macs/);
     assert.match(adminHTML, /confira se o e-mail acima aparece no painel lateral/);
 });
 
 test('admin save message identifies the account that was changed', () => {
     assert.match(adminHTML, /Acesso atualizado para/);
     assert.match(adminHTML, /confira esta mesma conta/);
+});
+
+test('admin page can clear authorized Macs without exposing device hashes', () => {
+    assert.match(adminHTML, /action: 'clearDevices'/);
+    assert.match(adminHTML, /Macs autorizados limpos para/);
+    assert.doesNotMatch(adminHTML, /security\\.devices\\.\\$\\{/);
 });

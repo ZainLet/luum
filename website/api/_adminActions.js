@@ -104,6 +104,10 @@ function timestampFromDays(days) {
 
 function userResponse(userRecord, firestoreData = {}) {
     const plan = accountPlan(firestoreData);
+    const devices = firestoreData.security?.devices;
+    const deviceCount = devices && typeof devices === 'object' && !Array.isArray(devices)
+        ? Object.keys(devices).length
+        : 0;
     return {
         uid: userRecord.uid,
         email: userRecord.email || null,
@@ -114,7 +118,12 @@ function userResponse(userRecord, firestoreData = {}) {
         legacyOnboardingPlan: firestoreData.onboarding?.plan || firestoreData.quiz?.plan || null,
         subscription: firestoreData.subscription || { status: 'trial' },
         role: firestoreData.role || 'user',
-        luumAdmin: userRecord.customClaims?.luumAdmin === true
+        luumAdmin: userRecord.customClaims?.luumAdmin === true,
+        security: {
+            deviceCount,
+            lastDeviceSeenAt: firestoreData.security?.lastDeviceSeenAt || null,
+            devicesClearedAt: firestoreData.security?.devicesClearedAt || null
+        }
     };
 }
 
@@ -141,6 +150,24 @@ async function adminUsersHandler(req, res) {
 
         const body = jsonBody(req);
         const userRecord = await resolveUser(body);
+        if (body.action === 'clearDevices') {
+            const userRef = db.collection('users').doc(userRecord.uid);
+            const serverTimestamp = admin.firestore.FieldValue.serverTimestamp();
+            await userRef.set({
+                'security.devices': admin.firestore.FieldValue.delete(),
+                'security.lastDeviceID': admin.firestore.FieldValue.delete(),
+                'security.lastDeviceSeenAt': admin.firestore.FieldValue.delete(),
+                'security.devicesClearedAt': serverTimestamp,
+                'security.devicesClearedBy': adminUser.uid,
+                'security.devicesClearedByEmail': adminUser.email || null,
+                updatedAt: serverTimestamp
+            }, { merge: true });
+
+            const snap = await userRef.get();
+            const refreshed = await admin.auth().getUser(userRecord.uid);
+            return res.json({ ok: true, user: userResponse(refreshed, snap.data() || {}) });
+        }
+
         const plan = normalizeAdminPlan(body.plan || 'essencial');
         const status = normalizeAdminStatus(body.status || 'active');
         const role = normalizeAdminRole(body.role || 'user');

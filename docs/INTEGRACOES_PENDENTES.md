@@ -15,6 +15,7 @@ Este arquivo lista o que depende de contas, chaves externas ou decisões que nã
 - `cadastro.html?app=mac` preserva o retorno para o app; cadastro comum do site redireciona para `account.html`.
 - App macOS validado localmente com `swift test`, `swift build`, `./script/build_and_run.sh --verify-bundle` e `./script/build_and_run.sh --verify`.
 - Build local do app continua assinado ad-hoc e usa cofre local cifrado por padrão, sem Keychain do macOS, para evitar prompts recorrentes enquanto não houver Apple Developer ID estável.
+- O app também limpa silenciosamente o item legado `login` do Keychain do macOS no bootstrap, sem abrir UI de senha, para instalações antigas que ainda tinham resquícios de builds anteriores.
 - IA de classificação adicionada no app macOS: usa Gemini configurável em Preferências, salva a chave no cofre local cifrado e aplica regras apenas quando o usuário aciona a sugestão em Apps/Sites.
 
 Progresso aproximado para finalizar o produto:
@@ -90,6 +91,7 @@ Stripe configurado em produção:
 - Notificações, lembretes, metas e perfis de foco respeitam os gates de plano antes de pedir permissão do macOS, criar regras ou avaliar alertas locais.
 - Toggles de integrações premium e workspace também respeitam o plano antes de ficarem ativos; Zapier exige integrações avançadas e ranking corporativo exige plano de equipe. O endpoint do workspace fica fixo no domínio oficial da Vercel.
 - Sem Apple Developer, mantenha assinatura ad-hoc (`codesign --sign -`) para builds locais. O armazenamento local cifrado evita o prompt recorrente “Luum deseja usar as informações confidenciais…” causado pelo Keychain quando a assinatura muda.
+- Builds atuais removem o item legado `login` do Keychain em modo silencioso no bootstrap. Isso reduz a chance de uma instalação antiga continuar disparando o alerta de senha mesmo depois da migração para cofre local.
 - Verificação local atual: `./script/build_and_run.sh --verify-bundle` compila, assina ad-hoc e valida o bundle sem abrir o app; `--verify` faz a mesma validação e abre o app para teste manual. Nesta máquina, `swift test` compila o bundle de testes com sucesso, mas as Command Line Tools não expõem o runner `xctest`.
 - Para reduzir crack em distribuição real, mover validação final para servidor: expiração curta, refresh obrigatório, device id por instalação e checagem de assinatura no backend. Nenhum bloqueio local é 100% à prova de crack.
 - O app envia `X-Luum-Device-ID` nas validações de plano usando um identificador derivado do segredo local da instalação; o backend registra o último dispositivo visto em `users/{uid}.security`, preparando limite/alerta de dispositivos por plano.
