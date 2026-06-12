@@ -122,12 +122,20 @@ Stripe configurado em produção:
 - IA de classificação: em `Preferências > IA de classificação`, ative o recurso. O endpoint padrão do app já é `https://luum-app.vercel.app/api/ai/classify`, usando Firebase ID token e `GEMINI_API_KEY` na Vercel.
 - Para teste local rápido, ainda é possível trocar o endpoint para Gemini direto e colar uma chave Gemini no app; ela fica no cofre local cifrado. Em produção, prefira sempre a rota Vercel para não expor chave no binário macOS.
 - No código, os defaults ficam em `AIClassificationSettings.default`, a escolha entre backend Luum e Gemini direto fica em `AIClassificationService`, e o envio do Firebase ID token acontece em `ActivityStore.runAIClassification`.
-- Google Calendar: criar OAuth Client tipo Desktop app, autorizar redirect local do fluxo nativo e colar o Client ID no app. Client secret é opcional no app desktop e, se usado, fica no cofre local cifrado.
+- Google Calendar: criar OAuth Client tipo Desktop app, ativar a Google Calendar API e salvar o Client ID publico como `GOOGLE_CALENDAR_CLIENT_ID` na Vercel ou no cofre admin. O app busca esse valor em `/api/public/integrations`, entao o usuario final so clica em `Conectar Google Calendar`.
 - Outlook: registrar app no Azure/Microsoft Entra, gerar token Microsoft Graph com permissões de calendário e colar no app.
 - Notion: criar integração interna, copiar token, compartilhar as data sources com ela e informar os IDs/URLs no app.
 - ClickUp: gerar API token pessoal ou de workspace e informar os List IDs que devem entrar na agenda.
 - Linear: gerar API key e informar Workspace/Team IDs.
 - Zapier: criar webhook Catch Hook e colar URL no app. O backup remove a URL completa antes de enviar preferências ao Firebase.
+
+### Próxima etapa para integrações sem chaves manuais
+
+- Criar callbacks OAuth backend para Outlook/Microsoft Graph, Notion, ClickUp e Linear.
+- Salvar refresh tokens server-side com criptografia por usuário, em vez de pedir tokens pessoais no app.
+- Expor endpoints do tipo `/api/integrations/{provider}/connect` e `/api/integrations/{provider}/callback`.
+- No app, substituir os campos manuais por botões `Conectar` e manter `Configuracao avancada` apenas para suporte/desenvolvimento.
+- Para Zapier, criar um fluxo guiado via Zapier OAuth ou app público do Zapier; até lá, o webhook manual continua sendo a forma de teste.
 
 ## Backup Firebase
 
