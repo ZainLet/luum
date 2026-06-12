@@ -24,6 +24,16 @@ func defaultStorageUsesEncryptedFallbackWithoutSystemKeychain() throws {
 }
 
 @Test
+func defaultStorageCanCleanLegacyLoginKeyWithoutEnablingSystemKeychain() {
+    let keychain = KeychainService()
+
+    #expect(keychain.storageDescription.contains("sem Chaves do macOS"))
+    #expect(KeychainService.legacySystemKeychainAccountsForTesting.contains("login"))
+
+    keychain.removeLegacySystemKeychainItems()
+}
+
+@Test
 func explicitSystemKeychainModeIsVisibleForDiagnostics() {
     let keychain = KeychainService(useSystemKeychain: true)
 

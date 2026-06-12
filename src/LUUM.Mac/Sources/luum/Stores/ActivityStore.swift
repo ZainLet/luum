@@ -696,6 +696,7 @@ final class ActivityStore {
     }
 
     func bootstrap(selectedDay: Date = Date()) {
+        keychainService.removeLegacySystemKeychainItems()
         startMaintenanceLoop()
 
         if authSession != nil {

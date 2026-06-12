@@ -6,6 +6,7 @@ struct KeychainService {
     private let service = "com.zainlet.luum"
     private let fallbackVersionPrefix = "v2:"
     private let legacyFallbackVersionPrefix = "v1:"
+    private static let legacySystemKeychainAccounts = ["login"]
     private let useSystemKeychain: Bool
     private let installationSecretURLOverride: URL?
 
@@ -52,16 +53,28 @@ struct KeychainService {
     func removeValue(for account: String) {
         guard useSystemKeychain else {
             UserDefaults.standard.removeObject(forKey: fallbackKey(for: account))
+            Self.deleteSystemKeychainValue(
+                service: service,
+                account: account,
+                suppressAuthenticationUI: true
+            )
             return
         }
 
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-        ]
-        SecItemDelete(query as CFDictionary)
+        Self.deleteSystemKeychainValue(service: service, account: account)
         UserDefaults.standard.removeObject(forKey: fallbackKey(for: account))
+    }
+
+    func removeLegacySystemKeychainItems() {
+        guard !useSystemKeychain else { return }
+
+        for account in Self.legacySystemKeychainAccounts {
+            Self.deleteSystemKeychainValue(
+                service: service,
+                account: account,
+                suppressAuthenticationUI: true
+            )
+        }
     }
 
     private func setData(_ data: Data, for account: String) throws {
@@ -120,6 +133,25 @@ struct KeychainService {
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         guard status == errSecSuccess else { return fallbackData(for: account) }
         return item as? Data
+    }
+
+    @discardableResult
+    private static func deleteSystemKeychainValue(
+        service: String,
+        account: String,
+        suppressAuthenticationUI: Bool = false
+    ) -> OSStatus {
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+        ]
+
+        if suppressAuthenticationUI {
+            query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUISkip
+        }
+
+        return SecItemDelete(query as CFDictionary)
     }
 
     private func fallbackKey(for account: String) -> String {
@@ -270,6 +302,10 @@ struct KeychainService {
 
 #if DEBUG
 extension KeychainService {
+    static var legacySystemKeychainAccountsForTesting: [String] {
+        legacySystemKeychainAccounts
+    }
+
     func setFallbackStringForTesting(_ value: String, for account: String) {
         setFallbackData(Data(value.utf8), for: account)
     }
