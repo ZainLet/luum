@@ -147,6 +147,7 @@
                         <div class="admin-actions">
                             <button class="btn btn-primary" type="submit" id="saveBtn">Salvar acesso</button>
                             <button class="btn btn-secondary" type="button" id="lookupBtn">Buscar usuário</button>
+                            <button class="btn btn-secondary" type="button" id="clearDevicesBtn">Limpar Macs</button>
                         </div>
                         <p class="admin-note">A conta inicial autorizada é `oluum.app@gmail.com`. Depois você pode promover outros admins por esta tela ou adicionar emails extras em `ADMIN_EMAILS` na Vercel.</p>
                         <div class="admin-status" id="adminStatus"></div>
@@ -372,6 +373,9 @@
             const legacyPlan = user.legacyOnboardingPlan || '-';
             const seats = sub.seats || sub.quantity || user.seats || 1;
             const periodEnd = formatDate(sub.currentPeriodEnd || sub.trialEndsAt);
+            const security = user.security || {};
+            const deviceCount = Number.isFinite(Number(security.deviceCount)) ? Number(security.deviceCount) : 0;
+            const lastDeviceSeenAt = formatDate(security.lastDeviceSeenAt);
             resultEl.innerHTML = `
                 <dl>
                     <div><dt>Email</dt><dd>${escapeHTML(user.email || '-')}</dd></div>
@@ -383,6 +387,8 @@
                     <div><dt>Assentos</dt><dd>${escapeHTML(seats)}</dd></div>
                     <div><dt>Validade</dt><dd>${escapeHTML(periodEnd)}</dd></div>
                     <div><dt>Perfil</dt><dd>${escapeHTML(user.role || 'user')}${user.luumAdmin ? ' / claim admin' : ''}</dd></div>
+                    <div><dt>Macs autorizados</dt><dd>${escapeHTML(deviceCount)}</dd></div>
+                    <div><dt>Último Mac visto</dt><dd>${escapeHTML(lastDeviceSeenAt)}</dd></div>
                 </dl>
                 <p class="admin-note">No app desktop, confira se o e-mail acima aparece no painel lateral antes de revalidar o plano.</p>`;
             document.getElementById('plan').value = effectivePlan === '-' ? 'essencial' : effectivePlan;
@@ -427,6 +433,25 @@
             setStatus(`Acesso atualizado para ${saved.email || saved.uid || 'usuário selecionado'}. No app, confira esta mesma conta e clique em Validar plano ou faça login novamente.`, 'ok');
         }
 
+        async function clearDevices() {
+            const confirmed = window.confirm('Limpar Macs autorizados desta conta? O próximo login do app vai registrar este Mac novamente.');
+            if (!confirmed) return;
+            setStatus('Limpando Macs autorizados...');
+            const response = await fetch(luumApiUrl('/api/admin/users'), {
+                method: 'POST',
+                headers: await authHeaders(),
+                body: JSON.stringify({
+                    ...lookupPayload(),
+                    action: 'clearDevices'
+                })
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || 'Não foi possível limpar os Macs autorizados.');
+            renderUser(data.user);
+            const cleared = data.user || {};
+            setStatus(`Macs autorizados limpos para ${cleared.email || cleared.uid || 'usuário selecionado'}. Peça para a pessoa validar o plano no app novamente.`, 'ok');
+        }
+
         if (typeof firebase === 'undefined' || !firebase.auth) {
             lockedEl.style.display = 'block';
             appEl.style.display = 'none';
@@ -445,6 +470,10 @@
 
         document.getElementById('lookupBtn').addEventListener('click', () => {
             fetchUser().catch((err) => setStatus(err.message, 'error'));
+        });
+
+        document.getElementById('clearDevicesBtn').addEventListener('click', () => {
+            clearDevices().catch((err) => setStatus(err.message, 'error'));
         });
 
         form.addEventListener('submit', (event) => {
