@@ -374,6 +374,10 @@
             // Só redireciona se não estiver no meio do cadastro
             firebase.auth().onAuthStateChanged(async user => {
                 if (user && !signingUp) {
+                    if (shouldOpenApp()) {
+                        window.location.href = 'login.html?app=mac';
+                        return;
+                    }
                     await exchangeTokenAndRedirect(user);
                 }
             });
