@@ -120,9 +120,8 @@ struct LuumAuthSession: Codable, Equatable, Sendable {
 
     func includes(_ feature: LuumFeature) -> Bool {
         if isLocked { return false }
-        if subscriptionStatus == "trial",
-           feature == .teamWorkspace || feature == .rawActivityBackup {
-            return false
+        if subscriptionStatus == "trial" {
+            return LuumAccountPlan.trial.includes(feature)
         }
         return plan.includes(feature)
     }

@@ -158,6 +158,21 @@ func trialSessionMirrorsBackendEntitlementRestrictions() {
 }
 
 @Test
+func trialSessionUsesTrialFeatureMatrixEvenWhenBackendPlanIsEssencial() {
+    let session = makeAuthSession(
+        plan: .essencial,
+        subscriptionStatus: "trial",
+        lastVerifiedAt: Date()
+    )
+
+    #expect(session.includes(.cloudBackup))
+    #expect(session.includes(.agendaIntegrations))
+    #expect(session.includes(.advancedIntegrations))
+    #expect(!session.includes(.teamWorkspace))
+    #expect(!session.includes(.rawActivityBackup))
+}
+
+@Test
 func businessPlanKeepsRawBackupPinnedToFirebaseAccount() {
     var settings = CloudSyncSettings.default
     settings.endpointURL = "https://evil.example"
