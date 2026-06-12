@@ -93,7 +93,7 @@ struct AgendaView: View {
                             store.connectGoogleCalendar(for: selectedDay)
                         }
                         .buttonStyle(.glassProminent)
-                        .disabled(!store.isGoogleCalendarConfigured || store.isConnectingGoogleCalendar)
+                        .disabled(store.isConnectingGoogleCalendar)
                     }
                 }
             }

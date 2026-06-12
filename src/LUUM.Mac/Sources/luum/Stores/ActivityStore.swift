@@ -71,6 +71,7 @@ final class ActivityStore {
     @ObservationIgnored private let workspaceSyncService: WorkspaceSyncService
     @ObservationIgnored private let authService: FirebaseAuthService
     @ObservationIgnored private let aiClassificationService: AIClassificationService
+    @ObservationIgnored private let publicIntegrationConfigService: PublicIntegrationConfigService
     @ObservationIgnored private let sessionGapTolerance: TimeInterval = 15
     @ObservationIgnored private var calendarTokensByConnectionID: [String: GoogleCalendarTokens] = [:]
     @ObservationIgnored private var summaryCache: [Date: DailySummary] = [:]
@@ -110,7 +111,8 @@ final class ActivityStore {
         cloudSyncService: CloudSyncService = CloudSyncService(),
         workspaceSyncService: WorkspaceSyncService = WorkspaceSyncService(),
         authService: FirebaseAuthService = FirebaseAuthService(),
-        aiClassificationService: AIClassificationService = AIClassificationService()
+        aiClassificationService: AIClassificationService = AIClassificationService(),
+        publicIntegrationConfigService: PublicIntegrationConfigService = PublicIntegrationConfigService()
     ) {
         self.persistence = persistence
         self.monitor = monitor ?? ActivityMonitor()
@@ -128,6 +130,7 @@ final class ActivityStore {
         self.workspaceSyncService = workspaceSyncService
         self.authService = authService
         self.aiClassificationService = aiClassificationService
+        self.publicIntegrationConfigService = publicIntegrationConfigService
 
         let monitoringPreferences = monitoringPreferencesPersistence.load().normalized()
         let calendarSnapshot = googleCalendarPersistence.load()
@@ -527,10 +530,10 @@ final class ActivityStore {
             ),
             OnboardingChecklistItem(
                 id: "google-client",
-                title: "Google configurado",
-                detail: isGoogleCalendarConfigured ? "O Client ID da agenda ja foi configurado." : "Adicione o Client ID do Google Calendar para liberar a agenda integrada.",
-                isDone: isGoogleCalendarConfigured,
-                actionTitle: isGoogleCalendarConfigured ? nil : "Configurar agenda"
+                title: "Google Calendar pronto",
+                detail: isGoogleCalendarConnected ? "Pelo menos uma conta Google ja esta conectada." : "Clique para conectar a agenda com OAuth. O Luum busca a configuracao publica no backend.",
+                isDone: isGoogleCalendarConnected,
+                actionTitle: isGoogleCalendarConnected ? nil : "Conectar agenda"
             ),
             OnboardingChecklistItem(
                 id: "google-account",
@@ -2608,9 +2611,7 @@ final class ActivityStore {
         case "monitoring":
             startMonitoring()
         case "google-client", "google-account":
-            if isGoogleCalendarConfigured {
-                connectGoogleCalendar(for: day)
-            }
+            connectGoogleCalendar(for: day)
         case "notifications":
             requestNotificationAuthorization()
         case "browser-data":
@@ -2626,11 +2627,26 @@ final class ActivityStore {
             return
         }
 
-        let clientID = googleCalendarClientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        var clientID = googleCalendarClientID.trimmingCharacters(in: .whitespacesAndNewlines)
         let clientSecret = googleCalendarClientSecret.trimmingCharacters(in: .whitespacesAndNewlines)
 
+        if clientID.isEmpty {
+            do {
+                googleCalendarStatusMessage = "Carregando configuracao gerenciada do Google Calendar..."
+                let config = try await publicIntegrationConfigService.fetch()
+                clientID = config.googleCalendar.clientID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                if !clientID.isEmpty {
+                    googleCalendarClientID = clientID
+                    persistGoogleCalendar()
+                }
+            } catch {
+                googleCalendarStatusMessage = error.localizedDescription
+                return
+            }
+        }
+
         guard !clientID.isEmpty else {
-            googleCalendarStatusMessage = GoogleCalendarIssue.missingClientID.errorDescription
+            googleCalendarStatusMessage = "Google Calendar ainda nao foi configurado no admin do Luum. Configure GOOGLE_CALENDAR_CLIENT_ID uma vez para liberar conexao com um clique."
             return
         }
 

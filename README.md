@@ -34,14 +34,35 @@ Safari, Google Chrome, Arc, Brave, Microsoft Edge, Chromium, Opera e Vivaldi.
 
 ### Google Agenda
 
-1. Ative a [Google Calendar API](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com).
-2. Crie um OAuth client do tipo `Desktop app`.
-3. Em `Preferencias > Google Agenda`, cole o `Client ID`.
-4. Opcionalmente, cole o `Client secret`.
-5. Clique em `Adicionar conta Google`.
-6. Escolha os calendarios que entram no `luum`.
+Para o usuario final, o fluxo esperado e:
+
+1. Abrir `Preferencias > Google Agenda`.
+2. Clicar em `Conectar Google Calendar`.
+3. Fazer login no Google no navegador.
+4. Escolher os calendarios que entram no `luum`.
+
+O app tenta carregar o `GOOGLE_CALENDAR_CLIENT_ID` publico em `https://luum-app.vercel.app/api/public/integrations`. Assim o usuario nao precisa colar Client ID ou secret. O campo manual continua em `Configuracao avancada` apenas para desenvolvimento local ou diagnostico.
 
 Os tokens OAuth ficam em um cofre local cifrado neste Mac. O backup em nuvem salva apenas a configuracao das contas e dos calendarios, nao os tokens.
+
+Para deixar o Google Calendar pronto em producao:
+
+1. Ative a [Google Calendar API](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com).
+2. Crie um OAuth client do tipo `Desktop app`.
+3. Salve o Client ID como `GOOGLE_CALENDAR_CLIENT_ID` na Vercel ou no cofre de integracoes do admin.
+4. Republique a Vercel e valide `GET /api/public/integrations`.
+
+### Modelo de integracoes
+
+O objetivo de produto e que cada integracao tenha um botao de conexao, sem pedir chaves tecnicas ao usuario comum.
+
+- Google Calendar: ja usa OAuth no app e agora busca o Client ID publico no backend.
+- IA de classificacao: usa o backend seguro do Luum por padrao; a chave Gemini deve ficar em `GEMINI_API_KEY` na Vercel.
+- Firebase backup: usa a sessao Firebase do app e salva em `/api/sync/{uid}`.
+- Stripe: checkout e webhook ficam no backend Vercel e escrevem o plano no Firestore.
+- Notion, Outlook, ClickUp, Linear e Zapier: ainda mantem fallback manual no app enquanto faltam callbacks OAuth/backend proprios para uma conexao 100% guiada.
+
+As integracoes que ainda dependem de configuracao externa estao detalhadas em `docs/INTEGRACOES_PENDENTES.md`.
 
 ### Privacidade e backup
 

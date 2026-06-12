@@ -12,6 +12,8 @@ struct SettingsView: View {
     @State private var linearTeamDraft = ""
     @State private var workspaceSecretDraft = ""
     @State private var aiClassificationAPIKeyDraft = ""
+    @State private var showsGoogleAdvancedSettings = false
+    @State private var showsAIAdvancedSettings = false
 
     var body: some View {
         ScrollView {
@@ -136,34 +138,6 @@ struct SettingsView: View {
                 )
             }
 
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Client ID")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.7))
-
-                TextField(
-                    "1234567890-abcdef.apps.googleusercontent.com",
-                    text: Binding(
-                        get: { store.googleCalendarClientID },
-                        set: { store.updateGoogleCalendarClientID($0) }
-                    )
-                )
-                .textFieldStyle(.roundedBorder)
-
-                Text("Client secret opcional")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.7))
-
-                SecureField(
-                    "Opcional para apps desktop",
-                    text: Binding(
-                        get: { store.googleCalendarClientSecret },
-                        set: { store.updateGoogleCalendarClientSecret($0) }
-                    )
-                )
-                .textFieldStyle(.roundedBorder)
-            }
-
             if let message = store.googleCalendarStatusMessage {
                 Text(message)
                     .font(.caption)
@@ -177,11 +151,11 @@ struct SettingsView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 10) {
-                Button("Adicionar conta Google") {
+                Button("Conectar Google Calendar") {
                     store.connectGoogleCalendar()
                 }
                 .buttonStyle(.glassProminent)
-                .disabled(!store.isGoogleCalendarConfigured || store.isConnectingGoogleCalendar)
+                .disabled(store.isConnectingGoogleCalendar)
 
                 Button("Sincronizar todas") {
                     store.refreshGoogleCalendar()
@@ -196,6 +170,38 @@ struct SettingsView: View {
                 .disabled(!store.isGoogleCalendarConnected)
             }
 
+            DisclosureGroup("Configuracao avancada", isExpanded: $showsGoogleAdvancedSettings) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("O app busca o Client ID publico em /api/public/integrations. Use estes campos apenas para desenvolvimento local ou diagnostico.")
+                        .font(.caption)
+                        .foregroundStyle(LuumTheme.textMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    TextField(
+                        "1234567890-abcdef.apps.googleusercontent.com",
+                        text: Binding(
+                            get: { store.googleCalendarClientID },
+                            set: { store.updateGoogleCalendarClientID($0) }
+                        )
+                    )
+                    .textFieldStyle(.roundedBorder)
+
+                    SecureField(
+                        "Client secret opcional para diagnostico",
+                        text: Binding(
+                            get: { store.googleCalendarClientSecret },
+                            set: { store.updateGoogleCalendarClientSecret($0) }
+                        )
+                    )
+                    .textFieldStyle(.roundedBorder)
+
+                    Link("Configurar OAuth do Google uma vez", destination: URL(string: "https://console.cloud.google.com/apis/credentials")!)
+                        .font(.caption)
+                }
+                .padding(.top, 10)
+            }
+            .foregroundStyle(LuumTheme.textSecondary)
+
             if store.googleCalendarConnections.isEmpty {
                 Text("Nenhuma conta conectada ainda.")
                     .foregroundStyle(LuumTheme.textSecondary)
@@ -208,12 +214,8 @@ struct SettingsView: View {
                 }
             }
 
-            HStack(spacing: 16) {
-                Link("Criar credenciais no Google Cloud", destination: URL(string: "https://console.cloud.google.com/apis/credentials")!)
-                Link("Guia oficial para OAuth desktop", destination: URL(string: "https://developers.google.com/identity/protocols/oauth2/native-app")!)
-                Link("Calendarios e eventos", destination: URL(string: "https://developers.google.com/calendar/api/concepts/events-calendars")!)
-            }
-            .font(.caption)
+            Link("Calendarios e eventos", destination: URL(string: "https://developers.google.com/calendar/api/concepts/events-calendars")!)
+                .font(.caption)
         }
         .padding(22)
         .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.14), cornerRadius: 30)
@@ -547,20 +549,6 @@ struct SettingsView: View {
             ))
             .toggleStyle(.switch)
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                TextField("Endpoint Gemini", text: Binding(
-                    get: { store.aiClassificationSettings.endpointURL },
-                    set: { store.updateAIClassificationEndpointURL($0) }
-                ))
-                .textFieldStyle(.roundedBorder)
-
-                TextField("Modelo", text: Binding(
-                    get: { store.aiClassificationSettings.model },
-                    set: { store.updateAIClassificationModel($0) }
-                ))
-                .textFieldStyle(.roundedBorder)
-            }
-
             VStack(alignment: .leading, spacing: 8) {
                 Text("Confianca minima: \(Int(store.aiClassificationSettings.minimumConfidence * 100))%")
                     .font(.caption.weight(.semibold))
@@ -576,27 +564,51 @@ struct SettingsView: View {
                 )
             }
 
-            SecureField(
-                store.hasAIClassificationAPIKey ? "Chave Gemini local salva. Digite uma nova para trocar." : "Chave Gemini local opcional",
-                text: $aiClassificationAPIKeyDraft
-            )
-            .textFieldStyle(.roundedBorder)
+            LabeledContent("Backend", value: AIClassificationService.isLuumBackendEndpoint(store.aiClassificationSettings.endpointURL) ? "Luum seguro" : "Personalizado")
+                .font(.caption)
+                .foregroundStyle(LuumTheme.textMuted)
 
-            HStack(spacing: 10) {
-                Button("Salvar chave") {
-                    store.updateAIClassificationAPIKey(aiClassificationAPIKeyDraft)
-                    aiClassificationAPIKeyDraft = ""
-                }
-                .buttonStyle(.glassProminent)
-                .disabled(aiClassificationAPIKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            DisclosureGroup("Configuracao avancada", isExpanded: $showsAIAdvancedSettings) {
+                VStack(alignment: .leading, spacing: 12) {
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                        TextField("Endpoint Gemini", text: Binding(
+                            get: { store.aiClassificationSettings.endpointURL },
+                            set: { store.updateAIClassificationEndpointURL($0) }
+                        ))
+                        .textFieldStyle(.roundedBorder)
 
-                Button("Remover chave") {
-                    store.updateAIClassificationAPIKey("")
-                    aiClassificationAPIKeyDraft = ""
+                        TextField("Modelo", text: Binding(
+                            get: { store.aiClassificationSettings.model },
+                            set: { store.updateAIClassificationModel($0) }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                    }
+
+                    SecureField(
+                        store.hasAIClassificationAPIKey ? "Chave Gemini local salva. Digite uma nova para trocar." : "Chave Gemini local opcional",
+                        text: $aiClassificationAPIKeyDraft
+                    )
+                    .textFieldStyle(.roundedBorder)
+
+                    HStack(spacing: 10) {
+                        Button("Salvar chave") {
+                            store.updateAIClassificationAPIKey(aiClassificationAPIKeyDraft)
+                            aiClassificationAPIKeyDraft = ""
+                        }
+                        .buttonStyle(.glassProminent)
+                        .disabled(aiClassificationAPIKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                        Button("Remover chave") {
+                            store.updateAIClassificationAPIKey("")
+                            aiClassificationAPIKeyDraft = ""
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(!store.hasAIClassificationAPIKey)
+                    }
                 }
-                .buttonStyle(.bordered)
-                .disabled(!store.hasAIClassificationAPIKey)
+                .padding(.top, 10)
             }
+            .foregroundStyle(LuumTheme.textSecondary)
 
             if let message = store.aiClassificationStatusMessage {
                 Text(message)
@@ -605,7 +617,7 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("O endpoint padrao usa a Vercel do Luum e exige login Firebase. A chave local so e usada se voce trocar o endpoint para Gemini direto; em producao, prefira GEMINI_API_KEY na Vercel.")
+            Text("O endpoint padrao usa a Vercel do Luum e exige login Firebase. A chave Gemini fica na Vercel, nao no Mac do usuario.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
