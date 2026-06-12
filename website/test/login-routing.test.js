@@ -61,6 +61,13 @@ test('desktop deeplink is opened only by the explicit app signup route', () => {
     assert.match(signup, /document\.getElementById\('loginLink'\)\.href = shouldOpenApp\(\)\s*\?\s*'login\.html\?app=mac'\s*:\s*'login\.html\?redirect=account\.html';/);
 });
 
+test('app signup reuses existing browser sessions only after login account confirmation', () => {
+    const signup = read('cadastro.html');
+
+    assert.match(signup, /if \(shouldOpenApp\(\)\) \{\s*window\.location\.href = 'login\.html\?app=mac';\s*return;\s*\}/);
+    assert.match(signup, /if \(user && !signingUp\) \{/);
+});
+
 test('shared auth script only handles explicitly marked generic forms', () => {
     const auth = read('auth.js');
     const signup = read('cadastro.html');
