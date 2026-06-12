@@ -191,6 +191,34 @@ func businessPlanKeepsRawBackupPinnedToFirebaseAccount() {
 }
 
 @Test
+func firstEligibleAccountBindingEnablesCloudBackupAutomatically() {
+    let sanitized = ActivityStore.cloudSyncSettings(
+        .default,
+        sanitizedFor: makeAuthSession(plan: .profissional, lastVerifiedAt: Date())
+    )
+
+    #expect(sanitized.isEnabled)
+    #expect(sanitized.endpointURL == FirebaseAuthService.defaultBaseURL)
+    #expect(sanitized.backupID == "firebase-user")
+}
+
+@Test
+func existingAccountBindingPreservesManualCloudBackupDisable() {
+    var settings = CloudSyncSettings.default
+    settings.isEnabled = false
+    settings.backupID = "firebase-user"
+
+    let sanitized = ActivityStore.cloudSyncSettings(
+        settings,
+        sanitizedFor: makeAuthSession(plan: .profissional, lastVerifiedAt: Date())
+    )
+
+    #expect(!sanitized.isEnabled)
+    #expect(sanitized.endpointURL == FirebaseAuthService.defaultBaseURL)
+    #expect(sanitized.backupID == "firebase-user")
+}
+
+@Test
 func cloudSyncConfiguredRequiresOfficialEndpointFirebaseUIDAndToken() {
     let session = makeAuthSession(plan: .profissional, lastVerifiedAt: Date())
     let settings = ActivityStore.cloudSyncSettings(.default, sanitizedFor: session)

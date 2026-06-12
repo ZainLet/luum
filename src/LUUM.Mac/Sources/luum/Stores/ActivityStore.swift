@@ -423,11 +423,10 @@ final class ActivityStore {
             authStatusMessage = error.localizedDescription
         }
 
-        monitoringPreferences.cloudSyncSettings.backupID = session.uid
-        monitoringPreferences.cloudSyncSettings.endpointURL = FirebaseAuthService.defaultBaseURL
+        let currentCloudSyncSettings = monitoringPreferences.cloudSyncSettings
         monitoringPreferences.teamSettings.workspaceEndpointURL = FirebaseAuthService.defaultBaseURL
         monitoringPreferences.cloudSyncSettings = Self.cloudSyncSettings(
-            monitoringPreferences.cloudSyncSettings,
+            currentCloudSyncSettings,
             sanitizedFor: session
         )
 
@@ -499,10 +498,11 @@ final class ActivityStore {
         sanitizedFor session: LuumAuthSession
     ) -> CloudSyncSettings {
         var sanitized = settings
+        let isFirstAccountBinding = sanitized.backupID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         sanitized.endpointURL = FirebaseAuthService.defaultBaseURL
         sanitized.backupID = session.uid
 
-        sanitized.isEnabled = session.includes(.cloudBackup)
+        sanitized.isEnabled = session.includes(.cloudBackup) && (sanitized.isEnabled || isFirstAccountBinding)
         if !session.includes(.rawActivityBackup) {
             sanitized.syncRawActivities = false
         }
