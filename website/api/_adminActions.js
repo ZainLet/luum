@@ -154,14 +154,12 @@ async function adminUsersHandler(req, res) {
             const userRef = db.collection('users').doc(userRecord.uid);
             const serverTimestamp = admin.firestore.FieldValue.serverTimestamp();
             await userRef.set({
-                security: {
-                    devices: admin.firestore.FieldValue.delete(),
-                    lastDeviceID: admin.firestore.FieldValue.delete(),
-                    lastDeviceSeenAt: admin.firestore.FieldValue.delete(),
-                    devicesClearedAt: serverTimestamp,
-                    devicesClearedBy: adminUser.uid,
-                    devicesClearedByEmail: adminUser.email || null
-                },
+                'security.devices': admin.firestore.FieldValue.delete(),
+                'security.lastDeviceID': admin.firestore.FieldValue.delete(),
+                'security.lastDeviceSeenAt': admin.firestore.FieldValue.delete(),
+                'security.devicesClearedAt': serverTimestamp,
+                'security.devicesClearedBy': adminUser.uid,
+                'security.devicesClearedByEmail': adminUser.email || null,
                 updatedAt: serverTimestamp
             }, { merge: true });
 

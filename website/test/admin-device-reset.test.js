@@ -74,9 +74,9 @@ function installFirebaseAdminMock({ writes, firestoreData }) {
         async set(data, options) {
             writes.push({ data, options });
             firestoreData.security = {
-                devicesClearedAt: data.security.devicesClearedAt,
-                devicesClearedBy: data.security.devicesClearedBy,
-                devicesClearedByEmail: data.security.devicesClearedByEmail
+                devicesClearedAt: data['security.devicesClearedAt'],
+                devicesClearedBy: data['security.devicesClearedBy'],
+                devicesClearedByEmail: data['security.devicesClearedByEmail']
             };
         }
     };
@@ -142,11 +142,11 @@ test('admin clearDevices action deletes tracked device fields without changing p
     assert.equal(res.body.user.security.deviceCount, 0);
     assert.equal(writes.length, 1);
     assert.deepEqual(writes[0].options, { merge: true });
-    assert.deepEqual(writes[0].data.security.devices, { __delete: true });
-    assert.deepEqual(writes[0].data.security.lastDeviceID, { __delete: true });
-    assert.deepEqual(writes[0].data.security.lastDeviceSeenAt, { __delete: true });
-    assert.equal(writes[0].data.security.devicesClearedBy, 'admin-user');
-    assert.equal(writes[0].data.security.devicesClearedByEmail, 'oluum.app@gmail.com');
+    assert.deepEqual(writes[0].data['security.devices'], { __delete: true });
+    assert.deepEqual(writes[0].data['security.lastDeviceID'], { __delete: true });
+    assert.deepEqual(writes[0].data['security.lastDeviceSeenAt'], { __delete: true });
+    assert.equal(writes[0].data['security.devicesClearedBy'], 'admin-user');
+    assert.equal(writes[0].data['security.devicesClearedByEmail'], 'oluum.app@gmail.com');
     assert.equal(Object.hasOwn(writes[0].data, 'plan'), false);
     assert.equal(Object.hasOwn(writes[0].data, 'subscription'), false);
 });
