@@ -5,11 +5,12 @@ MODE="${1:-run}"
 APP_NAME="luum"
 APP_DISPLAY_NAME="Luum"
 BUNDLE_ID="com.zainlet.luum"
-APP_VERSION="0.1.0"
+APP_VERSION="0.0.1"
 APP_BUILD="1"
 APP_CATEGORY="public.app-category.productivity"
 MIN_SYSTEM_VERSION="26.0"
 CODESIGN_IDENTITY="${APPLE_CODESIGN_IDENTITY:--}"
+RELEASE_CHANNEL="${LUUM_RELEASE_CHANNEL:-alpha}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKAGE_DIR="$ROOT_DIR/src/LUUM.Mac"
@@ -122,6 +123,39 @@ verify_bundle() {
   test -x "$APP_BINARY"
 }
 
+package_app() {
+  verify_bundle
+
+  local release_dir="$DIST_DIR/releases"
+  local git_sha="unknown"
+  local timestamp
+  timestamp="$(date -u +"%Y%m%dT%H%M%SZ")"
+  if command -v git >/dev/null 2>&1; then
+    git_sha="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  fi
+
+  mkdir -p "$release_dir"
+  local archive_name="Luum-${APP_VERSION}-${RELEASE_CHANNEL}-${git_sha}-${timestamp}.zip"
+  local archive_path="$release_dir/$archive_name"
+  rm -f "$archive_path" "$archive_path.sha256" "$archive_path.txt"
+
+  /usr/bin/ditto -c -k --keepParent "$APP_BUNDLE" "$archive_path"
+  shasum -a 256 "$archive_path" >"$archive_path.sha256"
+
+  cat >"$archive_path.txt" <<NOTES
+Luum ${APP_VERSION} (${APP_BUILD}) ${RELEASE_CHANNEL}
+Git: ${git_sha}
+Generated: ${timestamp}
+Bundle ID: ${BUNDLE_ID}
+Signature: ${CODESIGN_IDENTITY}
+
+Alpha de teste para instalação manual em outros Macs.
+Sem Apple Developer ID, o macOS pode exigir Control-click > Abrir no primeiro launch.
+NOTES
+
+  echo "$archive_path"
+}
+
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
 }
@@ -142,6 +176,7 @@ case "$MODE" in
     /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
     ;;
   --package|package)
+    package_app
     ;;
   --verify-bundle|verify-bundle)
     verify_bundle

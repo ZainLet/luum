@@ -92,6 +92,14 @@ Para validar apenas o bundle assinado, sem abrir o app:
 ./script/build_and_run.sh --verify-bundle
 ```
 
+Para gerar uma alpha macOS compactada para teste de instalacao em outros Macs:
+
+```bash
+./script/build_and_run.sh --package
+```
+
+O pacote sai em `dist/releases/` com `.zip`, `.sha256` e notas de build. A versao alpha atual e `0.0.1`. Enquanto o app estiver assinado ad-hoc, o primeiro launch em outro Mac pode exigir `Control-click > Abrir` por causa do Gatekeeper.
+
 Para assinar com uma identidade local de desenvolvedor:
 
 ```bash
