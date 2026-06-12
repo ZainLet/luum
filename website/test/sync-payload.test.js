@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     payloadAccountMatchesFirebaseUID,
+    payloadHasAccountUID,
     payloadAccountUID,
     payloadForEntitlement,
     payloadSize,
@@ -11,9 +12,13 @@ const {
 test('accepts legacy backup payloads without account metadata', () => {
     assert.equal(payloadAccountUID({}), '');
     assert.equal(payloadAccountMatchesFirebaseUID({}, 'firebase-user'), true);
+    assert.equal(payloadHasAccountUID({}), false);
 });
 
 test('requires backup account uid to match Firebase token uid', () => {
+    assert.equal(payloadHasAccountUID({
+        account: { uid: 'firebase-user' }
+    }), true);
     assert.equal(payloadAccountMatchesFirebaseUID({
         account: { uid: 'firebase-user' }
     }, 'firebase-user'), true);

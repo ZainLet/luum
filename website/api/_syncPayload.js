@@ -6,6 +6,10 @@ function payloadAccountUID(payload) {
     return String(payload?.account?.uid || '').trim();
 }
 
+function payloadHasAccountUID(payload) {
+    return payloadAccountUID(payload).length > 0;
+}
+
 function payloadAccountMatchesFirebaseUID(payload, uid) {
     const accountUID = payloadAccountUID(payload);
     return !accountUID || accountUID === uid;
@@ -52,6 +56,7 @@ function sanitizedPayloadForStorage(payload) {
 module.exports = {
     payloadForEntitlement,
     payloadAccountMatchesFirebaseUID,
+    payloadHasAccountUID,
     payloadAccountUID,
     payloadSize,
     sanitizedPayloadForStorage
