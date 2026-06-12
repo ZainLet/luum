@@ -136,6 +136,7 @@ Stripe configurado em produção:
 - `backupID` vira obrigatoriamente o UID Firebase após login e a API rejeita identificadores alternativos.
 - Atividades brutas continuam desligadas por privacidade e só podem ser armadas/enviadas se o app estiver com sessão validada em plano `rawActivityBackup` (Negócios).
 - Antes do envio, o app remove tokens OAuth, client secret Google, URL privada do webhook Zapier e eventos temporários da agenda Google. O Firestore recebe estrutura de contas, configurações sanitizadas e resumos.
+- Gravações novas de backup exigem `payload.account.uid` igual ao UID verificado pelo Firebase ID token. Backups antigos sem metadados de conta continuam restauráveis, mas não são aceitos como novo contrato de escrita.
 - O backup mantém metadados úteis de integração, como IDs de databases/listas/times e labels de workspace, para facilitar restauração. Tokens/API keys de Notion, Outlook, ClickUp, Linear, Google, segredo de workspace e webhook completo do Zapier continuam somente no cofre local deste Mac.
 - A API também valida assinatura e plano no Firestore antes de aceitar push ou restore. Essa checagem server-side impede que um binário desktop modificado libere backup ou atividades brutas apenas removendo gates locais.
 - Não salvar tokens OAuth de calendários no Firestore sem criptografia por usuário/dispositivo.

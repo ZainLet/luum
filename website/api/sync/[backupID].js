@@ -3,6 +3,7 @@ const { addCors, handleOptions } = require('../_cors');
 const { entitlementForUser, includesFeature } = require('../_entitlements');
 const {
     payloadAccountMatchesFirebaseUID,
+    payloadHasAccountUID,
     payloadForEntitlement,
     payloadSize,
     sanitizedPayloadForStorage
@@ -87,6 +88,9 @@ async function syncHandler(req, res) {
             }
             if (body.payload.rawActivities != null && !includesFeature(entitlement, 'rawActivityBackup')) {
                 return res.status(403).json({ message: 'Atividades brutas exigem o plano Negócios' });
+            }
+            if (!payloadHasAccountUID(body.payload)) {
+                return res.status(400).json({ message: 'Backup atual deve incluir o UID da conta Firebase' });
             }
             if (!payloadAccountMatchesFirebaseUID(body.payload, decoded.uid)) {
                 return res.status(403).json({ message: 'Conta do backup não confere com o login Firebase' });
