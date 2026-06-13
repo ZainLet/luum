@@ -13,3 +13,18 @@ test('sales page does not advertise unfinished desktop platforms as available', 
     assert.match(vendasHTML, /Windows está no roadmap/i);
     assert.match(vendasHTML, /Linux ainda está em estudo/i);
 });
+
+test('public pages do not sell unfinished advanced integrations as already available', () => {
+    const pages = [
+        fs.readFileSync(path.join(websiteRoot, 'index.html'), 'utf8'),
+        fs.readFileSync(path.join(websiteRoot, 'vendas.html'), 'utf8'),
+    ];
+
+    for (const html of pages) {
+        assert.doesNotMatch(html, /API & Webhooks/i);
+        assert.doesNotMatch(html, /Integração com Zapier/i);
+        assert.doesNotMatch(html, /Integrações com ClickUp/i);
+    }
+
+    assert.match(pages.join('\n'), /Conectores avançados em implantação/i);
+});
