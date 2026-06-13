@@ -135,7 +135,7 @@ Checklist manual:
 
 ## PDF semanal por email
 
-O app envia um resumo semanal sanitizado para `POST https://luum-app.vercel.app/api/reports/weekly-email`. O backend valida Firebase Auth, exige plano Profissional ou maior em assinaturas pagas, usa Gemini para gerar a narrativa e anexa um PDF simples ao email.
+O app envia um resumo semanal sanitizado para `POST https://luum-app.vercel.app/api/reports/weekly-email`. O backend valida Firebase Auth, exige plano Profissional ou maior em assinaturas pagas, usa Gemini para gerar a narrativa e anexa um PDF simples ao email verificado da conta. O destino não deve ser aceito do corpo da requisição.
 
 Checklist manual:
 
@@ -146,7 +146,7 @@ Checklist manual:
 5. Redeploy da Vercel.
 6. No app, entrar com uma conta validada.
 7. Abrir `Relatorios` e clicar em `Enviar PDF por email`.
-8. Confirmar chegada do email e do anexo PDF.
+8. Confirmar chegada do email e do anexo PDF no email verificado da conta.
 
 ## Notion
 
