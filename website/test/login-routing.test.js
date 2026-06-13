@@ -112,3 +112,14 @@ test('pages use the current auth.js cache-busting version', () => {
         assert.match(html, /auth\.js\?v=9\b/, `${file} should use auth.js?v=9`);
     }
 });
+
+test('pages use the current firebase-config.js cache-busting version', () => {
+    for (const file of fs.readdirSync(root).filter((name) => name.endsWith('.html'))) {
+        const html = read(file);
+        if (!html.includes('firebase-config.js')) continue;
+
+        assert.doesNotMatch(html, /firebase-config\.js["']/u, `${file} references firebase-config.js without a version`);
+        assert.doesNotMatch(html, /firebase-config\.js\?v=[0-9]\b/u, `${file} references an old firebase-config.js version`);
+        assert.match(html, /firebase-config\.js\?v=10\b/u, `${file} should use firebase-config.js?v=10`);
+    }
+});
