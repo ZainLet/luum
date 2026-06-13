@@ -142,6 +142,9 @@ test('weekly report email requires Firebase auth', async () => {
 
     assert.equal(res.code, 401);
     assert.equal(res.body.error, 'Login Firebase obrigatório');
+    assert.equal(res.headers['Cache-Control'], 'no-store, max-age=0');
+    assert.equal(res.headers.Pragma, 'no-cache');
+    assert.equal(res.headers.Expires, '0');
 });
 
 test('weekly report email enforces Profissional or higher for paid plans', async () => {
