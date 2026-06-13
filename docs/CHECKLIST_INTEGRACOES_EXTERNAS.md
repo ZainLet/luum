@@ -24,7 +24,8 @@ Estas tarefas nao podem ser finalizadas apenas por codigo local, porque exigem a
 | Vercel | Manter variaveis sensiveis e redeploy quando mudarem | Vercel env vars e `/api/admin/health` | APIs oficiais |
 | Stripe | Conferir produtos/precos reais, webhook, checkout e cancelamento com conta real | Stripe Dashboard e `/api/admin/stripe-health` | Billing automatico |
 | Google Calendar | Ativar Calendar API, criar OAuth Client `Desktop app`, salvar Client ID publico | Google Cloud Console e `/api/public/integrations` | Conexao Google com um clique |
-| Gemini | Rotacionar chave exposta em teste e salvar `GEMINI_API_KEY` na Vercel | `/api/ai/classify` | IA segura sem chave no app |
+| Gemini | Rotacionar chave exposta em teste e salvar `GEMINI_API_KEY` na Vercel | `/api/ai/classify` e `/api/reports/weekly-email` | IA segura sem chave no app |
+| Email transacional | Configurar Resend ou provedor equivalente para anexar PDFs semanais | `/api/reports/weekly-email` | Envio de PDF por email |
 | Notion | Criar OAuth/backend de conexao, compartilhar data sources e definir selecao de fontes | Preferencias do app e rotas OAuth futuras | Agenda Notion |
 | Outlook | Registrar app Microsoft Entra e obter fluxo Microsoft Graph adequado | Preferencias do app e rotas OAuth futuras | Agenda Outlook |
 | ClickUp | Criar OAuth/app oficial e fluxo de selecao de listas | Preferencias do app e rotas OAuth futuras | Tarefas ClickUp |
@@ -52,6 +53,8 @@ Configure na Vercel, nunca no Git:
 - `PUBLIC_SITE_URL`
 - `GEMINI_API_KEY`
 - `GOOGLE_CALENDAR_CLIENT_ID`
+- `RESEND_API_KEY`
+- `REPORT_EMAIL_FROM`
 
 O cofre de integracoes do `admin.html` pode armazenar parte desses valores criptografados, mas o bootstrap inicial ainda depende de `LUUM_SETTINGS_ENCRYPTION_KEY` e credenciais de admin configuradas na Vercel.
 
@@ -129,6 +132,21 @@ Checklist manual:
 3. Salvar como `GEMINI_API_KEY` na Vercel.
 4. Opcional: configurar `GEMINI_MODEL` e `GEMINI_ENDPOINT`.
 5. Testar classificacao em Apps/Sites no app.
+
+## PDF semanal por email
+
+O app envia um resumo semanal sanitizado para `POST https://luum-app.vercel.app/api/reports/weekly-email`. O backend valida Firebase Auth, exige plano Profissional ou maior em assinaturas pagas, usa Gemini para gerar a narrativa e anexa um PDF simples ao email.
+
+Checklist manual:
+
+1. Salvar `GEMINI_API_KEY` na Vercel.
+2. Criar conta/projeto no Resend ou provedor equivalente.
+3. Validar dominio/remetente de email.
+4. Salvar `RESEND_API_KEY` e `REPORT_EMAIL_FROM` na Vercel.
+5. Redeploy da Vercel.
+6. No app, entrar com uma conta validada.
+7. Abrir `Relatorios` e clicar em `Enviar PDF por email`.
+8. Confirmar chegada do email e do anexo PDF.
 
 ## Notion
 

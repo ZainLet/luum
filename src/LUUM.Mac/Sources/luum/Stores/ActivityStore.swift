@@ -52,6 +52,7 @@ final class ActivityStore {
     private(set) var isSyncingWorkspace = false
     private(set) var aiClassificationStatusMessage: String?
     private(set) var isClassifyingWithAI = false
+    private(set) var isSendingWeeklyReportEmail = false
 
     let classifier = ClassificationEngine()
 
@@ -71,6 +72,7 @@ final class ActivityStore {
     @ObservationIgnored private let workspaceSyncService: WorkspaceSyncService
     @ObservationIgnored private let authService: FirebaseAuthService
     @ObservationIgnored private let aiClassificationService: AIClassificationService
+    @ObservationIgnored private let weeklyReportEmailService: WeeklyReportEmailService
     @ObservationIgnored private let publicIntegrationConfigService: PublicIntegrationConfigService
     @ObservationIgnored private let sessionGapTolerance: TimeInterval = 15
     @ObservationIgnored private var calendarTokensByConnectionID: [String: GoogleCalendarTokens] = [:]
@@ -112,6 +114,7 @@ final class ActivityStore {
         workspaceSyncService: WorkspaceSyncService = WorkspaceSyncService(),
         authService: FirebaseAuthService = FirebaseAuthService(),
         aiClassificationService: AIClassificationService = AIClassificationService(),
+        weeklyReportEmailService: WeeklyReportEmailService = WeeklyReportEmailService(),
         publicIntegrationConfigService: PublicIntegrationConfigService = PublicIntegrationConfigService()
     ) {
         self.persistence = persistence
@@ -130,6 +133,7 @@ final class ActivityStore {
         self.workspaceSyncService = workspaceSyncService
         self.authService = authService
         self.aiClassificationService = aiClassificationService
+        self.weeklyReportEmailService = weeklyReportEmailService
         self.publicIntegrationConfigService = publicIntegrationConfigService
 
         let monitoringPreferences = monitoringPreferencesPersistence.load().normalized()
@@ -2604,6 +2608,84 @@ final class ActivityStore {
         } catch {
             exportStatusMessage = error.localizedDescription
         }
+    }
+
+    func emailWeeklyReport(containing day: Date) {
+        guard !isSendingWeeklyReportEmail else { return }
+        guard canUse(.weeklyReportEmail) else {
+            exportStatusMessage = lockMessage(for: .weeklyReportEmail)
+            return
+        }
+
+        isSendingWeeklyReportEmail = true
+        exportStatusMessage = "Gerando PDF e preparando envio por email..."
+
+        Task { [weak self] in
+            await self?.runWeeklyReportEmail(containing: day)
+        }
+    }
+
+    private func runWeeklyReportEmail(containing day: Date) async {
+        defer { isSendingWeeklyReportEmail = false }
+
+        do {
+            let verified = try await verifiedAuthSessionForProtectedRequest()
+            guard verified.includes(.weeklyReportEmail) else {
+                exportStatusMessage = lockMessage(for: .weeklyReportEmail)
+                return
+            }
+            guard !verified.email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                exportStatusMessage = "Sua conta Firebase precisa ter email para receber o PDF."
+                return
+            }
+
+            let response = try await weeklyReportEmailService.send(
+                firebaseToken: verified.idToken,
+                email: verified.email,
+                report: weeklyReportEmailPayload(containing: day)
+            )
+            guard isCurrentVerifiedSession(verified) else { return }
+            exportStatusMessage = response.emailed
+                ? "PDF enviado para \(verified.email): \(response.fileName)."
+                : "PDF gerado: \(response.fileName)."
+        } catch is CancellationError {
+            return
+        } catch {
+            exportStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func weeklyReportEmailPayload(containing day: Date) -> WeeklyReportEmailPayload {
+        let report = weeklyReport(containing: day)
+        return WeeklyReportEmailPayload(
+            startDate: Self.reportDateString(report.startDate),
+            endDate: Self.reportDateString(report.endDate),
+            totalTrackedTime: report.totalTrackedTime,
+            averageDailyTrackedTime: report.averageDailyTrackedTime,
+            contextSwitches: report.contextSwitches,
+            focusTime: report.focusTime,
+            distractionTime: report.distractionTime,
+            topCategories: report.topCategories.map {
+                WeeklyReportEmailBreakdown(label: $0.category.title, duration: $0.duration)
+            },
+            topApps: report.topApps.map {
+                WeeklyReportEmailBreakdown(label: $0.label, duration: $0.duration)
+            },
+            topSites: report.topSites.map {
+                WeeklyReportEmailBreakdown(label: $0.label, duration: $0.duration)
+            },
+            highlights: report.highlights
+        )
+    }
+
+    private static func reportDateString(_ date: Date) -> String {
+        let components = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: date)
+        return String(
+            format: "%04d-%02d-%02d",
+            components.year ?? 0,
+            components.month ?? 0,
+            components.day ?? 0
+        )
     }
 
     func handleOnboardingAction(_ itemID: String, day: Date = Date()) {

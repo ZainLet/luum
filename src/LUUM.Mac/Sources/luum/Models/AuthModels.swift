@@ -51,7 +51,7 @@ enum LuumAccountPlan: String, Codable, CaseIterable, Sendable {
         switch feature {
         case .coreTracking, .search, .classification, .reports:
             true
-        case .agendaIntegrations, .focusModes, .reminders, .cloudBackup:
+        case .agendaIntegrations, .focusModes, .reminders, .cloudBackup, .weeklyReportEmail:
             rank >= LuumAccountPlan.profissional.rank || self == .trial
         case .advancedIntegrations:
             rank >= LuumAccountPlan.equipes.rank || self == .trial
@@ -71,6 +71,7 @@ enum LuumFeature: String, Codable, Sendable {
     case focusModes
     case reminders
     case reports
+    case weeklyReportEmail
     case cloudBackup
     case rawActivityBackup
     case advancedIntegrations
@@ -85,6 +86,7 @@ enum LuumFeature: String, Codable, Sendable {
         case .focusModes: "Modos de foco"
         case .reminders: "Lembretes"
         case .reports: "Relatorios"
+        case .weeklyReportEmail: "PDF semanal por email"
         case .cloudBackup: "Backup Firebase"
         case .rawActivityBackup: "Backup de atividades brutas"
         case .advancedIntegrations: "Integracoes avancadas"

@@ -94,6 +94,8 @@ function includesFeature(entitlement, feature) {
             return true;
         case 'cloudBackup':
             return rank >= PLAN_RANK.profissional;
+        case 'weeklyReportEmail':
+            return rank >= PLAN_RANK.profissional;
         case 'rawActivityBackup':
             return rank >= PLAN_RANK.negocios;
         case 'teamWorkspace':

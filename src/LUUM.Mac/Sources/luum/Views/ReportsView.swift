@@ -169,6 +169,12 @@ struct ReportsView: View {
                     store.exportWeeklyReport(containing: selectedDay, format: .csv)
                 }
                 .buttonStyle(.borderedProminent)
+
+                Button(store.isSendingWeeklyReportEmail ? "Enviando..." : "Enviar PDF por email") {
+                    store.emailWeeklyReport(containing: selectedDay)
+                }
+                .buttonStyle(.bordered)
+                .disabled(store.isSendingWeeklyReportEmail || !store.canUse(.weeklyReportEmail))
             }
 
             if let exportStatusMessage = store.exportStatusMessage {
