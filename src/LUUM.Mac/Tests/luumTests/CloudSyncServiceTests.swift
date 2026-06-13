@@ -293,6 +293,33 @@ func cloudBackupPayloadEncodesFirebaseAccountMetadataWithoutTokens() throws {
     #expect(account?["refreshToken"] == nil)
 }
 
+@Test
+func cloudSyncExplainsMissingVercelRoute() async throws {
+    let session = URLSession.cloudSyncMocking([
+        CloudSyncMockResponse(
+            url: "https://luum-app.vercel.app/api/sync/firebase-user",
+            statusCode: 404,
+            body: #"<!doctype html><title>404</title>"#
+        )
+    ])
+    let service = CloudSyncService(session: session)
+
+    do {
+        _ = try await service.push(
+            baseURL: FirebaseAuthService.defaultBaseURL,
+            backupID: "firebase-user",
+            firebaseToken: "firebase-token",
+            payload: cloudBackupPayloadForTesting()
+        )
+        Issue.record("Erro 404 deveria explicar deploy/rota da Vercel.")
+    } catch CloudSyncError.apiError(let message) {
+        #expect(message.contains("/api/sync/[backupID]"))
+        #expect(message.contains("Vercel"))
+    } catch {
+        Issue.record("Erro inesperado: \(error)")
+    }
+}
+
 private func makeAuthSession(
     plan: LuumAccountPlan,
     subscriptionStatus: String = "active",
@@ -311,5 +338,109 @@ private func makeAuthSession(
         trialEndsAt: nil,
         lastVerifiedAt: lastVerifiedAt
     )
+}
+
+private func cloudBackupPayloadForTesting() -> CloudBackupPayload {
+    CloudBackupPayload(
+        schemaVersion: 1,
+        exportedAt: Date(timeIntervalSince1970: 1_700_000_000),
+        deviceName: "Mac",
+        account: CloudAccountSnapshot(
+            uid: "firebase-user",
+            email: "user@luum.app",
+            displayName: "User",
+            plan: .profissional,
+            subscriptionStatus: "active"
+        ),
+        monitoringPreferences: .default,
+        googleCalendarSnapshot: GoogleCalendarSnapshot(clientID: "", clientSecret: "", connections: []),
+        dailySummaries: [],
+        rawActivities: nil
+    )
+}
+
+private struct CloudSyncMockResponse: Sendable {
+    let url: String
+    let statusCode: Int
+    let body: String
+}
+
+private final class CloudSyncMockURLProtocol: URLProtocol, @unchecked Sendable {
+    private nonisolated(unsafe) static let storageQueue = DispatchQueue(label: "luum.cloud-sync-test-url-protocol")
+    private nonisolated(unsafe) static var responses: [CloudSyncMockResponse] = []
+    private nonisolated(unsafe) static var storedObservedRequests: [URLRequest] = []
+
+    static var observedRequests: [URLRequest] {
+        storageQueue.sync { storedObservedRequests }
+    }
+
+    static func configure(responses: [CloudSyncMockResponse]) {
+        storageQueue.sync {
+            self.responses = responses
+            self.storedObservedRequests = []
+        }
+    }
+
+    private static func appendObservedRequest(_ request: URLRequest) {
+        storageQueue.sync {
+            storedObservedRequests.append(request)
+        }
+    }
+
+    private static func removeResponse(for url: String) -> CloudSyncMockResponse? {
+        storageQueue.sync {
+            guard let index = responses.firstIndex(where: { $0.url == url }) else { return nil }
+            return responses.remove(at: index)
+        }
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        Self.appendObservedRequest(request)
+        guard let url = request.url?.absoluteString else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
+            return
+        }
+
+        guard let response = Self.removeResponse(for: url) else {
+            client?.urlProtocol(self, didFailWithError: URLError(.unsupportedURL))
+            return
+        }
+
+        let data = Data(response.body.utf8)
+        guard
+            let requestURL = request.url,
+            let httpResponse = HTTPURLResponse(
+                url: requestURL,
+                statusCode: response.statusCode,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )
+        else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
+            return
+        }
+        client?.urlProtocol(self, didReceive: httpResponse, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: data)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
+private extension URLSession {
+    static func cloudSyncMocking(_ responses: [CloudSyncMockResponse]) -> URLSession {
+        CloudSyncMockURLProtocol.configure(responses: responses)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [CloudSyncMockURLProtocol.self]
+        return URLSession(configuration: configuration)
+    }
 }
 #endif

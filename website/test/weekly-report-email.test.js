@@ -165,6 +165,42 @@ test('weekly report email enforces Profissional or higher for paid plans', async
     assert.match(res.body.error, /Profissional/);
 });
 
+test('weekly report email rejects malformed JSON as a client error', async () => {
+    installFirebaseAdminMock({ userData: activeUser('profissional') });
+    const handler = require('../api/reports/weekly-email');
+    const res = response();
+
+    await handler({
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: '{"report":'
+    }, res);
+
+    assert.equal(res.code, 400);
+    assert.equal(res.body.error, 'JSON do relatório semanal inválido');
+});
+
+test('weekly report email rejects oversized text bodies before external calls', async () => {
+    installFirebaseAdminMock({ userData: activeUser('profissional') });
+    const handler = require('../api/reports/weekly-email');
+    const res = response();
+
+    await handler({
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: ' '.repeat((handler._private?.MAX_REPORT_BODY_BYTES || 80_000) + 1)
+    }, res);
+
+    assert.equal(res.code, 413);
+    assert.equal(res.body.error, 'Relatório semanal grande demais');
+});
+
 test('weekly report endpoint generates a PDF preview with Gemini', async (t) => {
     installFirebaseAdminMock({ userData: activeUser('profissional') });
     const originalFetch = global.fetch;
@@ -202,6 +238,7 @@ test('weekly report endpoint generates a PDF preview with Gemini', async (t) => 
     assert.equal(res.code, 200);
     assert.equal(res.body.ok, true);
     assert.equal(res.body.emailed, false);
+    assert.equal(res.headers['Cache-Control'], 'no-store, max-age=0');
     assert.equal(res.body.fileName, 'luum-weekly-report-2026-06-08.pdf');
     assert.equal(Buffer.from(res.body.pdfBase64, 'base64').subarray(0, 8).toString(), '%PDF-1.4');
 });
@@ -252,5 +289,6 @@ test('weekly report endpoint sends email through Resend when configured', async 
     assert.equal(res.code, 200);
     assert.equal(res.body.emailed, true);
     assert.equal(res.body.emailID, 'email_123');
+    assert.equal(res.headers['Cache-Control'], 'no-store, max-age=0');
     assert.equal(calls.length, 2);
 });

@@ -192,6 +192,12 @@ struct CloudSyncService {
                 throw CloudSyncError.unauthorized
             }
 
+            if statusCode == 404 {
+                throw CloudSyncError.apiError(
+                    "A rota de backup Firebase nao foi encontrada na Vercel. Atualize o app/site e confira se o deploy inclui /api/sync/[backupID]."
+                )
+            }
+
             if let envelope = try? JSONDecoder().decode(CloudSyncAPIErrorEnvelope.self, from: data) {
                 throw CloudSyncError.apiError(envelope.message)
             }

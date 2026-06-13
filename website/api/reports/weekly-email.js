@@ -10,9 +10,24 @@ const {
     sendReportEmail
 } = require('../_weeklyReportEmail');
 
+const MAX_REPORT_BODY_BYTES = 80_000;
+
 function jsonBody(req) {
     if (!req.body) return {};
-    if (typeof req.body === 'string') return JSON.parse(req.body || '{}');
+    if (typeof req.body === 'string') {
+        if (Buffer.byteLength(req.body, 'utf8') > MAX_REPORT_BODY_BYTES) {
+            const error = new Error('Relatório semanal grande demais');
+            error.statusCode = 413;
+            throw error;
+        }
+        try {
+            return JSON.parse(req.body || '{}');
+        } catch {
+            const error = new Error('JSON do relatório semanal inválido');
+            error.statusCode = 400;
+            throw error;
+        }
+    }
     return req.body;
 }
 
@@ -93,8 +108,11 @@ async function weeklyReportEmailHandler(req, res) {
             pdfBase64: shouldSendEmail ? undefined : pdfBuffer.toString('base64')
         });
     } catch (err) {
-        console.error('[Weekly Report Email Error]', err);
-        return res.status(err.statusCode || 500).json({
+        const statusCode = err.statusCode || 500;
+        if (statusCode >= 500) {
+            console.error('[Weekly Report Email Error]', err);
+        }
+        return res.status(statusCode).json({
             error: err.message || 'Não foi possível gerar o relatório semanal'
         });
     }
@@ -103,5 +121,6 @@ async function weeklyReportEmailHandler(req, res) {
 module.exports = weeklyReportEmailHandler;
 module.exports.handler = weeklyReportEmailHandler;
 module.exports._private = {
+    MAX_REPORT_BODY_BYTES,
     reportFileName
 };

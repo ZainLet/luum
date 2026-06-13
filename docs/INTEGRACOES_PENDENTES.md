@@ -25,7 +25,7 @@ Progresso aproximado para finalizar o produto:
 - Stripe e billing: 75-80%, pendente de compra/cancelamento real e conferência do webhook no painel.
 - App macOS completo: 70-75%, pendente de QA manual ponta a ponta no Mac.
 - Performance do app macOS: meta contínua adicionada. Otimizações aplicadas no cache de resumos, debounce de lembretes/foco, corte de relatórios por janela de data, cálculo de streak recente, captura em background, persistência local e renderização de histórico grande.
-- Integrações externas de agenda/tarefas/automação: 45-60%. A UI do app já foi simplificada: Google Calendar tem conexão guiada; Notion, Outlook, ClickUp, Linear e Zapier aparecem como "em implantação" até existir OAuth/backend real para funcionar de ponta a ponta sem configuração manual.
+- Integrações externas de agenda/tarefas/automação: 45-60%. A UI do app já foi simplificada: Google Calendar tem conexão guiada; Notion, Outlook, ClickUp, Linear e Zapier aparecem com status simples e botão `Conectar` bloqueado até existir OAuth/backend real para funcionar de ponta a ponta sem configuração manual.
 
 Ainda precisa de validação manual com uma conta real: entrar no site, abrir o app pelo deeplink, alterar plano no `admin.html` e clicar em validar assinatura no app.
 
@@ -58,7 +58,7 @@ Variáveis necessárias no deploy:
 - `LUUM_SETTINGS_ENCRYPTION_KEY` com uma chave aleatória longa para criptografar o cofre de integrações no Firestore
 - `GEMINI_API_KEY` para a rota segura `POST /api/ai/classify`
 - Opcional: `GEMINI_MODEL` e `GEMINI_ENDPOINT` se quiser trocar o modelo ou provedor compatível com Gemini
-- `STRIPE_MIN_SEATS_EQUIPES=2` e `STRIPE_MIN_SEATS_NEGOCIOS=5` se quiser sobrescrever os mínimos já protegidos no backend
+- Opcional: `STRIPE_MIN_SEATS_EQUIPES` e `STRIPE_MIN_SEATS_NEGOCIOS` se quiser impor minimo comercial de assentos. Por padrao, todos os planos por usuario aceitam 1 assento.
 - `FIREBASE_SERVICE_ACCOUNT_JSON` com a credencial técnica restrita do Admin SDK
 - `ADMIN_EMAILS` com os emails autorizados a acessar `admin.html`
 
@@ -70,8 +70,8 @@ Stripe configurado em produção:
 
 - `essencial`: R$ 29,90/mês; anual com 2 meses grátis: R$ 299,00/ano, equivalente a R$ 24,92/mês.
 - `profissional`: R$ 49,90/mês; anual com 2 meses grátis: R$ 499,00/ano, equivalente a R$ 41,58/mês.
-- `equipes`: R$ 45,00/usuário/mês; anual com 2 meses grátis: R$ 450,00/usuário/ano, equivalente a R$ 37,50/usuário/mês; mínimo 2 usuários.
-- `negocios`: R$ 65,00/usuário/mês; anual com 2 meses grátis: R$ 650,00/usuário/ano, equivalente a R$ 54,17/usuário/mês; mínimo 5 usuários.
+- `equipes`: R$ 45,00/usuário/mês; anual com 2 meses grátis: R$ 450,00/usuário/ano, equivalente a R$ 37,50/usuário/mês.
+- `negocios`: R$ 65,00/usuário/mês; anual com 2 meses grátis: R$ 650,00/usuário/ano, equivalente a R$ 54,17/usuário/mês.
 
 - Produtos, preços mensais/anuais, `STRIPE_WEBHOOK_SECRET`, `PUBLIC_SITE_URL` e todos os `STRIPE_PRICE_*` foram salvos no cofre criptografado.
 - Revogar qualquer chave `sk_live_` ou `rk_live_` exposta em chat, log ou captura antes de uso. Salvar a substituta diretamente no cofre admin, nunca em arquivos versionados.
@@ -123,7 +123,7 @@ Stripe configurado em produção:
 - Para teste local de desenvolvimento ainda existe suporte a endpoint personalizado no código/modelo, mas produção deve usar sempre a rota Vercel para não expor chave no binário macOS.
 - No código, os defaults ficam em `AIClassificationSettings.default`, a escolha entre backend Luum e Gemini direto fica em `AIClassificationService`, e o envio do Firebase ID token acontece em `ActivityStore.runAIClassification`.
 - Google Calendar: criar OAuth Client tipo Desktop app, ativar a Google Calendar API e salvar o Client ID publico como `GOOGLE_CALENDAR_CLIENT_ID` na Vercel ou no cofre admin. O app busca esse valor em `/api/public/integrations`, entao o usuario final so clica em `Conectar Google Calendar`.
-- Notion, Outlook, ClickUp, Linear e Zapier: a tela do app agora mostra status "em implantação", sem botão ativo de login até existir OAuth/backend real. O usuário final não deve preencher token, API key, Team ID, List ID, Data Source ID ou webhook manual.
+- Notion, Outlook, ClickUp, Linear e Zapier: a tela do app agora mostra status simples e botão `Conectar` bloqueado até existir OAuth/backend real. O usuário final não deve preencher token, API key, Team ID, List ID, Data Source ID ou webhook manual.
 
 ### Próxima etapa para integrações sem chaves manuais
 

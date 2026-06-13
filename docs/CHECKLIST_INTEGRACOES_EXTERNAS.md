@@ -150,7 +150,7 @@ Checklist manual:
 
 ## Notion
 
-A UI do app ja foi reduzida para status "em implantacao", sem pedir token ou Data Source ID ao usuario final e sem abrir login externo que nao conclui conexao. Para a conexao funcionar de ponta a ponta como produto, ainda falta backend OAuth.
+A UI do app ja foi reduzida para status simples e botao `Conectar` bloqueado, sem pedir token ou Data Source ID ao usuario final e sem abrir login externo que nao conclui conexao. Para a conexao funcionar de ponta a ponta como produto, ainda falta backend OAuth.
 
 Para finalizar:
 
