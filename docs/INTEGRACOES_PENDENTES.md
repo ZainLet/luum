@@ -58,7 +58,7 @@ Variáveis necessárias no deploy:
 - `LUUM_SETTINGS_ENCRYPTION_KEY` com uma chave aleatória longa para criptografar o cofre de integrações no Firestore
 - `GEMINI_API_KEY` para a rota segura `POST /api/ai/classify`
 - Opcional: `GEMINI_MODEL` e `GEMINI_ENDPOINT` se quiser trocar o modelo ou provedor compatível com Gemini
-- `STRIPE_MIN_SEATS_EQUIPES=2` e `STRIPE_MIN_SEATS_NEGOCIOS=5` se quiser sobrescrever os mínimos já protegidos no backend
+- Opcional: `STRIPE_MIN_SEATS_EQUIPES` e `STRIPE_MIN_SEATS_NEGOCIOS` se quiser impor minimo comercial de assentos. Por padrao, todos os planos por usuario aceitam 1 assento.
 - `FIREBASE_SERVICE_ACCOUNT_JSON` com a credencial técnica restrita do Admin SDK
 - `ADMIN_EMAILS` com os emails autorizados a acessar `admin.html`
 
@@ -70,8 +70,8 @@ Stripe configurado em produção:
 
 - `essencial`: R$ 29,90/mês; anual com 2 meses grátis: R$ 299,00/ano, equivalente a R$ 24,92/mês.
 - `profissional`: R$ 49,90/mês; anual com 2 meses grátis: R$ 499,00/ano, equivalente a R$ 41,58/mês.
-- `equipes`: R$ 45,00/usuário/mês; anual com 2 meses grátis: R$ 450,00/usuário/ano, equivalente a R$ 37,50/usuário/mês; mínimo 2 usuários.
-- `negocios`: R$ 65,00/usuário/mês; anual com 2 meses grátis: R$ 650,00/usuário/ano, equivalente a R$ 54,17/usuário/mês; mínimo 5 usuários.
+- `equipes`: R$ 45,00/usuário/mês; anual com 2 meses grátis: R$ 450,00/usuário/ano, equivalente a R$ 37,50/usuário/mês.
+- `negocios`: R$ 65,00/usuário/mês; anual com 2 meses grátis: R$ 650,00/usuário/ano, equivalente a R$ 54,17/usuário/mês.
 
 - Produtos, preços mensais/anuais, `STRIPE_WEBHOOK_SECRET`, `PUBLIC_SITE_URL` e todos os `STRIPE_PRICE_*` foram salvos no cofre criptografado.
 - Revogar qualquer chave `sk_live_` ou `rk_live_` exposta em chat, log ou captura antes de uso. Salvar a substituta diretamente no cofre admin, nunca em arquivos versionados.

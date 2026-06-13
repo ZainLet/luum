@@ -20,8 +20,8 @@ const PRICE_ENV_BY_PLAN = {
 const DEFAULT_MINIMUM_QUANTITY_BY_PLAN = {
     essencial: 1,
     profissional: 1,
-    equipes: 2,
-    negocios: 5
+    equipes: 1,
+    negocios: 1
 };
 
 function isStripePlan(plan) {

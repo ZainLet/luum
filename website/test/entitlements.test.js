@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { entitlementForUser, includesFeature, normalizedPlan } = require('../api/_entitlements');
 const { checkoutEmail, checkoutSiteURL } = require('../api/_checkoutSecurity');
 const { profileEmail, profileText } = require('../api/_profileSecurity');
-const { isStripePlan } = require('../api/_stripePlans');
+const { DEFAULT_MINIMUM_QUANTITY_BY_PLAN, isStripePlan } = require('../api/_stripePlans');
 const { sameHash, secretHash, validID } = require('../api/_workspaceSecurity');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -105,6 +105,15 @@ test('accepts only known Stripe subscription plans', () => {
     assert.equal(isStripePlan('essencial'), true);
     assert.equal(isStripePlan('negocios'), true);
     assert.equal(isStripePlan('enterprise-unlimited'), false);
+});
+
+test('allows one seat by default for every per-user Stripe plan', () => {
+    assert.deepEqual(DEFAULT_MINIMUM_QUANTITY_BY_PLAN, {
+        essencial: 1,
+        profissional: 1,
+        equipes: 1,
+        negocios: 1
+    });
 });
 
 test('uses only the Firebase verified email for the account profile', () => {
