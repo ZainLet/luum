@@ -198,7 +198,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conecte o Notion com um fluxo simples para trazer eventos e paginas para a agenda integrada.")
+                    Text("Conexao com Notion esta preparada na UI, mas o OAuth oficial ainda sera liberado pelo backend do Luum.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -211,10 +211,9 @@ struct SettingsView: View {
                 )
             }
 
-            integrationConnectRow(
-                title: store.hasNotionToken ? "Notion conectado neste Mac" : "Conectar Notion",
-                subtitle: store.hasNotionToken ? "A conexao local esta salva neste Mac." : "Abra o Notion para iniciar a conexao.",
-                url: "https://www.notion.so/login",
+            pendingIntegrationRow(
+                title: store.hasNotionToken ? "Notion conectado neste Mac" : "Notion em implantacao",
+                subtitle: store.hasNotionToken ? "A conexao local antiga esta salva neste Mac." : "O proximo passo e ativar o OAuth server-side para conectar com um clique.",
                 systemImage: "doc.text.image"
             )
 
@@ -244,7 +243,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conecte sua conta Microsoft para trazer os compromissos do Outlook para a agenda integrada.")
+                    Text("Conexao com Outlook esta preparada na UI, mas depende do OAuth Microsoft no backend do Luum.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -257,10 +256,9 @@ struct SettingsView: View {
                 )
             }
 
-            integrationConnectRow(
-                title: store.hasOutlookToken ? "Outlook conectado neste Mac" : "Conectar Outlook",
-                subtitle: store.hasOutlookToken ? "A conexao local esta salva neste Mac." : "Abra a Microsoft para iniciar a conexao.",
-                url: "https://outlook.live.com/calendar/",
+            pendingIntegrationRow(
+                title: store.hasOutlookToken ? "Outlook conectado neste Mac" : "Outlook em implantacao",
+                subtitle: store.hasOutlookToken ? "A conexao local antiga esta salva neste Mac." : "O proximo passo e ativar OAuth Microsoft para conectar com um clique.",
                 systemImage: "calendar"
             )
 
@@ -345,7 +343,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conecte o ClickUp para trazer tarefas com prazo para a agenda integrada.")
+                    Text("Conexao com ClickUp esta preparada na UI, mas depende do OAuth oficial no backend do Luum.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -358,10 +356,9 @@ struct SettingsView: View {
                 )
             }
 
-            integrationConnectRow(
-                title: store.hasClickUpToken ? "ClickUp conectado neste Mac" : "Conectar ClickUp",
-                subtitle: store.hasClickUpToken ? "A conexao local esta salva neste Mac." : "Abra o ClickUp para iniciar a conexao.",
-                url: "https://app.clickup.com/login",
+            pendingIntegrationRow(
+                title: store.hasClickUpToken ? "ClickUp conectado neste Mac" : "ClickUp em implantacao",
+                subtitle: store.hasClickUpToken ? "A conexao local antiga esta salva neste Mac." : "O proximo passo e ativar OAuth ClickUp para conectar com um clique.",
                 systemImage: "checklist"
             )
 
@@ -383,7 +380,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conecte o Linear para puxar issues com prazo e ciclos para sua rotina.")
+                    Text("Conexao com Linear esta preparada na UI, mas depende do OAuth oficial no backend do Luum.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -396,10 +393,9 @@ struct SettingsView: View {
                 )
             }
 
-            integrationConnectRow(
-                title: store.hasLinearToken ? "Linear conectado neste Mac" : "Conectar Linear",
-                subtitle: store.hasLinearToken ? "A conexao local esta salva neste Mac." : "Abra o Linear para iniciar a conexao.",
-                url: "https://linear.app/login",
+            pendingIntegrationRow(
+                title: store.hasLinearToken ? "Linear conectado neste Mac" : "Linear em implantacao",
+                subtitle: store.hasLinearToken ? "A conexao local antiga esta salva neste Mac." : "O proximo passo e ativar OAuth Linear para conectar com um clique.",
                 systemImage: "arrow.up.right.square"
             )
 
@@ -421,7 +417,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conecte o Zapier para automatizar eventos importantes do Luum.")
+                    Text("Conexao com Zapier esta preparada na UI, mas depende de uma configuracao server-side do Luum.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -434,10 +430,9 @@ struct SettingsView: View {
                 )
             }
 
-            integrationConnectRow(
-                title: store.zapierConfigured ? "Zapier conectado" : "Conectar Zapier",
-                subtitle: store.zapierConfigured ? "A automacao esta pronta neste Mac." : "Abra o Zapier para iniciar a conexao.",
-                url: "https://zapier.com/app/login",
+            pendingIntegrationRow(
+                title: store.zapierConfigured ? "Zapier conectado" : "Zapier em implantacao",
+                subtitle: store.zapierConfigured ? "A automacao local esta pronta neste Mac." : "O proximo passo e ativar o conector oficial para conectar com um clique.",
                 systemImage: "bolt.horizontal"
             )
 
@@ -984,7 +979,7 @@ struct SettingsView: View {
         .luumGlassCard(tint: tint, cornerRadius: 30)
     }
 
-    private func integrationConnectRow(title: String, subtitle: String, url: String, systemImage: String) -> some View {
+    private func pendingIntegrationRow(title: String, subtitle: String, systemImage: String) -> some View {
         HStack(alignment: .center, spacing: 14) {
             Image(systemName: systemImage)
                 .font(.title3.weight(.semibold))
@@ -1004,8 +999,15 @@ struct SettingsView: View {
 
             Spacer()
 
-            Link("Conectar", destination: URL(string: url)!)
-                .buttonStyle(.glassProminent)
+            Text("Em breve")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(LuumTheme.textSecondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(.white.opacity(0.055))
+                )
         }
         .padding(14)
         .background(

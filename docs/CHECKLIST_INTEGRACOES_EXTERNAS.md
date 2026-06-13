@@ -150,7 +150,7 @@ Checklist manual:
 
 ## Notion
 
-A UI do app ja foi reduzida para botao/status, sem pedir token ou Data Source ID ao usuario final. Para a conexao funcionar de ponta a ponta como produto, ainda falta backend OAuth.
+A UI do app ja foi reduzida para status "em implantacao", sem pedir token ou Data Source ID ao usuario final e sem abrir login externo que nao conclui conexao. Para a conexao funcionar de ponta a ponta como produto, ainda falta backend OAuth.
 
 Para finalizar:
 
@@ -162,7 +162,7 @@ Para finalizar:
 
 ## Outlook
 
-A UI do app mostra apenas botao/status. Para uso comercial, precisa OAuth Microsoft Entra.
+A UI do app mostra status "em implantacao". Para uso comercial, precisa OAuth Microsoft Entra.
 
 Para finalizar:
 
@@ -173,7 +173,7 @@ Para finalizar:
 
 ## ClickUp e Linear
 
-A UI do app mostra apenas botao/status. Para integrar de verdade sem expor chaves ao usuario, precisa OAuth ou app oficial.
+A UI do app mostra status "em implantacao". Para integrar de verdade sem expor chaves ao usuario, precisa OAuth ou app oficial.
 
 Para finalizar:
 
@@ -183,7 +183,7 @@ Para finalizar:
 
 ## Zapier
 
-A UI do app mostra apenas botao/status. Para evitar webhook manual, precisa app publico ou fluxo OAuth.
+A UI do app mostra status "em implantacao". Para evitar webhook manual, precisa app publico ou fluxo OAuth.
 
 Para finalizar:
 

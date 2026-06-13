@@ -55,14 +55,14 @@ Para deixar o Google Calendar pronto em producao:
 
 ### Modelo de integracoes
 
-O objetivo de produto e que cada integracao tenha apenas um botao de conexao, sem pedir chaves tecnicas ao usuario comum.
+O objetivo de produto e que cada integracao tenha apenas um botao de conexao, sem pedir chaves tecnicas ao usuario comum. Na alpha atual, esse fluxo guiado esta ativo para Google Calendar.
 
 - Google Calendar: ja usa OAuth no app e agora busca o Client ID publico no backend.
 - IA de classificacao: usa o backend seguro do Luum por padrao; a chave Gemini deve ficar em `GEMINI_API_KEY` na Vercel.
 - PDF semanal por email: o app envia dados semanais sanitizados para `/api/reports/weekly-email`; Gemini e provedor de email ficam na Vercel, e o backend envia apenas para o email verificado da conta Firebase.
 - Firebase backup: usa a sessao Firebase do app e salva em `/api/sync/{uid}`.
 - Stripe: checkout e webhook ficam no backend Vercel e escrevem o plano no Firestore.
-- Notion, Outlook, ClickUp, Linear e Zapier: a tela do app mostra apenas o botao de conectar/status. Para ficarem 100% guiadas, ainda faltam callbacks OAuth/backend proprios e credenciais salvas na infraestrutura do Luum, nao no Mac do usuario.
+- Notion, Outlook, ClickUp, Linear e Zapier: a tela do app mostra o status "em implantacao", sem pedir token/API key e sem abrir um login que nao conclui a conexao. Para ficarem 100% guiadas, ainda faltam callbacks OAuth/backend proprios e credenciais salvas na infraestrutura do Luum, nao no Mac do usuario.
 
 As integracoes que ainda dependem de configuracao externa estao detalhadas em `docs/INTEGRACOES_PENDENTES.md` e no checklist operacional `docs/CHECKLIST_INTEGRACOES_EXTERNAS.md`.
 
