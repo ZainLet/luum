@@ -100,7 +100,7 @@ Para gerar uma alpha macOS compactada para teste de instalacao em outros Macs:
 ./script/build_and_run.sh --package
 ```
 
-O pacote sai em `dist/releases/` com `.zip`, `.sha256` e notas de build. A versao alpha atual e `0.0.2`. Enquanto o app estiver assinado ad-hoc, o primeiro launch em outro Mac pode exigir `Control-click > Abrir` por causa do Gatekeeper.
+O pacote sai em `dist/releases/` com `.zip`, `.sha256` e notas de build. A versao alpha atual e `0.0.2` e exige macOS 26 ou superior. Enquanto o app estiver assinado ad-hoc, o primeiro launch em outro Mac pode exigir `Control-click > Abrir` por causa do Gatekeeper. O passo a passo de teste fica em `docs/MACOS_ALPHA_INSTALL.md`.
 
 Para assinar com uma identidade local de desenvolvedor:
 

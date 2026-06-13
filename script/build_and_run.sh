@@ -149,10 +149,23 @@ Luum ${APP_VERSION} (${APP_BUILD}) ${RELEASE_CHANNEL}
 Git: ${git_sha}
 Generated: ${timestamp}
 Bundle ID: ${BUNDLE_ID}
+Minimum macOS: ${MIN_SYSTEM_VERSION}
 Signature: ${CODESIGN_IDENTITY}
 
 Alpha de teste para instalação manual em outros Macs.
-Sem Apple Developer ID, o macOS pode exigir Control-click > Abrir no primeiro launch.
+Instalação:
+1. Abra o zip.
+2. Arraste Luum.app para Aplicativos.
+3. No primeiro launch, use Control-click > Abrir se o Gatekeeper bloquear.
+
+Se um Mac de teste interno continuar bloqueando por quarentena:
+  xattr -dr com.apple.quarantine /Applications/Luum.app
+
+Validação esperada:
+  codesign --verify --deep --strict --verbose=2 /Applications/Luum.app
+
+Sem Apple Developer ID, spctl/Gatekeeper pode rejeitar por falta de notarização.
+Guia completo: docs/MACOS_ALPHA_INSTALL.md
 NOTES
 
   echo "$archive_path"
