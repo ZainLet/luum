@@ -16,20 +16,25 @@ No Mac de desenvolvimento:
 ./script/build_and_run.sh --package
 ```
 
-O script gera três arquivos em `dist/releases/`:
+O script gera os artefatos em `dist/releases/`. Para teste em outro Mac, prefira o `.pkg`: ele instala `luum.app` em `/Applications` com duplo clique, sem terminal.
 
-- `Luum-...zip`: app compactado.
+- `Luum-...pkg`: instalador simples da alpha.
+- `Luum-...pkg.sha256`: checksum do instalador.
+- `Luum-...pkg.txt`: notas rápidas do instalador.
+- `Luum-...zip`: fallback técnico com o app bundle completo `luum.app`, não arquivos soltos.
 - `Luum-...zip.sha256`: checksum para conferir integridade.
 - `Luum-...zip.txt`: notas rápidas da build.
 
 ## Instalar em outro Mac
 
-1. Transfira o `.zip` para o Mac de teste.
-2. Abra o `.zip`.
-3. Arraste `Luum.app` para `Aplicativos`.
+1. Transfira o `.pkg` para o Mac de teste.
+2. Abra o `.pkg` com duplo clique.
+3. Siga o instalador para colocar `luum.app` em `Aplicativos`.
 4. No primeiro uso, abra com `Control-click > Abrir`.
 5. Entre pelo app e finalize o login no site quando o navegador abrir.
 6. Quando o macOS pedir Automação para o navegador, permita. Essa permissão é necessária para ler a aba ativa.
+
+Se estiver usando o `.zip` fallback, abra o zip e arraste `luum.app` manualmente para `Aplicativos`.
 
 ## Se o macOS bloquear a abertura
 
@@ -68,7 +73,7 @@ codesign --verify --deep --strict --verbose=2 /Applications/Luum.app
 spctl --assess --type execute --verbose=4 /Applications/Luum.app
 ```
 
-Com assinatura ad-hoc, `codesign --verify` deve passar. O `spctl` pode rejeitar por falta de notarização; isso é esperado nesta alpha sem Apple Developer ID.
+Com assinatura ad-hoc, `codesign --verify` deve passar. O `spctl` pode rejeitar por falta de notarização; isso é esperado nesta alpha sem Apple Developer ID. O instalador `.pkg` também fica sem assinatura/notarização nesta fase.
 
 ## Quando isso muda
 
