@@ -4,11 +4,12 @@ set -euo pipefail
 MODE="${1:-run}"
 APP_NAME="luum"
 APP_DISPLAY_NAME="Luum"
-BUNDLE_ID="com.zainlet.luum"
-APP_VERSION="0.0.2"
+BUNDLE_ID="com.luum.apple"
+APP_VERSION="0.0.3"
 APP_BUILD="1"
 APP_CATEGORY="public.app-category.productivity"
 MIN_SYSTEM_VERSION="26.0"
+PKG_ID="${BUNDLE_ID}.installer"
 CODESIGN_IDENTITY="${APPLE_CODESIGN_IDENTITY:--}"
 RELEASE_CHANNEL="${LUUM_RELEASE_CHANNEL:-alpha}"
 
@@ -110,6 +111,7 @@ cat >"$INFO_PLIST" <<PLIST
 PLIST
 
 codesign --force --deep --sign "$CODESIGN_IDENTITY" --timestamp=none "$APP_BUNDLE"
+xattr -cr "$APP_BUNDLE" >/dev/null 2>&1 || true
 
 verify_bundle() {
   plutil -lint "$INFO_PLIST" >/dev/null
@@ -139,10 +141,33 @@ package_app() {
   mkdir -p "$release_dir"
   local archive_name="Luum-${APP_VERSION}-${RELEASE_CHANNEL}-${git_sha}-${timestamp}.zip"
   local archive_path="$release_dir/$archive_name"
-  rm -f "$archive_path" "$archive_path.sha256" "$archive_path.txt"
+  local pkg_name="Luum-${APP_VERSION}-${RELEASE_CHANNEL}-${git_sha}-${timestamp}.pkg"
+  local pkg_path="$release_dir/$pkg_name"
+  local pkg_stage
+  rm -f "$archive_path" "$archive_path.sha256" "$archive_path.txt" "$pkg_path" "$pkg_path.sha256" "$pkg_path.txt"
 
-  /usr/bin/ditto -c -k --keepParent "$APP_BUNDLE" "$archive_path"
+  COPYFILE_DISABLE=1 /usr/bin/ditto -c -k --norsrc --noextattr --noacl --noqtn --keepParent "$APP_BUNDLE" "$archive_path"
+  if ! /usr/bin/zipinfo -1 "$archive_path" | grep -Eqx "(\./)?luum.app/Contents/Info.plist"; then
+    echo "Pacote invalido: o zip precisa conter luum.app/Contents/Info.plist." >&2
+    exit 1
+  fi
   shasum -a 256 "$archive_path" >"$archive_path.sha256"
+
+  pkg_stage="$(mktemp -d "$DIST_DIR/pkg-stage.XXXXXX")"
+  COPYFILE_DISABLE=1 /usr/bin/ditto --norsrc --noextattr --noacl --noqtn "$APP_BUNDLE" "$pkg_stage/$APP_NAME.app"
+  find "$pkg_stage" -name '._*' -delete
+  COPYFILE_DISABLE=1 /usr/bin/pkgbuild \
+    --identifier "$PKG_ID" \
+    --version "${APP_VERSION}.${APP_BUILD}" \
+    --install-location "/Applications" \
+    --root "$pkg_stage" \
+    "$pkg_path"
+  rm -rf "$pkg_stage"
+  if ! /usr/sbin/pkgutil --payload-files "$pkg_path" | grep -Eqx "(\./)?luum.app/Contents/Info.plist"; then
+    echo "Instalador invalido: o pkg precisa instalar luum.app/Contents/Info.plist." >&2
+    exit 1
+  fi
+  shasum -a 256 "$pkg_path" >"$pkg_path.sha256"
 
   cat >"$archive_path.txt" <<NOTES
 Luum ${APP_VERSION} (${APP_BUILD}) ${RELEASE_CHANNEL}
@@ -153,6 +178,7 @@ Minimum macOS: ${MIN_SYSTEM_VERSION}
 Signature: ${CODESIGN_IDENTITY}
 
 Alpha de teste para instalação manual em outros Macs.
+Este zip contem o app bundle completo: luum.app.
 Instalação:
 1. Abra o zip.
 2. Arraste Luum.app para Aplicativos.
@@ -163,6 +189,7 @@ Se um Mac de teste interno continuar bloqueando por quarentena:
 
 Se aparecer prompt das Chaves do macOS por build antigo:
   security delete-generic-password -s com.zainlet.luum -a login 2>/dev/null || true
+  security delete-generic-password -s com.luum.apple -a login 2>/dev/null || true
 
 Validação esperada:
   codesign --verify --deep --strict --verbose=2 /Applications/Luum.app
@@ -171,7 +198,31 @@ Sem Apple Developer ID, spctl/Gatekeeper pode rejeitar por falta de notarizaçã
 Guia completo: docs/MACOS_ALPHA_INSTALL.md
 NOTES
 
-  echo "$archive_path"
+  cat >"$pkg_path.txt" <<NOTES
+Luum ${APP_VERSION} (${APP_BUILD}) ${RELEASE_CHANNEL}
+Git: ${git_sha}
+Generated: ${timestamp}
+Bundle ID: ${BUNDLE_ID}
+Package ID: ${PKG_ID}
+Minimum macOS: ${MIN_SYSTEM_VERSION}
+Signature: unsigned pkg, ad-hoc app
+
+Instalador simples para teste da alpha.
+Uso:
+1. Baixe o arquivo .pkg.
+2. Abra com duplo clique.
+3. Siga o instalador para colocar luum.app em /Applications.
+4. No primeiro launch, use Control-click > Abrir se o Gatekeeper bloquear.
+
+Se aparecer prompt das Chaves do macOS por build antigo:
+  security delete-generic-password -s com.zainlet.luum -a login 2>/dev/null || true
+  security delete-generic-password -s com.luum.apple -a login 2>/dev/null || true
+
+Sem Apple Developer ID, o instalador ainda nao e notarizado.
+Guia completo: docs/MACOS_ALPHA_INSTALL.md
+NOTES
+
+  echo "$pkg_path"
 }
 
 open_app() {

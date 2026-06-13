@@ -16,20 +16,25 @@ No Mac de desenvolvimento:
 ./script/build_and_run.sh --package
 ```
 
-O script gera três arquivos em `dist/releases/`:
+O script gera os artefatos em `dist/releases/`. Para teste em outro Mac, prefira o `.pkg`: ele instala `luum.app` em `/Applications` com duplo clique, sem terminal.
 
-- `Luum-...zip`: app compactado.
+- `Luum-...pkg`: instalador simples da alpha.
+- `Luum-...pkg.sha256`: checksum do instalador.
+- `Luum-...pkg.txt`: notas rápidas do instalador.
+- `Luum-...zip`: fallback técnico com o app bundle completo `luum.app`, não arquivos soltos.
 - `Luum-...zip.sha256`: checksum para conferir integridade.
 - `Luum-...zip.txt`: notas rápidas da build.
 
 ## Instalar em outro Mac
 
-1. Transfira o `.zip` para o Mac de teste.
-2. Abra o `.zip`.
-3. Arraste `Luum.app` para `Aplicativos`.
+1. Transfira o `.pkg` para o Mac de teste.
+2. Abra o `.pkg` com duplo clique.
+3. Siga o instalador para colocar `luum.app` em `Aplicativos`.
 4. No primeiro uso, abra com `Control-click > Abrir`.
 5. Entre pelo app e finalize o login no site quando o navegador abrir.
 6. Quando o macOS pedir Automação para o navegador, permita. Essa permissão é necessária para ler a aba ativa.
+
+Se estiver usando o `.zip` fallback, abra o zip e arraste `luum.app` manualmente para `Aplicativos`.
 
 ## Se o macOS bloquear a abertura
 
@@ -51,10 +56,11 @@ Depois abra o app novamente.
 
 A alpha atual salva sessão e tokens em um cofre local cifrado, sem usar as Chaves do macOS por padrão. Isso evita o prompt repetido causado por builds ad-hoc com assinatura diferente.
 
-Se um Mac que já testou builds antigos ainda mostrar uma janela pedindo senha para acessar o item `login` em `com.zainlet.luum`, feche o app e limpe o item legado:
+Se um Mac que já testou builds antigos ainda mostrar uma janela pedindo senha para acessar o item `login` em `com.zainlet.luum` ou `com.luum.apple`, feche o app e limpe o item legado:
 
 ```bash
 security delete-generic-password -s com.zainlet.luum -a login 2>/dev/null || true
+security delete-generic-password -s com.luum.apple -a login 2>/dev/null || true
 ```
 
 Depois abra o Luum novamente. O app também tenta limpar esse item silenciosamente no início, mas esse comando ajuda quando o macOS já deixou a janela de permissão pendente.
@@ -68,7 +74,7 @@ codesign --verify --deep --strict --verbose=2 /Applications/Luum.app
 spctl --assess --type execute --verbose=4 /Applications/Luum.app
 ```
 
-Com assinatura ad-hoc, `codesign --verify` deve passar. O `spctl` pode rejeitar por falta de notarização; isso é esperado nesta alpha sem Apple Developer ID.
+Com assinatura ad-hoc, `codesign --verify` deve passar. O `spctl` pode rejeitar por falta de notarização; isso é esperado nesta alpha sem Apple Developer ID. O instalador `.pkg` também fica sem assinatura/notarização nesta fase.
 
 ## Quando isso muda
 
