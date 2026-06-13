@@ -14,6 +14,13 @@
         return firebase.auth();
     }
 
+    function authErrorMessage(error) {
+        const mapped = typeof window.luumAuthErrorMessage === 'function'
+            ? window.luumAuthErrorMessage(error)
+            : '';
+        return mapped || error?.message || 'Não foi possível autenticar agora.';
+    }
+
     function getStoredUser() {
         try {
             const raw = localStorage.getItem(STORAGE_USER_KEY);
@@ -113,17 +120,22 @@
 
     async function upsertAccount(user) {
         const token = await user.getIdToken(true);
-        const response = await fetch(apiUrl('/api/auth/upsert-user'), {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                email: user.email || '',
-                name: user.displayName || ''
-            })
-        });
+        let response;
+        try {
+            response = await fetch(apiUrl('/api/auth/upsert-user'), {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    email: user.email || '',
+                    name: user.displayName || ''
+                })
+            });
+        } catch (error) {
+            throw new Error(authErrorMessage(error));
+        }
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
             throw new Error(data.error || 'Backend de conta indisponivel.');

@@ -34,6 +34,39 @@ window.luumApiUrl = function luumApiUrl(path) {
     return `${base}${suffix}`;
 };
 
+window.luumAuthErrorMessage = function luumAuthErrorMessage(error) {
+    const code = String(error?.code || '').trim();
+    const message = String(error?.message || error || '').trim();
+    const combined = `${code} ${message}`.toLowerCase();
+
+    if (
+        error instanceof TypeError ||
+        combined.includes('failed to fetch') ||
+        combined.includes('networkerror') ||
+        combined.includes('cors') ||
+        combined.includes('load failed')
+    ) {
+        return 'Não foi possível falar com a API do Luum. Verifique sua conexão e se o backend Vercel está publicado.';
+    }
+
+    const firebaseMessages = {
+        'auth/invalid-credential': 'Email ou senha inválidos',
+        'auth/wrong-password': 'Email ou senha inválidos',
+        'auth/user-not-found': 'Conta não encontrada',
+        'auth/invalid-email': 'Email inválido',
+        'auth/too-many-requests': 'Muitas tentativas. Aguarde e tente novamente',
+        'auth/popup-closed-by-user': 'Login cancelado.',
+        'auth/popup-blocked': 'Popup bloqueado pelo navegador.',
+        'auth/email-already-in-use': 'Email já cadastrado',
+        'auth/weak-password': 'Senha muito fraca (mínimo 6 caracteres)',
+        'auth/operation-not-allowed': 'Email/Senha não ativado no Firebase Console'
+    };
+
+    if (firebaseMessages[code]) return firebaseMessages[code];
+    if (message) return message;
+    return 'Não foi possível autenticar agora. Tente novamente em instantes.';
+};
+
 // Inicializa Firebase quando o SDK carregou. As páginas mostram um fallback claro
 // quando CDN/conexão bloqueiam os scripts do Firebase.
 const firebaseSDKReady = typeof firebase !== 'undefined' && typeof firebase.initializeApp === 'function';

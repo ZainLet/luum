@@ -289,6 +289,13 @@
             el.style.display = message ? 'block' : 'none';
         }
 
+        function authErrorMessage(error) {
+            const mapped = typeof window.luumAuthErrorMessage === 'function'
+                ? window.luumAuthErrorMessage(error)
+                : '';
+            return mapped || error?.message || 'Não foi possível carregar sua conta.';
+        }
+
         function bootAccount() {
             if (!firebaseReady()) {
                 showAccountLoggedOut('Firebase não carregou. Recarregue a página ou verifique sua conexão.');
@@ -361,7 +368,7 @@
                     dashboard.style.display = 'block';
                 } catch (err) {
                     console.error('[Account] Erro:', err);
-                    showAccountError(err.message);
+                    showAccountError(authErrorMessage(err));
                 }
             });
         }
