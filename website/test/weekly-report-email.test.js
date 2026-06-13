@@ -243,7 +243,7 @@ test('weekly report endpoint sends email through Resend when configured', async 
             authorization: 'Bearer valid-token',
             origin: 'https://luum-app.web.app'
         },
-        body: { report: reportPayload() }
+        body: { report: reportPayload(), email: 'attacker@example.com' }
     }, res);
 
     assert.equal(res.code, 200);

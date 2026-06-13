@@ -47,8 +47,9 @@ async function weeklyReportEmailHandler(req, res) {
         if (!profile.exists) {
             return res.status(403).json({ error: 'Conta Luum não encontrada' });
         }
+        const profileData = profile.data();
 
-        const entitlement = entitlementForUser(profile.data());
+        const entitlement = entitlementForUser(profileData);
         if (!includesFeature(entitlement, 'weeklyReportEmail')) {
             return res.status(403).json({
                 error: 'Relatórios por email exigem o plano Profissional ou maior',
@@ -62,7 +63,7 @@ async function weeklyReportEmailHandler(req, res) {
             return res.status(400).json({ error: 'Relatório semanal incompleto' });
         }
 
-        const to = cleanEmail(body.email) || cleanEmail(decoded.email);
+        const to = cleanEmail(decoded.email) || cleanEmail(profileData.email);
         if (!to) {
             return res.status(400).json({ error: 'Email de destino obrigatório' });
         }
