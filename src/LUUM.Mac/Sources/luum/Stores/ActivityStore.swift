@@ -2334,17 +2334,15 @@ final class ActivityStore {
         let focusIDs = Set(focusProfiles.filter { $0.kind == .focus }.flatMap(\.categoryIDs))
         let distractionIDs = Set(focusProfiles.filter { $0.kind == .distraction }.flatMap(\.categoryIDs))
 
-        let focusTime = weekSamples.reduce(into: 0.0) { partial, sample in
+        var focusTime: TimeInterval = 0
+        var distractionTime: TimeInterval = 0
+        for sample in weekSamples {
             let categoryID = classifier.classify(sample: sample, preferences: monitoringPreferences).id
             if focusIDs.contains(categoryID) {
-                partial += sample.duration
+                focusTime += sample.duration
             }
-        }
-
-        let distractionTime = weekSamples.reduce(into: 0.0) { partial, sample in
-            let categoryID = classifier.classify(sample: sample, preferences: monitoringPreferences).id
             if distractionIDs.contains(categoryID) {
-                partial += sample.duration
+                distractionTime += sample.duration
             }
         }
 
