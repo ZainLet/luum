@@ -158,6 +158,21 @@ func trialSessionMirrorsBackendEntitlementRestrictions() {
 }
 
 @Test
+func trialSessionUsesTrialFeatureMatrixEvenWhenBackendPlanIsEssencial() {
+    let session = makeAuthSession(
+        plan: .essencial,
+        subscriptionStatus: "trial",
+        lastVerifiedAt: Date()
+    )
+
+    #expect(session.includes(.cloudBackup))
+    #expect(session.includes(.agendaIntegrations))
+    #expect(session.includes(.advancedIntegrations))
+    #expect(!session.includes(.teamWorkspace))
+    #expect(!session.includes(.rawActivityBackup))
+}
+
+@Test
 func businessPlanKeepsRawBackupPinnedToFirebaseAccount() {
     var settings = CloudSyncSettings.default
     settings.endpointURL = "https://evil.example"
@@ -171,6 +186,34 @@ func businessPlanKeepsRawBackupPinnedToFirebaseAccount() {
 
     #expect(sanitized.isEnabled)
     #expect(sanitized.syncRawActivities)
+    #expect(sanitized.endpointURL == FirebaseAuthService.defaultBaseURL)
+    #expect(sanitized.backupID == "firebase-user")
+}
+
+@Test
+func firstEligibleAccountBindingEnablesCloudBackupAutomatically() {
+    let sanitized = ActivityStore.cloudSyncSettings(
+        .default,
+        sanitizedFor: makeAuthSession(plan: .profissional, lastVerifiedAt: Date())
+    )
+
+    #expect(sanitized.isEnabled)
+    #expect(sanitized.endpointURL == FirebaseAuthService.defaultBaseURL)
+    #expect(sanitized.backupID == "firebase-user")
+}
+
+@Test
+func existingAccountBindingPreservesManualCloudBackupDisable() {
+    var settings = CloudSyncSettings.default
+    settings.isEnabled = false
+    settings.backupID = "firebase-user"
+
+    let sanitized = ActivityStore.cloudSyncSettings(
+        settings,
+        sanitizedFor: makeAuthSession(plan: .profissional, lastVerifiedAt: Date())
+    )
+
+    #expect(!sanitized.isEnabled)
     #expect(sanitized.endpointURL == FirebaseAuthService.defaultBaseURL)
     #expect(sanitized.backupID == "firebase-user")
 }

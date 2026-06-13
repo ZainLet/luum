@@ -194,6 +194,12 @@
             document.getElementById('errorMsg').style.display = 'block';
             document.getElementById('successMsg').style.display = 'none';
         }
+        function authErrorMessage(error) {
+            const mapped = typeof window.luumAuthErrorMessage === 'function'
+                ? window.luumAuthErrorMessage(error)
+                : '';
+            return mapped || error?.message || 'Erro ao autenticar.';
+        }
         function showSuccess(msg) {
             document.getElementById('successMsg').textContent = msg;
             document.getElementById('successMsg').style.display = 'block';
@@ -268,7 +274,7 @@
             } catch (error) {
                 redirecting = false;
                 console.error('Erro no exchange:', error);
-                showError('Erro ao autenticar: ' + error.message);
+                showError('Erro ao autenticar: ' + authErrorMessage(error));
                 setLoading(false);
             }
         }
@@ -341,11 +347,7 @@
                     await exchangeTokenAndRedirect(result.user);
                 } catch (error) {
                     console.error('Erro Google login:', error);
-                    let msg = 'Erro ao fazer login com Google';
-                    if (error.code === 'auth/popup-closed-by-user') msg = 'Login cancelado.';
-                    else if (error.code === 'auth/popup-blocked') msg = 'Popup bloqueado pelo navegador.';
-                    else msg += ': ' + error.message;
-                    showError(msg);
+                    showError(authErrorMessage(error));
                 }
             });
 
@@ -362,15 +364,7 @@
                     await exchangeTokenAndRedirect(result.user);
                 } catch (error) {
                     console.error('Erro email login:', error);
-                    let msg = 'Erro ao fazer login';
-                    switch (error.code) {
-                        case 'auth/user-not-found': msg = 'Conta não encontrada'; break;
-                        case 'auth/wrong-password': case 'auth/invalid-credential': msg = 'Email ou senha inválidos'; break;
-                        case 'auth/invalid-email': msg = 'Email inválido'; break;
-                        case 'auth/too-many-requests': msg = 'Muitas tentativas. Aguarde e tente novamente'; break;
-                        default: msg = error.message;
-                    }
-                    showError(msg);
+                    showError(authErrorMessage(error));
                     setLoading(false);
                 }
             });

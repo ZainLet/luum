@@ -86,12 +86,29 @@ test('shared auth script opens desktop app only for explicit app route', () => {
     assert.match(auth, /window\.location\.href = getRedirectTarget\(\);/);
 });
 
+test('auth pages use a shared friendly error mapper for API and Firebase failures', () => {
+    const firebaseConfig = read('firebase-config.js');
+    const auth = read('auth.js');
+    const login = read('login.html');
+    const signup = read('cadastro.html');
+    const account = read('account.html');
+
+    assert.match(firebaseConfig, /window\.luumAuthErrorMessage = function luumAuthErrorMessage\(error\)/);
+    assert.match(firebaseConfig, /failed to fetch/);
+    assert.match(firebaseConfig, /backend Vercel está publicado/);
+    assert.match(firebaseConfig, /auth\/invalid-credential/);
+    assert.match(auth, /throw new Error\(authErrorMessage\(error\)\)/);
+    assert.match(login, /showError\('Erro ao autenticar: ' \+ authErrorMessage\(error\)\)/);
+    assert.match(signup, /showError\('Erro: ' \+ authErrorMessage\(error\)\)/);
+    assert.match(account, /showAccountError\(authErrorMessage\(err\)\)/);
+});
+
 test('pages use the current auth.js cache-busting version', () => {
     for (const file of fs.readdirSync(root).filter((name) => name.endsWith('.html'))) {
         const html = read(file);
         if (!html.includes('auth.js')) continue;
 
-        assert.doesNotMatch(html, /auth\.js\?v=[0-7]\b/, `${file} references an old auth.js version`);
-        assert.match(html, /auth\.js\?v=8\b/, `${file} should use auth.js?v=8`);
+        assert.doesNotMatch(html, /auth\.js\?v=[0-8]\b/, `${file} references an old auth.js version`);
+        assert.match(html, /auth\.js\?v=9\b/, `${file} should use auth.js?v=9`);
     }
 });

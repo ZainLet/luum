@@ -245,6 +245,12 @@
             document.getElementById('errorMsg').style.display = 'block';
             document.getElementById('successMsg').style.display = 'none';
         }
+        function authErrorMessage(error) {
+            const mapped = typeof window.luumAuthErrorMessage === 'function'
+                ? window.luumAuthErrorMessage(error)
+                : '';
+            return mapped || error?.message || 'Erro ao autenticar.';
+        }
         function showSuccess(msg) {
             document.getElementById('successMsg').textContent = msg;
             document.getElementById('successMsg').style.display = 'block';
@@ -317,7 +323,7 @@
                 window.location.href = redirectUrl;
             } catch (error) {
                 redirecting = false;
-                showError('Erro: ' + error.message);
+                showError('Erro: ' + authErrorMessage(error));
                 setLoading(false);
             }
         }
@@ -359,13 +365,7 @@
 
                     await exchangeTokenAndRedirect(result.user);
                 } catch (error) {
-                    const map = {
-                        'auth/email-already-in-use': 'Email já cadastrado',
-                        'auth/weak-password': 'Senha muito fraca (mínimo 6 caracteres)',
-                        'auth/invalid-email': 'Email inválido',
-                        'auth/operation-not-allowed': 'Email/Senha não ativado no Firebase Console'
-                    };
-                    showError(map[error.code] || error.message);
+                    showError(authErrorMessage(error));
                     setLoading(false);
                     signingUp = false;
                 }
