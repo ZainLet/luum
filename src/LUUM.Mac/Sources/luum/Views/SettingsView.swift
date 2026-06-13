@@ -3,8 +3,6 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var store: ActivityStore
 
-    @State private var workspaceSecretDraft = ""
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
@@ -15,8 +13,8 @@ struct SettingsView: View {
                 )
 
                 appVersionCard
-                integrationHubCard
                 localVaultCard
+                integrationHubCard
                 aiClassificationCard
                 googleCalendarCard
                 notionCalendarCard
@@ -31,9 +29,8 @@ struct SettingsView: View {
                 settingsCard(
                     title: "Permissoes de navegador",
                     lines: [
-                        "Safari, Chrome, Arc, Brave, Edge, Opera, Chromium e Vivaldi podem fornecer a URL da aba ativa.",
-                        "O macOS pede permissao de Automacao na primeira tentativa de leitura.",
-                        store.automationStatusMessage ?? "Nenhum erro recente de Automacao.",
+                        "Permite classificar sites pela aba ativa dos navegadores suportados.",
+                        store.automationStatusMessage ?? "Tudo certo com a Automacao do macOS.",
                     ],
                     tint: ActivityCategory.communication.glassTint
                 )
@@ -41,8 +38,8 @@ struct SettingsView: View {
                 settingsCard(
                     title: "Monitoramento de entrada",
                     lines: [
-                        store.inputMonitoringMessage ?? "Permissao de Monitoramento de Entrada ativa. O luum consegue detectar inatividade.",
-                        "Essa permissao e opcional: sem ela, o app continua monitorando apps e URLs normalmente.",
+                        store.inputMonitoringMessage ?? "Permissao ativa para detectar inatividade.",
+                        "Opcional: o Luum continua funcionando sem ela.",
                     ],
                     tint: ActivityCategory.utilities.glassTint
                 )
@@ -51,8 +48,7 @@ struct SettingsView: View {
                     title: "Estado da captura",
                     lines: [
                         store.isMonitoring ? "Captura ativa em background." : "Captura pausada.",
-                        "Apps acompanhados no historico: \(store.trackedAppsCount)",
-                        "Sites enriquecidos no historico: \(store.trackedSitesCount)",
+                        "\(store.trackedAppsCount) apps e \(store.trackedSitesCount) sites no historico.",
                     ],
                     tint: ActivityCategory.work.glassTint
                 )
@@ -128,7 +124,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conecte sua conta Google em um fluxo guiado e deixe o luum importar sua agenda automaticamente.")
+                    Text("Conecte sua conta Google e compare sua agenda com o tempo real.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -148,25 +144,20 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("As credenciais da agenda ficam guardadas neste Mac e nao entram no backup em nuvem.")
-                .font(.caption)
-                .foregroundStyle(LuumTheme.textMuted)
-                .fixedSize(horizontal: false, vertical: true)
-
             HStack(spacing: 10) {
-                Button("Conectar Google Calendar") {
+                Button("Conectar") {
                     store.connectGoogleCalendar()
                 }
                 .buttonStyle(.glassProminent)
                 .disabled(store.isConnectingGoogleCalendar)
 
-                Button("Sincronizar todas") {
+                Button("Sincronizar") {
                     store.refreshGoogleCalendar()
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!store.isGoogleCalendarConnected || store.isSyncingGoogleCalendar)
 
-                Button("Desconectar tudo") {
+                Button("Desconectar") {
                     store.disconnectAllGoogleCalendars()
                 }
                 .buttonStyle(.bordered)
@@ -198,7 +189,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conexao com Notion esta preparada na UI, mas o OAuth oficial ainda sera liberado pelo backend do Luum.")
+                    Text("Traga prazos e eventos do Notion quando o conector oficial estiver ativo.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -212,9 +203,10 @@ struct SettingsView: View {
             }
 
             pendingIntegrationRow(
-                title: store.hasNotionToken ? "Notion conectado neste Mac" : "Notion em implantacao",
-                subtitle: store.hasNotionToken ? "A conexao local antiga esta salva neste Mac." : "O proximo passo e ativar o OAuth server-side para conectar com um clique.",
-                systemImage: "doc.text.image"
+                title: store.hasNotionToken ? "Conectado neste Mac" : "Conectar Notion",
+                subtitle: store.hasNotionToken ? "Conexao local antiga detectada." : "Conexao por um clique sera liberada pelo backend do Luum.",
+                systemImage: "doc.text.image",
+                isConnected: store.hasNotionToken
             )
 
             if let message = store.notionCalendarStatusMessage {
@@ -243,7 +235,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conexao com Outlook esta preparada na UI, mas depende do OAuth Microsoft no backend do Luum.")
+                    Text("Sincronize compromissos do Microsoft 365 com conexao guiada.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -257,9 +249,10 @@ struct SettingsView: View {
             }
 
             pendingIntegrationRow(
-                title: store.hasOutlookToken ? "Outlook conectado neste Mac" : "Outlook em implantacao",
-                subtitle: store.hasOutlookToken ? "A conexao local antiga esta salva neste Mac." : "O proximo passo e ativar OAuth Microsoft para conectar com um clique.",
-                systemImage: "calendar"
+                title: store.hasOutlookToken ? "Conectado neste Mac" : "Conectar Outlook",
+                subtitle: store.hasOutlookToken ? "Conexao local antiga detectada." : "Conexao Microsoft sera liberada pelo backend do Luum.",
+                systemImage: "calendar",
+                isConnected: store.hasOutlookToken
             )
 
             if let message = store.outlookCalendarStatusMessage {
@@ -281,7 +274,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Use a IA server-side do Luum para sugerir categorias de apps e sites na tela de classificacao rapida. A IA cria regras somente quando voce aciona o botao.")
+                    Text("Sugira categorias para apps e sites usando a IA do Luum.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -300,25 +293,6 @@ struct SettingsView: View {
             ))
             .toggleStyle(.switch)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Confianca minima: \(Int(store.aiClassificationSettings.minimumConfidence * 100))%")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.72))
-
-                Slider(
-                    value: Binding(
-                        get: { store.aiClassificationSettings.minimumConfidence },
-                        set: { store.updateAIClassificationMinimumConfidence($0) }
-                    ),
-                    in: 0.4 ... 0.95,
-                    step: 0.01
-                )
-            }
-
-            LabeledContent("Backend", value: AIClassificationService.isLuumBackendEndpoint(store.aiClassificationSettings.endpointURL) ? "Luum seguro" : "Personalizado")
-                .font(.caption)
-                .foregroundStyle(LuumTheme.textMuted)
-
             if let message = store.aiClassificationStatusMessage {
                 Text(message)
                     .font(.caption)
@@ -326,7 +300,7 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("O endpoint padrao usa a Vercel do Luum e exige login Firebase. A chave Gemini fica na Vercel, nao no Mac do usuario.")
+            Text("A chave Gemini fica no backend do Luum, nao neste Mac.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -343,7 +317,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conexao com ClickUp esta preparada na UI, mas depende do OAuth oficial no backend do Luum.")
+                    Text("Inclua tarefas com prazo no seu planejamento diario.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -357,9 +331,10 @@ struct SettingsView: View {
             }
 
             pendingIntegrationRow(
-                title: store.hasClickUpToken ? "ClickUp conectado neste Mac" : "ClickUp em implantacao",
-                subtitle: store.hasClickUpToken ? "A conexao local antiga esta salva neste Mac." : "O proximo passo e ativar OAuth ClickUp para conectar com um clique.",
-                systemImage: "checklist"
+                title: store.hasClickUpToken ? "Conectado neste Mac" : "Conectar ClickUp",
+                subtitle: store.hasClickUpToken ? "Conexao local antiga detectada." : "Conexao ClickUp sera liberada pelo backend do Luum.",
+                systemImage: "checklist",
+                isConnected: store.hasClickUpToken
             )
 
             if let message = store.clickUpStatusMessage {
@@ -380,7 +355,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conexao com Linear esta preparada na UI, mas depende do OAuth oficial no backend do Luum.")
+                    Text("Traga ciclos, issues e prazos para comparar plano e execucao.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -394,9 +369,10 @@ struct SettingsView: View {
             }
 
             pendingIntegrationRow(
-                title: store.hasLinearToken ? "Linear conectado neste Mac" : "Linear em implantacao",
-                subtitle: store.hasLinearToken ? "A conexao local antiga esta salva neste Mac." : "O proximo passo e ativar OAuth Linear para conectar com um clique.",
-                systemImage: "arrow.up.right.square"
+                title: store.hasLinearToken ? "Conectado neste Mac" : "Conectar Linear",
+                subtitle: store.hasLinearToken ? "Conexao local antiga detectada." : "Conexao Linear sera liberada pelo backend do Luum.",
+                systemImage: "arrow.up.right.square",
+                isConnected: store.hasLinearToken
             )
 
             if let message = store.linearStatusMessage {
@@ -417,7 +393,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conexao com Zapier esta preparada na UI, mas depende de uma configuracao server-side do Luum.")
+                    Text("Dispare automacoes a partir de foco, agenda e ranking.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -431,9 +407,10 @@ struct SettingsView: View {
             }
 
             pendingIntegrationRow(
-                title: store.zapierConfigured ? "Zapier conectado" : "Zapier em implantacao",
-                subtitle: store.zapierConfigured ? "A automacao local esta pronta neste Mac." : "O proximo passo e ativar o conector oficial para conectar com um clique.",
-                systemImage: "bolt.horizontal"
+                title: store.zapierConfigured ? "Zapier conectado" : "Conectar Zapier",
+                subtitle: store.zapierConfigured ? "Automacao pronta neste Mac." : "Conector oficial sera liberado pelo backend do Luum.",
+                systemImage: "bolt.horizontal",
+                isConnected: store.zapierConfigured
             )
 
             if let message = store.zapierStatusMessage {
@@ -454,7 +431,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Configure o workspace corporativo para sincronizar um ranking real entre pessoas da mesma empresa, sem depender mais do modo preview.")
+                    Text("Ranking de equipe conectado pela sua conta Luum.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -467,73 +444,17 @@ struct SettingsView: View {
                 )
             }
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Empresa")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.7))
-
-                    TextField("Minha empresa", text: Binding(
-                        get: { store.teamSettings.organizationName },
-                        set: { store.updateTeamOrganizationName($0) }
-                    ))
-                    .textFieldStyle(.roundedBorder)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Nome de exibicao")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.7))
-
-                    TextField("Voce", text: Binding(
-                        get: { store.teamSettings.memberDisplayName },
-                        set: { store.updateTeamMemberDisplayName($0) }
-                    ))
-                    .textFieldStyle(.roundedBorder)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Papel")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.7))
-
-                TextField("Individual", text: Binding(
-                    get: { store.teamSettings.roleLabel },
-                    set: { store.updateTeamRoleLabel($0) }
-                ))
-                .textFieldStyle(.roundedBorder)
-            }
+            simpleInfoRow(
+                systemImage: "person.2",
+                title: store.teamSettings.organizationName.isEmpty ? "Workspace Luum" : store.teamSettings.organizationName,
+                subtitle: store.teamSettings.memberDisplayName.isEmpty ? "Perfil da conta atual" : store.teamSettings.memberDisplayName
+            )
 
             Toggle("Compartilhar metricas anonimizadas no workspace", isOn: Binding(
                 get: { store.teamSettings.sharesAnonymousMetrics },
                 set: { store.updateTeamSharesAnonymousMetrics($0) }
             ))
             .toggleStyle(.switch)
-
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                TextField("Workspace ID", text: Binding(
-                    get: { store.teamSettings.workspaceID },
-                    set: { store.updateTeamWorkspaceID($0) }
-                ))
-                .textFieldStyle(.roundedBorder)
-
-                TextField("Member ID", text: Binding(
-                    get: { store.teamSettings.workspaceMemberID },
-                    set: { store.updateTeamWorkspaceMemberID($0) }
-                ))
-                .textFieldStyle(.roundedBorder)
-            }
-
-            LabeledContent("API do workspace", value: FirebaseAuthService.defaultBaseURL)
-                .font(.caption)
-                .foregroundStyle(LuumTheme.textMuted)
-
-            SecureField(
-                store.hasWorkspaceSecret ? "Chave salva neste Mac. Digite uma nova para trocar." : "Chave do workspace",
-                text: $workspaceSecretDraft
-            )
-            .textFieldStyle(.roundedBorder)
 
             Toggle("Sincronizar ranking automaticamente", isOn: Binding(
                 get: { store.teamSettings.automaticallySyncWorkspace },
@@ -542,17 +463,10 @@ struct SettingsView: View {
             .toggleStyle(.switch)
 
             HStack(spacing: 10) {
-                Button("Salvar chave") {
-                    store.updateTeamWorkspaceSecret(workspaceSecretDraft)
-                    workspaceSecretDraft = ""
-                }
-                .buttonStyle(.glassProminent)
-                .disabled(workspaceSecretDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                Button("Sincronizar ranking") {
+                Button("Sincronizar") {
                     store.syncWorkspaceRankingNow()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.glassProminent)
                 .disabled(!store.teamSettings.sharesAnonymousMetrics || !store.teamWorkspaceConfigured || store.isSyncingWorkspace)
             }
 
@@ -615,7 +529,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("O luum pode sincronizar preferencias, ranking e resumos diarios usando a API deste projeto por cima do Firestore.")
+                    Text("Backup seguro da sua conta Luum para recuperar preferencias e resumos.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -636,13 +550,11 @@ struct SettingsView: View {
             .toggleStyle(.switch)
             .disabled(!store.canUse(.cloudBackup))
 
-            LabeledContent("API oficial", value: FirebaseAuthService.defaultBaseURL)
-                .font(.caption)
-                .foregroundStyle(LuumTheme.textMuted)
-
-            LabeledContent("Backup da conta", value: store.accountEmail.isEmpty ? "Entre com sua conta Luum" : store.accountEmail)
-                .font(.caption)
-                .foregroundStyle(LuumTheme.textMuted)
+            simpleInfoRow(
+                systemImage: "person.crop.circle",
+                title: store.accountEmail.isEmpty ? "Entre com sua conta Luum" : store.accountEmail,
+                subtitle: store.cloudSyncConfigured ? "Backup pronto" : "Aguardando login e plano compativel"
+            )
 
             HStack(spacing: 10) {
                 Button("Sincronizar agora") {
@@ -658,18 +570,6 @@ struct SettingsView: View {
                 .disabled(!store.canUse(.cloudBackup) || !store.cloudSyncConfigured || store.isSyncingCloud)
             }
 
-            Toggle("Sincronizar categorias e regras", isOn: Binding(
-                get: { store.cloudSyncSettings.syncCategoriesAndRules },
-                set: { store.updateCloudSyncSyncCategories($0) }
-            ))
-            .toggleStyle(.switch)
-
-            Toggle("Sincronizar resumos diarios", isOn: Binding(
-                get: { store.cloudSyncSettings.syncDailySummaries },
-                set: { store.updateCloudSyncSyncDailySummaries($0) }
-            ))
-            .toggleStyle(.switch)
-
             Toggle("Sincronizar atividades brutas", isOn: Binding(
                 get: { store.cloudSyncSettings.syncRawActivities },
                 set: { store.updateCloudSyncSyncRawActivities($0) }
@@ -684,7 +584,7 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("O backup usa seu login Firebase e sincroniza configuracoes sanitizadas e resumos. Dados sensiveis das conexoes continuam locais neste Mac.")
+            Text("Tokens e segredos das conexoes continuam fora do backup.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -762,7 +662,7 @@ struct SettingsView: View {
                     kind: kind,
                     status: "Ativo",
                     detail: AIClassificationService.isLuumBackendEndpoint(store.aiClassificationSettings.endpointURL)
-                        ? "Backend seguro com Firebase"
+                        ? "Protegida pela conta Luum"
                         : "\(store.aiClassificationSettings.providerName) \(store.aiClassificationSettings.model)",
                     tint: LuumTheme.secondaryAccent
                 )
@@ -949,7 +849,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Parcial",
-                    detail: "Endpoint ou chave pendente",
+                    detail: "Entre no Luum para ativar",
                     tint: LuumTheme.hotPink
                 )
             }
@@ -979,7 +879,34 @@ struct SettingsView: View {
         .luumGlassCard(tint: tint, cornerRadius: 30)
     }
 
-    private func pendingIntegrationRow(title: String, subtitle: String, systemImage: String) -> some View {
+    private func simpleInfoRow(systemImage: String, title: String, subtitle: String) -> some View {
+        HStack(alignment: .center, spacing: 14) {
+            Image(systemName: systemImage)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.white.opacity(0.045))
+        )
+    }
+
+    private func pendingIntegrationRow(title: String, subtitle: String, systemImage: String, isConnected: Bool) -> some View {
         HStack(alignment: .center, spacing: 14) {
             Image(systemName: systemImage)
                 .font(.title3.weight(.semibold))
@@ -999,15 +926,15 @@ struct SettingsView: View {
 
             Spacer()
 
-            Text("Em breve")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(LuumTheme.textSecondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(.white.opacity(0.055))
-                )
+            if isConnected {
+                Button("Conectado") {}
+                    .buttonStyle(.bordered)
+                    .disabled(true)
+            } else {
+                Button("Conectar") {}
+                    .buttonStyle(.glassProminent)
+                    .disabled(true)
+            }
         }
         .padding(14)
         .background(

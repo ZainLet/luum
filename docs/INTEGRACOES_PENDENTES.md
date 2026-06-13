@@ -25,7 +25,7 @@ Progresso aproximado para finalizar o produto:
 - Stripe e billing: 75-80%, pendente de compra/cancelamento real e conferência do webhook no painel.
 - App macOS completo: 70-75%, pendente de QA manual ponta a ponta no Mac.
 - Performance do app macOS: meta contínua adicionada. Otimizações aplicadas no cache de resumos, debounce de lembretes/foco, corte de relatórios por janela de data, cálculo de streak recente, captura em background, persistência local e renderização de histórico grande.
-- Integrações externas de agenda/tarefas/automação: 45-60%. A UI do app já foi simplificada: Google Calendar tem conexão guiada; Notion, Outlook, ClickUp, Linear e Zapier aparecem como "em implantação" até existir OAuth/backend real para funcionar de ponta a ponta sem configuração manual.
+- Integrações externas de agenda/tarefas/automação: 45-60%. A UI do app já foi simplificada: Google Calendar tem conexão guiada; Notion, Outlook, ClickUp, Linear e Zapier aparecem com status simples e botão `Conectar` bloqueado até existir OAuth/backend real para funcionar de ponta a ponta sem configuração manual.
 
 Ainda precisa de validação manual com uma conta real: entrar no site, abrir o app pelo deeplink, alterar plano no `admin.html` e clicar em validar assinatura no app.
 
@@ -123,7 +123,7 @@ Stripe configurado em produção:
 - Para teste local de desenvolvimento ainda existe suporte a endpoint personalizado no código/modelo, mas produção deve usar sempre a rota Vercel para não expor chave no binário macOS.
 - No código, os defaults ficam em `AIClassificationSettings.default`, a escolha entre backend Luum e Gemini direto fica em `AIClassificationService`, e o envio do Firebase ID token acontece em `ActivityStore.runAIClassification`.
 - Google Calendar: criar OAuth Client tipo Desktop app, ativar a Google Calendar API e salvar o Client ID publico como `GOOGLE_CALENDAR_CLIENT_ID` na Vercel ou no cofre admin. O app busca esse valor em `/api/public/integrations`, entao o usuario final so clica em `Conectar Google Calendar`.
-- Notion, Outlook, ClickUp, Linear e Zapier: a tela do app agora mostra status "em implantação", sem botão ativo de login até existir OAuth/backend real. O usuário final não deve preencher token, API key, Team ID, List ID, Data Source ID ou webhook manual.
+- Notion, Outlook, ClickUp, Linear e Zapier: a tela do app agora mostra status simples e botão `Conectar` bloqueado até existir OAuth/backend real. O usuário final não deve preencher token, API key, Team ID, List ID, Data Source ID ou webhook manual.
 
 ### Próxima etapa para integrações sem chaves manuais
 
