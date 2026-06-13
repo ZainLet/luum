@@ -10,8 +10,8 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 22) {
                 LuumSectionHeader(
                     eyebrow: "Preferencias",
-                    title: "Centro de integracoes e distribuicao",
-                    subtitle: "Concentre aqui Google, Notion, Outlook, ClickUp, Linear, Zapier e o setup corporativo real do luum."
+                    title: "Conexoes do Luum",
+                    subtitle: "Conecte calendario, tarefas, automacoes, backup e IA sem lidar com chaves tecnicas no app."
                 )
 
                 appVersionCard
@@ -85,7 +85,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Cada tile abaixo mostra o estado real das fontes de agenda, automacao e nuvem. O ideal e sair daqui com tudo em verde antes de distribuir o luum.")
+                    Text("Veja rapidamente quais conexoes estao prontas neste Mac.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -148,7 +148,7 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("Os tokens OAuth ficam guardados em um cofre local cifrado neste Mac e nao entram no backup em nuvem.")
+            Text("As credenciais da agenda ficam guardadas neste Mac e nao entram no backup em nuvem.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -198,7 +198,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conecte o Notion com um fluxo simples para trazer eventos e paginas para a agenda integrada.")
+                    Text("Conexao com Notion esta preparada na UI, mas o OAuth oficial ainda sera liberado pelo backend do Luum.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -206,25 +206,16 @@ struct SettingsView: View {
                 Spacer()
 
                 CompactStatPill(
-                    title: "\(store.notionCalendarSettings.databaseIDs.count)",
-                    detail: "fontes"
+                    title: store.notionCalendarConfigured ? "Ativo" : "Off",
+                    detail: "Notion"
                 )
             }
 
-            integrationConnectRow(
-                title: store.hasNotionToken ? "Notion conectado neste Mac" : "Conectar Notion",
-                subtitle: store.hasNotionToken ? "A conexao local esta salva neste Mac." : "Abra o Notion para autorizar o acesso quando o OAuth estiver disponivel.",
-                url: "https://www.notion.so/my-integrations",
+            pendingIntegrationRow(
+                title: store.hasNotionToken ? "Notion conectado neste Mac" : "Notion em implantacao",
+                subtitle: store.hasNotionToken ? "A conexao local antiga esta salva neste Mac." : "O proximo passo e ativar o OAuth server-side para conectar com um clique.",
                 systemImage: "doc.text.image"
             )
-
-            if store.notionCalendarConfigured {
-                Button("Sincronizar Notion") {
-                    store.refreshNotionCalendar()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(!store.notionCalendarSettings.isEnabled || !store.notionCalendarConfigured || store.isSyncingNotionCalendar)
-            }
 
             if let message = store.notionCalendarStatusMessage {
                 Text(message)
@@ -252,7 +243,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conecte sua conta Microsoft para trazer os compromissos do Outlook para a agenda integrada.")
+                    Text("Conexao com Outlook esta preparada na UI, mas depende do OAuth Microsoft no backend do Luum.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -260,54 +251,16 @@ struct SettingsView: View {
                 Spacer()
 
                 CompactStatPill(
-                    title: "\(store.outlookCalendarSettings.calendars.filter(\.isSelected).count)",
-                    detail: "calendarios"
+                    title: store.outlookCalendarConfigured ? "Ativo" : "Off",
+                    detail: "Outlook"
                 )
             }
 
-            integrationConnectRow(
-                title: store.hasOutlookToken ? "Outlook conectado neste Mac" : "Conectar Outlook",
-                subtitle: store.hasOutlookToken ? "A conexao local esta salva neste Mac." : "Abra o login Microsoft quando o OAuth estiver disponivel.",
-                url: "https://developer.microsoft.com/graph/graph-explorer",
+            pendingIntegrationRow(
+                title: store.hasOutlookToken ? "Outlook conectado neste Mac" : "Outlook em implantacao",
+                subtitle: store.hasOutlookToken ? "A conexao local antiga esta salva neste Mac." : "O proximo passo e ativar OAuth Microsoft para conectar com um clique.",
                 systemImage: "calendar"
             )
-
-            if store.outlookCalendarConfigured {
-                Button("Sincronizar Outlook") {
-                    store.refreshOutlookCalendar()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(!store.outlookCalendarSettings.isEnabled || !store.outlookCalendarConfigured || store.isSyncingOutlookCalendar)
-            }
-
-            if !store.outlookCalendarSettings.calendars.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Calendarios selecionados")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.7))
-
-                    ForEach(store.outlookCalendarSettings.calendars) { calendar in
-                        Toggle(isOn: Binding(
-                            get: { calendar.isSelected },
-                            set: { store.setOutlookCalendarSelection(calendarID: calendar.id, isSelected: $0) }
-                        )) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(calendar.title)
-                                    .foregroundStyle(.white)
-                                Text(calendar.isPrimary ? "Principal" : "Outlook Calendar")
-                                    .font(.caption2)
-                                    .foregroundStyle(LuumTheme.textSecondary)
-                            }
-                        }
-                        .toggleStyle(.checkbox)
-                        .padding(12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .fill(.white.opacity(0.03))
-                        )
-                    }
-                }
-            }
 
             if let message = store.outlookCalendarStatusMessage {
                 Text(message)
@@ -390,7 +343,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conecte o ClickUp para trazer tarefas com prazo para a agenda integrada.")
+                    Text("Conexao com ClickUp esta preparada na UI, mas depende do OAuth oficial no backend do Luum.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -398,35 +351,16 @@ struct SettingsView: View {
                 Spacer()
 
                 CompactStatPill(
-                    title: "\(store.clickUpSettings.listIDs.count)",
-                    detail: "listas"
+                    title: store.clickUpConfigured ? "Ativo" : "Off",
+                    detail: "ClickUp"
                 )
             }
 
-            integrationConnectRow(
-                title: store.hasClickUpToken ? "ClickUp conectado neste Mac" : "Conectar ClickUp",
-                subtitle: store.hasClickUpToken ? "A conexao local esta salva neste Mac." : "Abra o ClickUp para autorizar a conta quando o OAuth estiver disponivel.",
-                url: "https://app.clickup.com/settings/apps",
+            pendingIntegrationRow(
+                title: store.hasClickUpToken ? "ClickUp conectado neste Mac" : "ClickUp em implantacao",
+                subtitle: store.hasClickUpToken ? "A conexao local antiga esta salva neste Mac." : "O proximo passo e ativar OAuth ClickUp para conectar com um clique.",
                 systemImage: "checklist"
             )
-
-            if store.clickUpConfigured {
-                Button("Sincronizar ClickUp") {
-                    store.refreshClickUp()
-                }
-                .buttonStyle(.bordered)
-                .disabled(!store.clickUpSettings.isEnabled || !store.clickUpConfigured || store.isSyncingClickUp)
-            }
-
-            if !store.clickUpSettings.listIDs.isEmpty {
-                ChipListCard(
-                    title: "Listas selecionadas",
-                    items: store.clickUpSettings.listIDs,
-                    tint: LuumTheme.hotPink
-                ) { item in
-                    store.removeClickUpListID(item)
-                }
-            }
 
             if let message = store.clickUpStatusMessage {
                 Text(message)
@@ -446,7 +380,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conecte o Linear para puxar issues com prazo e ciclos para sua rotina.")
+                    Text("Conexao com Linear esta preparada na UI, mas depende do OAuth oficial no backend do Luum.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -454,35 +388,16 @@ struct SettingsView: View {
                 Spacer()
 
                 CompactStatPill(
-                    title: "\(store.linearSettings.teamIDs.count)",
-                    detail: "times"
+                    title: store.linearConfigured ? "Ativo" : "Off",
+                    detail: "Linear"
                 )
             }
 
-            integrationConnectRow(
-                title: store.hasLinearToken ? "Linear conectado neste Mac" : "Conectar Linear",
-                subtitle: store.hasLinearToken ? "A conexao local esta salva neste Mac." : "Abra o Linear para autorizar o workspace quando o OAuth estiver disponivel.",
-                url: "https://linear.app/settings/api",
+            pendingIntegrationRow(
+                title: store.hasLinearToken ? "Linear conectado neste Mac" : "Linear em implantacao",
+                subtitle: store.hasLinearToken ? "A conexao local antiga esta salva neste Mac." : "O proximo passo e ativar OAuth Linear para conectar com um clique.",
                 systemImage: "arrow.up.right.square"
             )
-
-            if store.linearConfigured {
-                Button("Sincronizar Linear") {
-                    store.refreshLinear()
-                }
-                .buttonStyle(.bordered)
-                .disabled(!store.linearSettings.isEnabled || !store.linearConfigured || store.isSyncingLinear)
-            }
-
-            if !store.linearSettings.teamIDs.isEmpty {
-                ChipListCard(
-                    title: "Times selecionados",
-                    items: store.linearSettings.teamIDs,
-                    tint: LuumTheme.secondaryAccent
-                ) { item in
-                    store.removeLinearTeamID(item)
-                }
-            }
 
             if let message = store.linearStatusMessage {
                 Text(message)
@@ -502,7 +417,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Conecte o Zapier para automatizar eventos importantes do Luum.")
+                    Text("Conexao com Zapier esta preparada na UI, mas depende de uma configuracao server-side do Luum.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -510,25 +425,16 @@ struct SettingsView: View {
                 Spacer()
 
                 CompactStatPill(
-                    title: store.zapierConfigured ? "Ready" : "URL",
-                    detail: "webhook"
+                    title: store.zapierConfigured ? "Ativo" : "Off",
+                    detail: "Zapier"
                 )
             }
 
-            integrationConnectRow(
-                title: store.zapierConfigured ? "Zapier conectado" : "Conectar Zapier",
-                subtitle: store.zapierConfigured ? "A automacao esta pronta neste Mac." : "Abra o Zapier para conectar a conta quando o OAuth estiver disponivel.",
-                url: "https://zapier.com/app/zaps",
+            pendingIntegrationRow(
+                title: store.zapierConfigured ? "Zapier conectado" : "Zapier em implantacao",
+                subtitle: store.zapierConfigured ? "A automacao local esta pronta neste Mac." : "O proximo passo e ativar o conector oficial para conectar com um clique.",
                 systemImage: "bolt.horizontal"
             )
-
-            if store.zapierConfigured {
-                Button("Testar webhook") {
-                    store.sendZapierTestEvent()
-                }
-                .buttonStyle(.glassProminent)
-                .disabled(!store.zapierSettings.isEnabled || !store.zapierConfigured)
-            }
 
             if let message = store.zapierStatusMessage {
                 Text(message)
@@ -778,7 +684,7 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("O backup usa seu login Firebase e sincroniza configuracoes sanitizadas e resumos. Tokens das integracoes continuam locais neste Mac.")
+            Text("O backup usa seu login Firebase e sincroniza configuracoes sanitizadas e resumos. Dados sensiveis das conexoes continuam locais neste Mac.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -868,7 +774,7 @@ struct SettingsView: View {
                     status: "Parcial",
                     detail: AIClassificationService.isLuumBackendEndpoint(store.aiClassificationSettings.endpointURL)
                         ? "Entre no Luum para liberar"
-                        : "Chave Gemini local pendente",
+                        : "Configuracao pendente",
                     tint: LuumTheme.hotPink
                 )
             }
@@ -893,7 +799,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Pronto",
-                    detail: "Client ID configurado",
+                    detail: "Login disponivel",
                     tint: LuumTheme.secondaryAccent
                 )
             }
@@ -901,7 +807,7 @@ struct SettingsView: View {
             return IntegrationSnapshot(
                 kind: kind,
                 status: "Pendente",
-                detail: "Falta configurar OAuth",
+                detail: "Conexao pendente",
                 tint: LuumTheme.textMuted
             )
         case .notionCalendar:
@@ -1009,7 +915,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Ativo",
-                    detail: "Webhook pronto para automacoes",
+                    detail: "Automacoes prontas",
                     tint: ActivityCategory.work.tint
                 )
             }
@@ -1018,7 +924,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Parcial",
-                    detail: "Webhook pendente",
+                    detail: "Conexao pendente",
                     tint: LuumTheme.hotPink
                 )
             }
@@ -1073,7 +979,7 @@ struct SettingsView: View {
         .luumGlassCard(tint: tint, cornerRadius: 30)
     }
 
-    private func integrationConnectRow(title: String, subtitle: String, url: String, systemImage: String) -> some View {
+    private func pendingIntegrationRow(title: String, subtitle: String, systemImage: String) -> some View {
         HStack(alignment: .center, spacing: 14) {
             Image(systemName: systemImage)
                 .font(.title3.weight(.semibold))
@@ -1093,8 +999,15 @@ struct SettingsView: View {
 
             Spacer()
 
-            Link("Conectar", destination: URL(string: url)!)
-                .buttonStyle(.glassProminent)
+            Text("Em breve")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(LuumTheme.textSecondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(.white.opacity(0.055))
+                )
         }
         .padding(14)
         .background(

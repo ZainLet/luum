@@ -21,6 +21,7 @@ O app monitora:
 - timeline diaria com edicao manual
 - Google Agenda com varias contas e varios calendarios por conta
 - backup Firebase via backend Vercel com plano Profissional ou maior
+- PDF semanal por email gerado no backend com Gemini e enviado para o email verificado da conta
 
 ### Navegadores suportados
 
@@ -43,7 +44,7 @@ Para o usuario final, o fluxo esperado e:
 
 O app tenta carregar o `GOOGLE_CALENDAR_CLIENT_ID` publico em `https://luum-app.vercel.app/api/public/integrations`. Assim o usuario nao precisa colar Client ID ou secret.
 
-Os tokens OAuth ficam em um cofre local cifrado neste Mac. O backup em nuvem salva apenas a configuracao das contas e dos calendarios, nao os tokens.
+As credenciais da agenda ficam em um cofre local cifrado neste Mac. O backup em nuvem salva apenas a configuracao das contas e dos calendarios, nao os dados sensiveis da conexao.
 
 Para deixar o Google Calendar pronto em producao:
 
@@ -54,13 +55,14 @@ Para deixar o Google Calendar pronto em producao:
 
 ### Modelo de integracoes
 
-O objetivo de produto e que cada integracao tenha apenas um botao de conexao, sem pedir chaves tecnicas ao usuario comum.
+O objetivo de produto e que cada integracao tenha apenas um botao de conexao, sem pedir chaves tecnicas ao usuario comum. Na alpha atual, esse fluxo guiado esta ativo para Google Calendar.
 
 - Google Calendar: ja usa OAuth no app e agora busca o Client ID publico no backend.
 - IA de classificacao: usa o backend seguro do Luum por padrao; a chave Gemini deve ficar em `GEMINI_API_KEY` na Vercel.
+- PDF semanal por email: o app envia dados semanais sanitizados para `/api/reports/weekly-email`; Gemini e provedor de email ficam na Vercel, e o backend envia apenas para o email verificado da conta Firebase.
 - Firebase backup: usa a sessao Firebase do app e salva em `/api/sync/{uid}`.
 - Stripe: checkout e webhook ficam no backend Vercel e escrevem o plano no Firestore.
-- Notion, Outlook, ClickUp, Linear e Zapier: a tela do app mostra apenas o botao de conectar/status. Para ficarem 100% guiadas, ainda faltam callbacks OAuth/backend proprios e credenciais salvas na infraestrutura do Luum, nao no Mac do usuario.
+- Notion, Outlook, ClickUp, Linear e Zapier: a tela do app mostra o status "em implantacao", sem pedir token/API key e sem abrir um login que nao conclui a conexao. Para ficarem 100% guiadas, ainda faltam callbacks OAuth/backend proprios e credenciais salvas na infraestrutura do Luum, nao no Mac do usuario.
 
 As integracoes que ainda dependem de configuracao externa estao detalhadas em `docs/INTEGRACOES_PENDENTES.md` e no checklist operacional `docs/CHECKLIST_INTEGRACOES_EXTERNAS.md`.
 
@@ -98,7 +100,7 @@ Para gerar uma alpha macOS compactada para teste de instalacao em outros Macs:
 ./script/build_and_run.sh --package
 ```
 
-O pacote sai em `dist/releases/` com `.zip`, `.sha256` e notas de build. A versao alpha atual e `0.0.2`. Enquanto o app estiver assinado ad-hoc, o primeiro launch em outro Mac pode exigir `Control-click > Abrir` por causa do Gatekeeper.
+O pacote sai em `dist/releases/` com `.zip`, `.sha256` e notas de build. A versao alpha atual e `0.0.2` e exige macOS 26 ou superior. Enquanto o app estiver assinado ad-hoc, o primeiro launch em outro Mac pode exigir `Control-click > Abrir` por causa do Gatekeeper. O passo a passo de teste fica em `docs/MACOS_ALPHA_INSTALL.md`.
 
 Para assinar com uma identidade local de desenvolvedor:
 

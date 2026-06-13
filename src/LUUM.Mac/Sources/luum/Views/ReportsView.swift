@@ -4,11 +4,9 @@ struct ReportsView: View {
     @Bindable var store: ActivityStore
     let selectedDay: Date
 
-    private var report: WeeklyReport {
-        store.weeklyReport(containing: selectedDay)
-    }
-
     var body: some View {
+        let report = store.weeklyReport(containing: selectedDay)
+
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 LuumSectionHeader(
@@ -17,9 +15,9 @@ struct ReportsView: View {
                     subtitle: "Acompanhe o ritmo da semana, o foco real, as trocas de contexto e exporte um retrato do uso do luum em CSV ou JSON."
                 )
 
-                summaryCard
-                highlightsCard
-                goalsCard
+                summaryCard(report: report)
+                highlightsCard(report: report)
+                goalsCard(report: report)
                 breakdownCard(title: "Top categorias", items: report.topCategories.prefix(8).map { ($0.category.title, LuumFormatters.duration($0.duration), $0.category.tint) })
                 breakdownCard(title: "Top apps", items: report.topApps.prefix(12).map { ($0.label, LuumFormatters.duration($0.duration), $0.category?.tint ?? LuumTheme.accent) })
                 breakdownCard(title: "Top sites", items: report.topSites.prefix(12).map { ($0.label, LuumFormatters.duration($0.duration), $0.category?.tint ?? LuumTheme.electricBlue) })
@@ -30,7 +28,7 @@ struct ReportsView: View {
         .scrollIndicators(.hidden)
     }
 
-    private var summaryCard: some View {
+    private func summaryCard(report: WeeklyReport) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Semana de \(report.startDate.formatted(.dateTime.day().month(.abbreviated))) a \(report.endDate.formatted(.dateTime.day().month(.abbreviated)))")
@@ -51,7 +49,7 @@ struct ReportsView: View {
         .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.14), cornerRadius: 30)
     }
 
-    private var highlightsCard: some View {
+    private func highlightsCard(report: WeeklyReport) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Destaques")
                 .font(.title3.weight(.semibold))
@@ -73,7 +71,7 @@ struct ReportsView: View {
         .luumGlassCard(tint: LuumTheme.accent.opacity(0.12), cornerRadius: 30)
     }
 
-    private var goalsCard: some View {
+    private func goalsCard(report: WeeklyReport) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Metas")
                 .font(.title3.weight(.semibold))
@@ -169,6 +167,12 @@ struct ReportsView: View {
                     store.exportWeeklyReport(containing: selectedDay, format: .csv)
                 }
                 .buttonStyle(.borderedProminent)
+
+                Button(store.isSendingWeeklyReportEmail ? "Enviando..." : "Enviar PDF por email") {
+                    store.emailWeeklyReport(containing: selectedDay)
+                }
+                .buttonStyle(.bordered)
+                .disabled(store.isSendingWeeklyReportEmail || !store.canUse(.weeklyReportEmail))
             }
 
             if let exportStatusMessage = store.exportStatusMessage {
