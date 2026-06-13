@@ -189,7 +189,6 @@ Se um Mac de teste interno continuar bloqueando por quarentena:
 
 Se aparecer prompt das Chaves do macOS por build antigo:
   security delete-generic-password -s com.zainlet.luum -a login 2>/dev/null || true
-  security delete-generic-password -s com.luum.apple -a login 2>/dev/null || true
 
 Validação esperada:
   codesign --verify --deep --strict --verbose=2 /Applications/Luum.app
@@ -216,7 +215,6 @@ Uso:
 
 Se aparecer prompt das Chaves do macOS por build antigo:
   security delete-generic-password -s com.zainlet.luum -a login 2>/dev/null || true
-  security delete-generic-password -s com.luum.apple -a login 2>/dev/null || true
 
 Sem Apple Developer ID, o instalador ainda nao e notarizado.
 Guia completo: docs/MACOS_ALPHA_INSTALL.md

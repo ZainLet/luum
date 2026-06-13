@@ -56,11 +56,10 @@ Depois abra o app novamente.
 
 A alpha atual salva sessão e tokens em um cofre local cifrado, sem usar as Chaves do macOS por padrão. Isso evita o prompt repetido causado por builds ad-hoc com assinatura diferente.
 
-Se um Mac que já testou builds antigos ainda mostrar uma janela pedindo senha para acessar o item `login` em `com.zainlet.luum` ou `com.luum.apple`, feche o app e limpe o item legado:
+Se um Mac que já testou builds antigos ainda mostrar uma janela pedindo senha para acessar o item `login` em `com.zainlet.luum`, feche o app e limpe o item legado:
 
 ```bash
 security delete-generic-password -s com.zainlet.luum -a login 2>/dev/null || true
-security delete-generic-password -s com.luum.apple -a login 2>/dev/null || true
 ```
 
 Depois abra o Luum novamente. O app também tenta limpar esse item silenciosamente no início, mas esse comando ajuda quando o macOS já deixou a janela de permissão pendente.
