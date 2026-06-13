@@ -73,6 +73,11 @@ struct WeeklyReportEmailService {
         let (data, response) = try await session.data(for: request)
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
         guard (200 ..< 300).contains(statusCode) else {
+            if statusCode == 404 {
+                throw WeeklyReportEmailServiceError.apiError(
+                    "A rota de PDF por email nao foi encontrada na Vercel. Atualize o app/site e confira se o deploy inclui /api/reports/weekly-email."
+                )
+            }
             if let envelope = try? JSONDecoder().decode(WeeklyReportEmailAPIError.self, from: data) {
                 throw WeeklyReportEmailServiceError.apiError(envelope.error)
             }

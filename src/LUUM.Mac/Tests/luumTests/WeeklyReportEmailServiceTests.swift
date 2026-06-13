@@ -80,6 +80,32 @@ func weeklyReportEmailServiceSurfacesAPIErrorMessage() async throws {
     }
 }
 
+@Test
+func weeklyReportEmailServiceExplainsMissingVercelRoute() async throws {
+    let session = URLSession.weeklyReportMocking([
+        WeeklyReportMockResponse(
+            url: "https://luum-app.vercel.app/api/reports/weekly-email",
+            statusCode: 404,
+            body: #"<!doctype html><title>404</title>"#
+        )
+    ])
+    let service = WeeklyReportEmailService(session: session)
+
+    do {
+        _ = try await service.send(
+            firebaseToken: "firebase-token",
+            email: "user@luum.app",
+            report: weeklyReportPayloadForTesting()
+        )
+        Issue.record("Erro 404 deveria explicar deploy/rota da Vercel.")
+    } catch WeeklyReportEmailServiceError.apiError(let message) {
+        #expect(message.contains("/api/reports/weekly-email"))
+        #expect(message.contains("Vercel"))
+    } catch {
+        Issue.record("Erro inesperado: \(error)")
+    }
+}
+
 private func weeklyReportPayloadForTesting() -> WeeklyReportEmailPayload {
     WeeklyReportEmailPayload(
         startDate: "2026-06-08",
