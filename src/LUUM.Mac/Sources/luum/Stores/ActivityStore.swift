@@ -170,10 +170,10 @@ final class ActivityStore {
             self?.closeCurrentSession(at: timestamp)
         }
         self.monitor.onAutomationMessage = { [weak self] message in
-            self?.automationStatusMessage = message
+            self?.updateAutomationStatusMessage(message)
         }
         self.monitor.onInputMonitoringMessage = { [weak self] message in
-            self?.inputMonitoringMessage = message
+            self?.updateInputMonitoringMessage(message)
         }
 
         self.reminderEngine.onPermissionMessage = { [weak self] message, authorized in
@@ -3472,6 +3472,16 @@ final class ActivityStore {
                 }
             }
         }
+    }
+
+    private func updateAutomationStatusMessage(_ message: String?) {
+        guard automationStatusMessage != message else { return }
+        automationStatusMessage = message
+    }
+
+    private func updateInputMonitoringMessage(_ message: String?) {
+        guard inputMonitoringMessage != message else { return }
+        inputMonitoringMessage = message
     }
 
     private func reconcileCurrentSnapshotAfterPreferencesChange() {
