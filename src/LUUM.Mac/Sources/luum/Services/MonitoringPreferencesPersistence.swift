@@ -1,6 +1,6 @@
 import Foundation
 
-struct MonitoringPreferencesPersistence {
+struct MonitoringPreferencesPersistence: @unchecked Sendable {
     private let fileManager: FileManager
     private let directoryName = "luum"
     private let fileName = "monitoring-preferences.json"

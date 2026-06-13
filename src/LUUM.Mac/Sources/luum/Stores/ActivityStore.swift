@@ -81,6 +81,7 @@ final class ActivityStore {
     @ObservationIgnored private var focusBlockDeliveries: [String: Date] = [:]
     @ObservationIgnored private var persistTask: Task<Void, Never>?
     @ObservationIgnored private var persistenceWriteTask: Task<Void, Never>?
+    @ObservationIgnored private var preferencesWriteTask: Task<Void, Never>?
     @ObservationIgnored private var reminderEvaluationTask: Task<Void, Never>?
     @ObservationIgnored private var authRefreshTask: Task<Void, Never>?
     @ObservationIgnored private var authRefreshGeneration = 0
@@ -89,6 +90,7 @@ final class ActivityStore {
     @ObservationIgnored private let calendarRefreshInterval: TimeInterval = 900
     @ObservationIgnored private let cloudSyncInterval: TimeInterval = 900
     @ObservationIgnored private let activityPersistenceDebounce: Duration = .seconds(5)
+    @ObservationIgnored private let preferencesPersistenceDebounce: Duration = .milliseconds(300)
     @ObservationIgnored private let liveSummaryRefreshInterval: TimeInterval = 30
     @ObservationIgnored private var lastLiveSummaryRefreshAt: Date?
     @ObservationIgnored private var notionAgendaDay: Date?
@@ -3447,15 +3449,29 @@ final class ActivityStore {
         monitoringPreferences = monitoringPreferences.normalized()
         invalidateSummaries()
 
-        do {
-            try monitoringPreferencesPersistence.save(snapshot: monitoringPreferences)
-        } catch {
-            automationStatusMessage = "Nao foi possivel salvar as preferencias de monitoramento."
-        }
+        scheduleMonitoringPreferencesSave(snapshot: monitoringPreferences)
 
         reconcileCurrentSnapshotAfterPreferencesChange()
         evaluateReminders()
         scheduleCloudSyncIfNeeded(reason: "preferences")
+    }
+
+    private func scheduleMonitoringPreferencesSave(snapshot: MonitoringPreferencesSnapshot) {
+        preferencesWriteTask?.cancel()
+        let monitoringPreferencesPersistence = monitoringPreferencesPersistence
+
+        preferencesWriteTask = Task.detached(priority: .utility) { [snapshot, monitoringPreferencesPersistence, preferencesPersistenceDebounce, weak self] in
+            do {
+                try await Task.sleep(for: preferencesPersistenceDebounce)
+                guard !Task.isCancelled else { return }
+                try monitoringPreferencesPersistence.save(snapshot: snapshot)
+            } catch {
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    self?.automationStatusMessage = "Nao foi possivel salvar as preferencias de monitoramento."
+                }
+            }
+        }
     }
 
     private func reconcileCurrentSnapshotAfterPreferencesChange() {
