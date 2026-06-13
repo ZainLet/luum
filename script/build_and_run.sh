@@ -161,6 +161,9 @@ Instalação:
 Se um Mac de teste interno continuar bloqueando por quarentena:
   xattr -dr com.apple.quarantine /Applications/Luum.app
 
+Se aparecer prompt das Chaves do macOS por build antigo:
+  security delete-generic-password -s com.zainlet.luum -a login 2>/dev/null || true
+
 Validação esperada:
   codesign --verify --deep --strict --verbose=2 /Applications/Luum.app
 
