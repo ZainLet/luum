@@ -44,7 +44,7 @@ Para o usuario final, o fluxo esperado e:
 
 O app tenta carregar o `GOOGLE_CALENDAR_CLIENT_ID` publico em `https://luum-app.vercel.app/api/public/integrations`. Assim o usuario nao precisa colar Client ID ou secret.
 
-Os tokens OAuth ficam em um cofre local cifrado neste Mac. O backup em nuvem salva apenas a configuracao das contas e dos calendarios, nao os tokens.
+As credenciais da agenda ficam em um cofre local cifrado neste Mac. O backup em nuvem salva apenas a configuracao das contas e dos calendarios, nao os dados sensiveis da conexao.
 
 Para deixar o Google Calendar pronto em producao:
 

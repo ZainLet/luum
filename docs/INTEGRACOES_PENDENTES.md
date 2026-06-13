@@ -16,7 +16,7 @@ Este arquivo lista o que depende de contas, chaves externas ou decisões que nã
 - App macOS validado localmente com `swift test`, `swift build`, `./script/build_and_run.sh --verify-bundle` e `./script/build_and_run.sh --verify`.
 - Build local do app continua assinado ad-hoc e usa cofre local cifrado por padrão, sem Keychain do macOS, para evitar prompts recorrentes enquanto não houver Apple Developer ID estável.
 - O app também limpa silenciosamente o item legado `login` do Keychain do macOS no bootstrap, sem abrir UI de senha, para instalações antigas que ainda tinham resquícios de builds anteriores.
-- IA de classificação adicionada no app macOS: usa Gemini configurável em Preferências, salva a chave no cofre local cifrado e aplica regras apenas quando o usuário aciona a sugestão em Apps/Sites.
+- IA de classificação no app macOS usa por padrão o backend seguro do Luum em `/api/ai/classify`; a chave Gemini deve ficar na Vercel, e o usuário só aciona sugestões em Apps/Sites.
 
 Progresso aproximado para finalizar o produto:
 
@@ -25,7 +25,7 @@ Progresso aproximado para finalizar o produto:
 - Stripe e billing: 75-80%, pendente de compra/cancelamento real e conferência do webhook no painel.
 - App macOS completo: 70-75%, pendente de QA manual ponta a ponta no Mac.
 - Performance do app macOS: meta contínua adicionada. Otimizações aplicadas no cache de resumos, debounce de lembretes/foco, corte de relatórios por janela de data, cálculo de streak recente, captura em background, persistência local e renderização de histórico grande.
-- Integrações externas de agenda/tarefas/automação: 45-60%, porque dependem de credenciais e contas reais.
+- Integrações externas de agenda/tarefas/automação: 45-60%. A UI do app já foi simplificada para botão/status, mas Notion, Outlook, ClickUp, Linear e Zapier ainda dependem de OAuth/backend real para funcionar de ponta a ponta sem configuração manual.
 
 Ainda precisa de validação manual com uma conta real: entrar no site, abrir o app pelo deeplink, alterar plano no `admin.html` e clicar em validar assinatura no app.
 
@@ -119,23 +119,19 @@ Stripe configurado em produção:
 
 ## Calendários e integrações
 
-- IA de classificação: em `Preferências > IA de classificação`, ative o recurso. O endpoint padrão do app já é `https://luum-app.vercel.app/api/ai/classify`, usando Firebase ID token e `GEMINI_API_KEY` na Vercel.
-- Para teste local rápido, ainda é possível trocar o endpoint para Gemini direto e colar uma chave Gemini no app; ela fica no cofre local cifrado. Em produção, prefira sempre a rota Vercel para não expor chave no binário macOS.
+- IA de classificação: o endpoint padrão do app já é `https://luum-app.vercel.app/api/ai/classify`, usando Firebase ID token e `GEMINI_API_KEY` na Vercel. Para o usuário comum, não há chave Gemini para preencher no app.
+- Para teste local de desenvolvimento ainda existe suporte a endpoint personalizado no código/modelo, mas produção deve usar sempre a rota Vercel para não expor chave no binário macOS.
 - No código, os defaults ficam em `AIClassificationSettings.default`, a escolha entre backend Luum e Gemini direto fica em `AIClassificationService`, e o envio do Firebase ID token acontece em `ActivityStore.runAIClassification`.
 - Google Calendar: criar OAuth Client tipo Desktop app, ativar a Google Calendar API e salvar o Client ID publico como `GOOGLE_CALENDAR_CLIENT_ID` na Vercel ou no cofre admin. O app busca esse valor em `/api/public/integrations`, entao o usuario final so clica em `Conectar Google Calendar`.
-- Outlook: registrar app no Azure/Microsoft Entra, gerar token Microsoft Graph com permissões de calendário e colar no app.
-- Notion: criar integração interna, copiar token, compartilhar as data sources com ela e informar os IDs/URLs no app.
-- ClickUp: gerar API token pessoal ou de workspace e informar os List IDs que devem entrar na agenda.
-- Linear: gerar API key e informar Workspace/Team IDs.
-- Zapier: criar webhook Catch Hook e colar URL no app. O backup remove a URL completa antes de enviar preferências ao Firebase.
+- Notion, Outlook, ClickUp, Linear e Zapier: a tela do app agora mostra apenas botão/status. O usuário final não deve preencher token, API key, Team ID, List ID, Data Source ID ou webhook manual.
 
 ### Próxima etapa para integrações sem chaves manuais
 
 - Criar callbacks OAuth backend para Outlook/Microsoft Graph, Notion, ClickUp e Linear.
-- Salvar refresh tokens server-side com criptografia por usuário, em vez de pedir tokens pessoais no app.
+- Salvar credenciais server-side com criptografia por usuário, em vez de pedir tokens pessoais no app.
 - Expor endpoints do tipo `/api/integrations/{provider}/connect` e `/api/integrations/{provider}/callback`.
-- No app, substituir os campos manuais por botões `Conectar` e manter `Configuracao avancada` apenas para suporte/desenvolvimento.
-- Para Zapier, criar um fluxo guiado via Zapier OAuth ou app público do Zapier; até lá, o webhook manual continua sendo a forma de teste.
+- No app, manter a tela principal somente com botões `Conectar` e status simples.
+- Para Zapier, criar um fluxo guiado via Zapier OAuth ou app público do Zapier; até lá, testes técnicos devem ficar fora da UI principal do usuário final.
 
 ## Backup Firebase
 
