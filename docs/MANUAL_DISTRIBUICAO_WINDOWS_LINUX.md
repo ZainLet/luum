@@ -208,12 +208,17 @@ Checklist de pesquisa Linux:
 
 1. Congelar contratos JSON no backend.
 2. Criar fixtures de auth/status/sync compartilhadas.
-3. Criar projeto Windows minimo.
-4. Portar modelos de plano e gates.
-5. Implementar login.
-6. Implementar captura local.
-7. Implementar backup.
-8. Empacotar MSIX alpha.
-9. Testar em Windows 11 limpo.
-10. So depois estudar Linux.
-
+3. Criar um documento formal pelo plugin Documents com:
+   - escopo do app Windows
+   - contratos compartilhados
+   - arquitetura nativa
+   - checklist de alpha
+   - riscos e decisoes pendentes
+4. Criar projeto Windows minimo.
+5. Portar modelos de plano e gates.
+6. Implementar login.
+7. Implementar captura local.
+8. Implementar backup.
+9. Empacotar MSIX alpha.
+10. Testar em Windows 11 limpo.
+11. So depois estudar Linux.

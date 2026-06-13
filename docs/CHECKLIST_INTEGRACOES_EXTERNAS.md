@@ -25,11 +25,11 @@ Estas tarefas nao podem ser finalizadas apenas por codigo local, porque exigem a
 | Stripe | Conferir produtos/precos reais, webhook, checkout e cancelamento com conta real | Stripe Dashboard e `/api/admin/stripe-health` | Billing automatico |
 | Google Calendar | Ativar Calendar API, criar OAuth Client `Desktop app`, salvar Client ID publico | Google Cloud Console e `/api/public/integrations` | Conexao Google com um clique |
 | Gemini | Rotacionar chave exposta em teste e salvar `GEMINI_API_KEY` na Vercel | `/api/ai/classify` | IA segura sem chave no app |
-| Notion | Criar integracao, compartilhar data sources, escolher propriedades de data/titulo | Preferencias do app e sync manual | Agenda Notion |
-| Outlook | Registrar app Microsoft Entra e obter fluxo Microsoft Graph adequado | Preferencias do app e sync manual | Agenda Outlook |
-| ClickUp | Gerar token/API app e listar List IDs | Preferencias do app e sync manual | Tarefas ClickUp |
-| Linear | Gerar API key/OAuth app e listar Team IDs | Preferencias do app e sync manual | Issues Linear |
-| Zapier | Criar Catch Hook ou app Zapier publico | Teste Zapier no app | Automacoes |
+| Notion | Criar OAuth/backend de conexao, compartilhar data sources e definir selecao de fontes | Preferencias do app e rotas OAuth futuras | Agenda Notion |
+| Outlook | Registrar app Microsoft Entra e obter fluxo Microsoft Graph adequado | Preferencias do app e rotas OAuth futuras | Agenda Outlook |
+| ClickUp | Criar OAuth/app oficial e fluxo de selecao de listas | Preferencias do app e rotas OAuth futuras | Tarefas ClickUp |
+| Linear | Criar OAuth/app oficial e fluxo de selecao de times | Preferencias do app e rotas OAuth futuras | Issues Linear |
+| Zapier | Criar app Zapier publico ou fluxo OAuth | Teste Zapier futuro no app | Automacoes |
 | Apple | Entrar no Apple Developer Program, Developer ID, notarizacao | `spctl`, `notarytool`, Mac limpo | Distribuicao sem alerta Gatekeeper |
 
 ## Variaveis de producao obrigatorias
@@ -132,37 +132,21 @@ Checklist manual:
 
 ## Notion
 
-Implementado hoje como token manual no app. Para virar conexao de um clique, ainda falta backend OAuth.
+A UI do app ja foi reduzida para botao/status, sem pedir token ou Data Source ID ao usuario final. Para a conexao funcionar de ponta a ponta como produto, ainda falta backend OAuth.
 
-Checklist manual atual:
-
-1. Criar uma integracao interna no Notion.
-2. Copiar token da integracao.
-3. Compartilhar cada data source com a integracao.
-4. Copiar Data Source IDs.
-5. Informar token, Data Source IDs, propriedade de data e propriedade de titulo no app.
-6. Sincronizar e conferir mensagens de 403/404 quando uma data source nao foi compartilhada.
-
-Para finalizar como produto:
+Para finalizar:
 
 - Criar `/api/integrations/notion/connect`.
 - Criar `/api/integrations/notion/callback`.
 - Guardar refresh/access tokens server-side com criptografia por usuario.
-- Deixar o app apenas com botao `Conectar Notion`.
+- Criar etapa guiada de selecao de data sources.
+- Sincronizar e exibir mensagens de 403/404 quando uma fonte nao foi compartilhada corretamente.
 
 ## Outlook
 
-Implementado hoje como token Microsoft Graph manual. Para uso comercial, precisa OAuth Microsoft Entra.
+A UI do app mostra apenas botao/status. Para uso comercial, precisa OAuth Microsoft Entra.
 
-Checklist manual atual:
-
-1. Registrar app no Microsoft Entra.
-2. Definir permissoes de calendario no Microsoft Graph.
-3. Obter token adequado para teste.
-4. Colar token no app.
-5. Selecionar calendarios.
-
-Para finalizar como produto:
+Para finalizar:
 
 - Criar OAuth backend Microsoft.
 - Suportar contas pessoais e tenants corporativos.
@@ -171,17 +155,9 @@ Para finalizar como produto:
 
 ## ClickUp e Linear
 
-Implementados hoje com API keys/tokens manuais e IDs de listas/times.
+A UI do app mostra apenas botao/status. Para integrar de verdade sem expor chaves ao usuario, precisa OAuth ou app oficial.
 
-Checklist manual atual:
-
-1. Gerar token/API key.
-2. Copiar Workspace ID quando aplicavel.
-3. Copiar List IDs do ClickUp ou Team IDs do Linear.
-4. Ativar a integracao no app.
-5. Sincronizar e validar datas/prazos.
-
-Para finalizar como produto:
+Para finalizar:
 
 - Criar OAuth ou app oficial de cada plataforma.
 - Salvar tokens no backend.
@@ -189,16 +165,9 @@ Para finalizar como produto:
 
 ## Zapier
 
-Implementado hoje como webhook manual.
+A UI do app mostra apenas botao/status. Para evitar webhook manual, precisa app publico ou fluxo OAuth.
 
-Checklist manual atual:
-
-1. Criar Zap com `Catch Hook`.
-2. Copiar URL do webhook.
-3. Colar no app.
-4. Enviar evento de teste.
-
-Para finalizar como produto:
+Para finalizar:
 
 - Criar app publico no Zapier ou fluxo OAuth.
 - Separar eventos suportados: foco, calendario sincronizado, ranking/workspace.
@@ -218,4 +187,3 @@ Para finalizar como produto:
 10. Testar Google Calendar sem Client ID manual.
 11. Testar Notion/Outlook/ClickUp/Linear/Zapier com credenciais reais.
 12. Testar em Mac limpo com alpha zip.
-
