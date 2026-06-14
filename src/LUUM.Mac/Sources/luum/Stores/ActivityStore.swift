@@ -87,6 +87,9 @@ final class ActivityStore {
     @ObservationIgnored private var authRefreshGeneration = 0
     @ObservationIgnored private var cloudSyncTask: Task<Void, Never>?
     @ObservationIgnored private var cloudSyncPendingAfterCurrent = false
+    @ObservationIgnored private var workspaceSyncTask: Task<Void, Never>?
+    @ObservationIgnored private var aiClassificationTask: Task<Void, Never>?
+    @ObservationIgnored private var weeklyReportEmailTask: Task<Void, Never>?
     @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
     @ObservationIgnored private let calendarRefreshInterval: TimeInterval = 900
     @ObservationIgnored private let cloudSyncInterval: TimeInterval = 900
@@ -412,8 +415,16 @@ final class ActivityStore {
         cloudSyncTask?.cancel()
         cloudSyncTask = nil
         cloudSyncPendingAfterCurrent = false
+        workspaceSyncTask?.cancel()
+        workspaceSyncTask = nil
+        aiClassificationTask?.cancel()
+        aiClassificationTask = nil
+        weeklyReportEmailTask?.cancel()
+        weeklyReportEmailTask = nil
         isSyncingCloud = false
         isSyncingWorkspace = false
+        isClassifyingWithAI = false
+        isSendingWeeklyReportEmail = false
         stopMonitoring()
         authSession = nil
         authStatusMessage = "Conta desconectada deste Mac."
@@ -1293,13 +1304,15 @@ final class ActivityStore {
     }
 
     func classifyApplicationWithAI(_ item: UsageBreakdownItem) {
-        Task { [weak self] in
+        aiClassificationTask?.cancel()
+        aiClassificationTask = Task { [weak self] in
             await self?.runAIClassification(kind: .application, item: item)
         }
     }
 
     func classifyDomainWithAI(_ item: UsageBreakdownItem) {
-        Task { [weak self] in
+        aiClassificationTask?.cancel()
+        aiClassificationTask = Task { [weak self] in
             await self?.runAIClassification(kind: .domain, item: item)
         }
     }
@@ -1374,7 +1387,8 @@ final class ActivityStore {
 
     func syncWorkspaceRankingNow(for day: Date = Date()) {
         guard !isSyncingWorkspace else { return }
-        Task { [weak self] in
+        workspaceSyncTask?.cancel()
+        workspaceSyncTask = Task { [weak self] in
             await self?.runWorkspaceSync(for: day, force: true)
         }
     }
@@ -1520,14 +1534,16 @@ final class ActivityStore {
 
     func syncCloudBackupNow() {
         guard !isSyncingCloud else { return }
-        Task { [weak self] in
+        cloudSyncTask?.cancel()
+        cloudSyncTask = Task { [weak self] in
             await self?.runCloudSync()
         }
     }
 
     func restoreCloudBackup() {
         guard !isSyncingCloud else { return }
-        Task { [weak self] in
+        cloudSyncTask?.cancel()
+        cloudSyncTask = Task { [weak self] in
             await self?.runCloudRestore()
         }
     }
@@ -2626,7 +2642,8 @@ final class ActivityStore {
         isSendingWeeklyReportEmail = true
         exportStatusMessage = "Gerando PDF e preparando envio por email..."
 
-        Task { [weak self] in
+        weeklyReportEmailTask?.cancel()
+        weeklyReportEmailTask = Task { [weak self] in
             await self?.runWeeklyReportEmail(containing: day)
         }
     }
@@ -3286,7 +3303,6 @@ final class ActivityStore {
             return
         }
 
-        cloudSyncTask = nil
         isSyncingCloud = true
         defer {
             let shouldSchedulePendingSync = cloudSyncPendingAfterCurrent
