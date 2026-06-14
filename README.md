@@ -102,6 +102,12 @@ Para gerar uma alpha macOS compactada para teste de instalacao em outros Macs:
 
 O pacote sai em `dist/releases/` com instalador `.pkg`, fallback `.zip`, checksums `.sha256` e notas de build. O `.pkg` instala `luum.app` em `/Applications`; o `.zip` contem o app bundle completo `luum.app`. A versao alpha atual e `0.0.3`, usa bundle id `com.luum.apple` e exige macOS 26 ou superior. Enquanto o app estiver assinado ad-hoc, o primeiro launch em outro Mac pode exigir `Control-click > Abrir` por causa do Gatekeeper. O passo a passo de teste fica em `docs/MACOS_ALPHA_INSTALL.md`.
 
+Politica de versao enquanto o Luum estiver em alpha:
+
+- Use o ultimo digito para builds pequenos de teste: `v0.0.3`, `v0.0.4`, `v0.0.5`.
+- Use o digito do meio para atualizacoes grandes, como a mudanca de UI/UX inspirada no Rize: `v0.1.0`.
+- Reserve `v1.0.0` para a primeira versao final/publica do app.
+
 Para assinar com uma identidade local de desenvolvedor:
 
 ```bash

@@ -32,7 +32,7 @@ Hoje o `luum` ja possui uma base funcional de:
 
 - definir `bundle identifiers` finais para app, helper e servicos relacionados
 - fechar nome, icone oficial, screenshots e copy publica
-- padronizar versao semantica e build number
+- manter versao semantica: patch para alphas pequenos (`v0.0.4`), minor para atualizacoes grandes como UI/UX (`v0.1.0`) e `v1.0.0` apenas no lancamento final/publico
 - revisar strings de permissao do macOS para Automacao, Notificacoes e Input Monitoring
 
 ### 2. Assinatura e notarizacao
