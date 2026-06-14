@@ -1,6 +1,7 @@
 const { admin, getFirestore } = require('../_firebaseAdmin');
 const { addCors, handleOptions } = require('../_cors');
 const { entitlementForUser, includesFeature } = require('../_entitlements');
+const { jsonBody } = require('../_jsonBody');
 
 const DEFAULT_GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
@@ -12,12 +13,6 @@ const ALLOWED_CATEGORY_IDS = new Set([
     'utilities',
     'uncategorized'
 ]);
-
-function jsonBody(req) {
-    if (!req.body) return {};
-    if (typeof req.body === 'string') return JSON.parse(req.body || '{}');
-    return req.body;
-}
 
 function cleanText(value, maxLength = 180) {
     return String(value || '')
@@ -120,12 +115,7 @@ async function classifyHandler(req, res) {
             return res.status(403).json({ error: 'Plano sem acesso à classificação por IA', entitlement });
         }
 
-        const apiKey = cleanText(process.env.GEMINI_API_KEY, 4096);
-        if (!apiKey) {
-            return res.status(500).json({ error: 'GEMINI_API_KEY não configurada na Vercel' });
-        }
-
-        const body = jsonBody(req);
+        const body = jsonBody(req, 'JSON da classificação inválido');
         const kind = cleanText(body.kind, 24);
         if (kind !== 'application' && kind !== 'domain') {
             return res.status(400).json({ error: 'kind deve ser application ou domain' });
@@ -138,6 +128,11 @@ async function classifyHandler(req, res) {
 
         const categories = cleanCategories(body.categories);
         const currentCategoryID = cleanText(body.currentCategoryID, 48);
+        const apiKey = cleanText(process.env.GEMINI_API_KEY, 4096);
+        if (!apiKey) {
+            return res.status(500).json({ error: 'GEMINI_API_KEY não configurada na Vercel' });
+        }
+
         const prompt = buildPrompt({
             kind,
             label,
@@ -186,8 +181,13 @@ async function classifyHandler(req, res) {
 
         return res.json({ categoryID, confidence, reason });
     } catch (err) {
-        console.error('[AI Classify Error]', err);
-        return res.status(500).json({ error: 'Não foi possível classificar com IA' });
+        const statusCode = err.statusCode || 500;
+        if (statusCode >= 500) {
+            console.error('[AI Classify Error]', err);
+        }
+        return res.status(statusCode).json({
+            error: err.statusCode ? err.message : 'Não foi possível classificar com IA'
+        });
     }
 }
 

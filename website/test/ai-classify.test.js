@@ -207,3 +207,27 @@ test('ai classify rejects invalid target payloads before Gemini call', async () 
         delete process.env.GEMINI_API_KEY;
     }
 });
+
+test('ai classify rejects malformed JSON as a client error', async () => {
+    installFirebaseAdminMock({
+        decoded: { uid: 'user-1' },
+        userData: {
+            plan: 'profissional',
+            subscription: { status: 'active', currentPeriodEnd: { toMillis: () => Date.now() + 86_400_000 } }
+        }
+    });
+
+    const handler = require('../api/ai/classify');
+    const res = response();
+    await handler({
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: '{"kind":'
+    }, res);
+
+    assert.equal(res.code, 400);
+    assert.equal(res.body.error, 'JSON da classificação inválido');
+});

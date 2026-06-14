@@ -1,6 +1,7 @@
 const { admin, getFirestore } = require('../_firebaseAdmin');
 const { addCors, handleOptions } = require('../_cors');
 const { entitlementForUser, includesFeature } = require('../_entitlements');
+const { jsonBody } = require('../_jsonBody');
 const {
     payloadAccountMatchesFirebaseUID,
     payloadHasAccountUID,
@@ -8,12 +9,6 @@ const {
     payloadSize,
     sanitizedPayloadForStorage
 } = require('../_syncPayload');
-
-function jsonBody(req) {
-    if (!req.body) return {};
-    if (typeof req.body === 'string') return JSON.parse(req.body || '{}');
-    return req.body;
-}
 
 function backupIDFromRequest(req) {
     if (req.query?.backupID) return String(req.query.backupID);
@@ -72,7 +67,7 @@ async function syncHandler(req, res) {
             return res.status(403).json({ message: 'O backup deve usar o UID da conta Firebase' });
         }
 
-        const body = jsonBody(req);
+        const body = jsonBody(req, 'JSON do backup inválido');
         const ref = db
             .collection('users')
             .doc(decoded.uid)
@@ -124,8 +119,13 @@ async function syncHandler(req, res) {
             updatedAt: swiftReferenceSeconds(firestoreDate(data.updatedAt))
         });
     } catch (err) {
-        console.error('[Sync Backup Error]', err);
-        return res.status(500).json({ message: 'Erro interno no backup Firebase' });
+        const statusCode = err.statusCode || 500;
+        if (statusCode >= 500) {
+            console.error('[Sync Backup Error]', err);
+        }
+        return res.status(statusCode).json({
+            message: err.statusCode ? err.message : 'Erro interno no backup Firebase'
+        });
     }
 }
 
