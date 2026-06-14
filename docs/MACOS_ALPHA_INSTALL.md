@@ -40,6 +40,27 @@ Durante a fase alpha, avance o ultimo digito para builds pequenos de teste, por 
 
 Se estiver usando o `.zip` fallback, abra o zip e arraste `luum.app` manualmente para `Aplicativos`.
 
+## Checklist da alpha 0.0.4
+
+Use este roteiro para validar a build de teste antes de chamar a alpha de pronta:
+
+1. Instalar pelo `.pkg` com duplo clique, sem comandos de terminal.
+2. Confirmar que `luum.app` aparece em `Aplicativos`.
+3. Abrir com `Control-click > Abrir` se o Gatekeeper bloquear.
+4. Confirmar em Ajustes que a versão exibida é `0.0.4-alpha`.
+5. Clicar em entrar/conectar conta e concluir o fluxo `luum://auth`.
+6. Confirmar que o app mostra email, plano e estado de monitoramento corretos.
+7. Pausar e retomar o monitoramento sem travar.
+8. Permitir Automação do navegador quando o macOS pedir.
+9. Abrir um navegador suportado e confirmar que a atividade aparece/classifica.
+10. Revalidar plano no app e confirmar que recursos bloqueados/liberados batem com o Firebase.
+11. Ativar backup Firebase e executar um sync manual.
+12. Enviar um PDF semanal por email em conta com plano permitido.
+13. Sair da conta e confirmar que sync, IA, workspace e envio de PDF param sem erro visual.
+14. Fechar e abrir o app novamente, confirmando que não aparece prompt repetido das Chaves.
+
+Resultado esperado: instalação simples pelo `.pkg`, login funcionando pelo callback `luum://auth`, permissões de plano vindas do Firebase e app responsivo durante monitoramento básico.
+
 ## Se o macOS bloquear a abertura
 
 Sem Apple Developer ID, o Gatekeeper pode bloquear o primeiro launch. Primeiro tente:
