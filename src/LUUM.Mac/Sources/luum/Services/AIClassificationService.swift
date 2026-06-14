@@ -34,7 +34,7 @@ enum AIClassificationServiceError: LocalizedError, Equatable {
         case .disabled:
             "Ative a IA de classificacao nas preferencias."
         case .missingAPIKey:
-            "Salve uma chave Gemini para usar classificacao por IA."
+            "Use a IA segura do Luum para classificar sem configurar chave no app."
         case .missingFirebaseAuth:
             "Entre no Luum para usar classificacao por IA pelo backend seguro."
         case .invalidEndpoint:

@@ -103,6 +103,12 @@ final class ActivityStore {
     @ObservationIgnored private var linearAgendaDay: Date?
     private(set) var summaryRevision = 0
 
+    @ObservationIgnored private static let notionPendingConnectionMessage = "Conexao Notion em um clique sera liberada em breve."
+    @ObservationIgnored private static let outlookPendingConnectionMessage = "Conexao Microsoft em um clique sera liberada em breve."
+    @ObservationIgnored private static let clickUpPendingConnectionMessage = "Conexao ClickUp em um clique sera liberada em breve."
+    @ObservationIgnored private static let linearPendingConnectionMessage = "Conexao Linear em um clique sera liberada em breve."
+    @ObservationIgnored private static let zapierPendingConnectionMessage = "Automacoes Zapier guiadas serao liberadas em breve."
+
     init(
         persistence: ActivityPersistence = ActivityPersistence(),
         monitor: ActivityMonitor? = nil,
@@ -156,11 +162,26 @@ final class ActivityStore {
         self.googleCalendarClientSecret = keychainService.string(for: Self.googleCalendarClientSecretKey) ?? calendarSnapshot.clientSecret
         self.googleCalendarConnections = calendarSnapshot.connections
         self.googleCalendarStatusMessage = googleCalendarConnections.isEmpty ? nil : "Google Agenda pronta para sincronizar."
-        self.notionCalendarStatusMessage = monitoringPreferences.notionCalendarSettings.isEnabled ? "Notion pronta para sincronizar." : nil
-        self.outlookCalendarStatusMessage = monitoringPreferences.outlookCalendarSettings.isEnabled ? "Outlook pronto para sincronizar." : nil
-        self.clickUpStatusMessage = monitoringPreferences.clickUpSettings.isEnabled ? "ClickUp pronto para sincronizar." : nil
-        self.linearStatusMessage = monitoringPreferences.linearSettings.isEnabled ? "Linear pronto para sincronizar." : nil
-        self.zapierStatusMessage = monitoringPreferences.zapierSettings.isEnabled ? "Zapier pronto para disparar automacoes." : nil
+        let hasStoredNotionToken = keychainService.string(for: Self.notionCalendarTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        let hasStoredOutlookToken = keychainService.string(for: Self.outlookCalendarTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        let hasStoredClickUpToken = keychainService.string(for: Self.clickUpTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        let hasStoredLinearToken = keychainService.string(for: Self.linearTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        let hasStoredZapierWebhook = monitoringPreferences.zapierSettings.webhookURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        self.notionCalendarStatusMessage = monitoringPreferences.notionCalendarSettings.isEnabled
+            ? (hasStoredNotionToken && !monitoringPreferences.notionCalendarSettings.databaseIDs.isEmpty ? "Notion pronto para sincronizar." : Self.notionPendingConnectionMessage)
+            : nil
+        self.outlookCalendarStatusMessage = monitoringPreferences.outlookCalendarSettings.isEnabled
+            ? (hasStoredOutlookToken ? "Outlook pronto para sincronizar." : Self.outlookPendingConnectionMessage)
+            : nil
+        self.clickUpStatusMessage = monitoringPreferences.clickUpSettings.isEnabled
+            ? (hasStoredClickUpToken && !monitoringPreferences.clickUpSettings.listIDs.isEmpty ? "ClickUp pronto para sincronizar." : Self.clickUpPendingConnectionMessage)
+            : nil
+        self.linearStatusMessage = monitoringPreferences.linearSettings.isEnabled
+            ? (hasStoredLinearToken && !monitoringPreferences.linearSettings.teamIDs.isEmpty ? "Linear pronto para sincronizar." : Self.linearPendingConnectionMessage)
+            : nil
+        self.zapierStatusMessage = monitoringPreferences.zapierSettings.isEnabled
+            ? (hasStoredZapierWebhook ? "Zapier pronto para disparar automacoes." : Self.zapierPendingConnectionMessage)
+            : nil
         self.cloudSyncStatusMessage = nil
         self.workspaceSyncStatusMessage = nil
         self.aiClassificationStatusMessage = nil
@@ -901,7 +922,7 @@ final class ActivityStore {
 
         notionCalendarStatusMessage = notionCalendarConfigured
             ? "Notion pronto para sincronizar."
-            : "Ative o token e pelo menos uma data source do Notion para concluir essa integracao."
+            : Self.notionPendingConnectionMessage
     }
 
     func updateNotionWorkspaceLabel(_ value: String) {
@@ -921,7 +942,7 @@ final class ActivityStore {
 
     func addNotionDataSourceID(_ value: String) {
         guard let normalizedID = NotionCalendarSettings.normalizedDatabaseID(value) else {
-            notionCalendarStatusMessage = "Cole um Data Source ID valido do Notion."
+            notionCalendarStatusMessage = Self.notionPendingConnectionMessage
             return
         }
 
@@ -948,10 +969,10 @@ final class ActivityStore {
                 keychainService.removeValue(for: Self.notionCalendarTokenKey)
                 notionAgendaItems = []
                 notionAgendaDay = nil
-                notionCalendarStatusMessage = "Token do Notion removido deste Mac."
+                notionCalendarStatusMessage = Self.notionPendingConnectionMessage
             } else {
                 try keychainService.setString(value, for: Self.notionCalendarTokenKey)
-                notionCalendarStatusMessage = "Token do Notion atualizado neste Mac."
+                notionCalendarStatusMessage = "Notion conectado neste Mac."
             }
         } catch {
             notionCalendarStatusMessage = error.localizedDescription
@@ -985,7 +1006,7 @@ final class ActivityStore {
 
         outlookCalendarStatusMessage = outlookCalendarConfigured
             ? "Outlook pronto para sincronizar."
-            : "Salve um token do Microsoft Graph para concluir a integracao do Outlook."
+            : Self.outlookPendingConnectionMessage
     }
 
     func updateOutlookWorkspaceLabel(_ value: String) {
@@ -1001,10 +1022,10 @@ final class ActivityStore {
                 outlookAgendaDay = nil
                 monitoringPreferences.outlookCalendarSettings.accountEmail = ""
                 monitoringPreferences.outlookCalendarSettings.calendars = []
-                outlookCalendarStatusMessage = "Token do Outlook removido deste Mac."
+                outlookCalendarStatusMessage = Self.outlookPendingConnectionMessage
             } else {
                 try keychainService.setString(value, for: Self.outlookCalendarTokenKey)
-                outlookCalendarStatusMessage = "Token do Outlook atualizado neste Mac."
+                outlookCalendarStatusMessage = "Outlook conectado neste Mac."
             }
             persistMonitoringPreferences()
         } catch {
@@ -1045,7 +1066,7 @@ final class ActivityStore {
 
         clickUpStatusMessage = clickUpConfigured
             ? "ClickUp pronto para sincronizar."
-            : "Salve um token e pelo menos uma lista do ClickUp."
+            : Self.clickUpPendingConnectionMessage
     }
 
     func updateClickUpWorkspaceLabel(_ value: String) {
@@ -1069,10 +1090,10 @@ final class ActivityStore {
                 keychainService.removeValue(for: Self.clickUpTokenKey)
                 clickUpAgendaItems = []
                 clickUpAgendaDay = nil
-                clickUpStatusMessage = "Token do ClickUp removido deste Mac."
+                clickUpStatusMessage = Self.clickUpPendingConnectionMessage
             } else {
                 try keychainService.setString(value, for: Self.clickUpTokenKey)
-                clickUpStatusMessage = "Token do ClickUp atualizado neste Mac."
+                clickUpStatusMessage = "ClickUp conectado neste Mac."
             }
         } catch {
             clickUpStatusMessage = error.localizedDescription
@@ -1082,7 +1103,7 @@ final class ActivityStore {
     func addClickUpListID(_ value: String) {
         let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty else {
-            clickUpStatusMessage = "Cole um List ID valido do ClickUp."
+            clickUpStatusMessage = Self.clickUpPendingConnectionMessage
             return
         }
 
@@ -1130,7 +1151,7 @@ final class ActivityStore {
 
         linearStatusMessage = linearConfigured
             ? "Linear pronto para sincronizar."
-            : "Salve uma API key e pelo menos um Team ID do Linear."
+            : Self.linearPendingConnectionMessage
     }
 
     func updateLinearWorkspaceLabel(_ value: String) {
@@ -1154,10 +1175,10 @@ final class ActivityStore {
                 keychainService.removeValue(for: Self.linearTokenKey)
                 linearAgendaItems = []
                 linearAgendaDay = nil
-                linearStatusMessage = "API key do Linear removida deste Mac."
+                linearStatusMessage = Self.linearPendingConnectionMessage
             } else {
                 try keychainService.setString(value, for: Self.linearTokenKey)
-                linearStatusMessage = "API key do Linear atualizada neste Mac."
+                linearStatusMessage = "Linear conectado neste Mac."
             }
         } catch {
             linearStatusMessage = error.localizedDescription
@@ -1167,7 +1188,7 @@ final class ActivityStore {
     func addLinearTeamID(_ value: String) {
         let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty else {
-            linearStatusMessage = "Cole um Team ID valido do Linear."
+            linearStatusMessage = Self.linearPendingConnectionMessage
             return
         }
 
@@ -1205,7 +1226,9 @@ final class ActivityStore {
 
         monitoringPreferences.zapierSettings.isEnabled = value
         persistMonitoringPreferences()
-        zapierStatusMessage = value ? "Zapier pronto para disparar automacoes." : "Integracao com Zapier pausada."
+        zapierStatusMessage = value
+            ? (zapierConfigured ? "Zapier pronto para disparar automacoes." : Self.zapierPendingConnectionMessage)
+            : "Integracao com Zapier pausada."
     }
 
     func updateZapierWebhookURL(_ value: String) {
@@ -1269,7 +1292,7 @@ final class ActivityStore {
     func updateAIClassificationEnabled(_ value: Bool) {
         monitoringPreferences.aiClassificationSettings.isEnabled = value
         aiClassificationStatusMessage = value
-            ? "IA de classificacao ativada. Salve uma chave Gemini para usar nas listas de apps e sites."
+            ? "IA de classificacao ativada. O Luum usa a configuracao segura da sua conta."
             : "IA de classificacao desativada."
         persistMonitoringPreferences()
     }
@@ -2922,7 +2945,7 @@ final class ActivityStore {
 
         guard notionCalendarConfigured else {
             if force {
-                notionCalendarStatusMessage = "Informe token e Data Source IDs do Notion para liberar essa agenda."
+                notionCalendarStatusMessage = Self.notionPendingConnectionMessage
             }
             return
         }
@@ -2985,7 +3008,7 @@ final class ActivityStore {
 
         guard outlookCalendarConfigured else {
             if force {
-                outlookCalendarStatusMessage = "Informe um token do Microsoft Graph para liberar o Outlook."
+                outlookCalendarStatusMessage = Self.outlookPendingConnectionMessage
             }
             return
         }
@@ -3048,7 +3071,7 @@ final class ActivityStore {
 
         guard clickUpConfigured else {
             if force {
-                clickUpStatusMessage = "Informe um token e pelo menos uma lista do ClickUp."
+                clickUpStatusMessage = Self.clickUpPendingConnectionMessage
             }
             return
         }
@@ -3109,7 +3132,7 @@ final class ActivityStore {
 
         guard linearConfigured else {
             if force {
-                linearStatusMessage = "Informe uma API key e pelo menos um Team ID do Linear."
+                linearStatusMessage = Self.linearPendingConnectionMessage
             }
             return
         }
@@ -3245,7 +3268,7 @@ final class ActivityStore {
             }
         } else {
             guard !(apiKey?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) else {
-                aiClassificationStatusMessage = "Salve uma chave Gemini em Preferencias para usar a IA."
+                aiClassificationStatusMessage = "Use a IA segura do Luum para classificar sem configurar chave no app."
                 return
             }
             verifiedSession = nil

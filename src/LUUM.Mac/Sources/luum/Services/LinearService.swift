@@ -17,13 +17,13 @@ enum LinearIssue: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingToken:
-            "Informe uma API key do Linear para sincronizar issues."
+            "Conexao Linear em um clique sera liberada em breve."
         case .missingTeams:
-            "Adicione pelo menos um Team ID do Linear para puxar as issues."
+            "Conexao Linear em um clique sera liberada em breve."
         case .invalidResponse:
             "O Linear respondeu sem um payload utilizavel."
         case .unauthorized:
-            "A API key do Linear foi rejeitada."
+            "Nao foi possivel validar a conexao do Linear. Reconecte quando o conector estiver disponivel."
         case let .apiError(message):
             message
         }
