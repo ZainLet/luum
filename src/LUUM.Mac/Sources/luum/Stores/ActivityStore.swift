@@ -3713,6 +3713,7 @@ final class ActivityStore {
 
         reminderEvaluationTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
             guard let self else { return }
             let filteredSamples = self.visibleSamplesForCurrentStreak()
             if canEvaluateReminders {
