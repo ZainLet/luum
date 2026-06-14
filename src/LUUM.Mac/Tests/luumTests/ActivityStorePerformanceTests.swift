@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 #if canImport(Testing)
 import Testing
@@ -73,5 +74,47 @@ func cancelledPersistenceDebounceDoesNotFlushImmediately() async throws {
 
     try await Task.sleep(for: .milliseconds(260))
     #expect(persistence.load(retentionDays: 365).first?.note == "segunda")
+}
+
+@MainActor
+@Test
+func persistenceFlushDoesNotReassignUnchangedSamples() async throws {
+    let tempDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("luum-persistence-stable-\(UUID().uuidString)", isDirectory: true)
+    defer {
+        try? FileManager.default.removeItem(at: tempDirectory)
+    }
+
+    let persistence = ActivityPersistence(directoryURL: tempDirectory)
+    let baseDate = Date()
+    let sample = ActivitySample(
+        startDate: baseDate.addingTimeInterval(-60),
+        endDate: baseDate,
+        applicationName: "Editor",
+        bundleIdentifier: "app.luum.editor",
+        webURL: nil,
+        webDomain: nil,
+        pageTitle: nil,
+        source: .nativeApp
+    )
+    try persistence.save(samples: [sample], retentionDays: 365)
+
+    let store = ActivityStore(
+        persistence: persistence,
+        activityPersistenceDebounce: .milliseconds(80)
+    )
+    store.updateActivityNote(sampleID: sample.id, note: "nota")
+
+    var samplesInvalidatedByFlush = false
+    withObservationTracking {
+        _ = store.samples
+    } onChange: {
+        samplesInvalidatedByFlush = true
+    }
+
+    try await Task.sleep(for: .milliseconds(140))
+
+    #expect(samplesInvalidatedByFlush == false)
+    #expect(persistence.load(retentionDays: 365).first?.note == "nota")
 }
 #endif

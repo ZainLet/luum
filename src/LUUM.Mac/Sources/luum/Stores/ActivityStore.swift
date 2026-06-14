@@ -3601,7 +3601,9 @@ final class ActivityStore {
     private func flushPersistence() {
         let retentionDays = monitoringPreferences.privacySettings.retentionDays
         let cleanedSamples = persistence.trim(samples: samples, retentionDays: retentionDays)
-        samples = cleanedSamples
+        if cleanedSamples != samples {
+            samples = cleanedSamples
+        }
 
         persistenceWriteTask?.cancel()
         let persistence = persistence
