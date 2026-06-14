@@ -272,32 +272,32 @@ struct ContentView: View {
 
     private var sidebar: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 14) {
                 SidebarHero(store: store, summary: summary, agenda: agenda)
 
-                SidebarSectionCard(title: "Principal", subtitle: "Seu dia de trabalho.") {
-                    VStack(spacing: 8) {
-                        ForEach(primarySections) { section in
-                            Button {
-                                selection = section
-                            } label: {
-                                SidebarButtonRow(section: section, isSelected: selection == section, isLocked: !store.canUse(section.requiredFeature))
-                            }
-                            .buttonStyle(.plain)
+                VStack(alignment: .leading, spacing: 6) {
+                    SidebarGroupLabel("Principal")
+
+                    ForEach(primarySections) { section in
+                        Button {
+                            selection = section
+                        } label: {
+                            SidebarButtonRow(section: section, isSelected: selection == section, isLocked: !store.canUse(section.requiredFeature))
                         }
+                        .buttonStyle(.plain)
                     }
                 }
 
-                SidebarSectionCard(title: "Ajustes", subtitle: "Motor e relatorios.") {
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                        ForEach(controlSections) { section in
-                            Button {
-                                selection = section
-                            } label: {
-                                SidebarToolTile(section: section, isSelected: selection == section, isLocked: !store.canUse(section.requiredFeature))
-                            }
-                            .buttonStyle(.plain)
+                VStack(alignment: .leading, spacing: 6) {
+                    SidebarGroupLabel("Ajustes")
+
+                    ForEach(controlSections) { section in
+                        Button {
+                            selection = section
+                        } label: {
+                            SidebarButtonRow(section: section, isSelected: selection == section, isLocked: !store.canUse(section.requiredFeature))
                         }
+                        .buttonStyle(.plain)
                     }
                 }
 
@@ -490,35 +490,20 @@ private struct SidebarHero: View {
     }
 }
 
-private struct SidebarSectionCard<Content: View>: View {
+private struct SidebarGroupLabel: View {
     let title: String
-    let subtitle: String
-    let content: Content
 
-    init(title: String, subtitle: String, @ViewBuilder content: () -> Content) {
+    init(_ title: String) {
         self.title = title
-        self.subtitle = subtitle
-        self.content = content()
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(LuumTheme.textMuted)
-                    .tracking(0.8)
-
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            content
-        }
-        .padding(12)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.08), cornerRadius: 14, shadowOpacity: 0.08)
+        Text(title.uppercased())
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(LuumTheme.textMuted)
+            .tracking(0.8)
+            .padding(.horizontal, 12)
+            .padding(.top, 2)
     }
 }
 
@@ -545,10 +530,11 @@ private struct SidebarButtonRow: View {
                     .foregroundStyle(LuumTheme.textMuted)
             }
         }
-        .padding(.horizontal, 11)
-        .padding(.vertical, 9)
+        .frame(minHeight: 36)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
         .background(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(isSelected ? .white.opacity(0.085) : .clear)
         )
         .overlay {
@@ -559,86 +545,6 @@ private struct SidebarButtonRow: View {
                 Spacer()
             }
         }
-    }
-}
-
-private struct SidebarToolTile: View {
-    let section: LUUMSection
-    let isSelected: Bool
-    var isLocked = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Image(systemName: section.systemImage)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(isSelected ? .white : LuumTheme.textSecondary)
-                Spacer()
-                if isLocked {
-                    Image(systemName: "lock.fill")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(LuumTheme.textMuted)
-                }
-            }
-
-            Text(section.title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(isSelected ? .white : LuumTheme.textSecondary)
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity, minHeight: 66, alignment: .topLeading)
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(isSelected ? .white.opacity(0.085) : LuumTheme.panelFill)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(isSelected ? .white.opacity(0.12) : .white.opacity(0.025))
-        }
-    }
-}
-
-private struct SidebarUtilityCard: View {
-    let isMonitoring: Bool
-    let currentActivity: String
-    let category: ActivityCategory?
-    let totalTrackedTime: TimeInterval
-    let plannedTime: TimeInterval
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                Label(
-                    isMonitoring ? "Captura ativa" : "Captura pausada",
-                    systemImage: isMonitoring ? "waveform.path.ecg" : "pause.circle"
-                )
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(isMonitoring ? ActivityCategory.work.tint : LuumTheme.textSecondary)
-
-                Spacer()
-            }
-
-            Text(currentActivity)
-                .foregroundStyle(.white.opacity(0.88))
-                .font(.caption)
-                .lineLimit(2)
-
-            if let category {
-                Label(category.title, systemImage: category.systemImage)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(category.tint)
-            }
-
-            HStack(spacing: 12) {
-                SidebarMetricPill(title: "Capturado", value: LuumFormatters.duration(totalTrackedTime))
-                SidebarMetricPill(title: "Agenda", value: LuumFormatters.duration(plannedTime))
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .fixedSize(horizontal: false, vertical: true)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.12), cornerRadius: 24, shadowOpacity: 0.1)
     }
 }
 

@@ -76,7 +76,6 @@ struct DashboardView: View {
                     VStack(spacing: 14) {
                         agendaCard
                         performanceCard
-                        liveSignalsCard
                         topBreakdownsCard
                     }
                     .frame(width: 312)
@@ -476,67 +475,6 @@ struct DashboardView: View {
         }
         .padding(22)
         .luumGlassCard(tint: LuumTheme.hotPink.opacity(0.12))
-    }
-
-    private var liveSignalsCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Resumo rapido")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.white)
-
-                Spacer()
-
-                Button("Preferencias") {
-                    openSettings()
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(LuumTheme.textSecondary)
-            }
-
-            MetricLine(
-                title: "Tempo capturado",
-                value: LuumFormatters.duration(summary.totalTrackedTime),
-                detail: "historico local do dia"
-            )
-
-            MetricLine(
-                title: "Tempo planejado",
-                value: LuumFormatters.duration(agenda.plannedTime),
-                detail: "compromissos do dia selecionado"
-            )
-
-            MetricLine(
-                title: "Cobertura",
-                value: trackedVersusPlanned,
-                detail: "relacao entre uso real e plano"
-            )
-
-            if let leadingCategory {
-                MetricLine(
-                    title: "Categoria lider",
-                    value: leadingCategory.category.title,
-                    detail: LuumFormatters.duration(leadingCategory.duration)
-                )
-            }
-
-            if store.focusShieldProfilesCount > 0 {
-                MetricLine(
-                    title: "Escudo de foco",
-                    value: store.currentFocusBlockMatch?.title ?? "Armado",
-                    detail: store.focusShieldStatusMessage ?? "\(store.focusShieldProfilesCount) perfil(is) com bloqueio configurado"
-                )
-            }
-
-            if let message = store.lastReminderStatusMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.14))
     }
 
     private var topBreakdownsCard: some View {
