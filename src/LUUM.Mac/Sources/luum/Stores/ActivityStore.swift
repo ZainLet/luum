@@ -53,6 +53,9 @@ final class ActivityStore {
     private(set) var aiClassificationStatusMessage: String?
     private(set) var isClassifyingWithAI = false
     private(set) var isSendingWeeklyReportEmail = false
+    private(set) var publicIntegrationConfig: PublicIntegrationConfig?
+    private(set) var publicIntegrationStatusMessage: String?
+    private(set) var isLoadingPublicIntegrationConfig = false
 
     let classifier = ClassificationEngine()
 
@@ -656,7 +659,8 @@ final class ActivityStore {
     }
 
     var isGoogleCalendarConfigured: Bool {
-        !googleCalendarClientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !googleCalendarClientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            (publicIntegrationConfig?.googleCalendar.configured ?? false)
     }
 
     var isGoogleCalendarConnected: Bool {
@@ -725,6 +729,30 @@ final class ActivityStore {
 
     var zapierConfigured: Bool {
         !zapierSettings.webhookURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var googleCalendarManagedOAuthAvailable: Bool {
+        publicIntegrationConfig?.managedOAuth.googleCalendar ?? false
+    }
+
+    var notionManagedOAuthAvailable: Bool {
+        publicIntegrationConfig?.managedOAuth.notion ?? false
+    }
+
+    var outlookManagedOAuthAvailable: Bool {
+        publicIntegrationConfig?.managedOAuth.outlookCalendar ?? false
+    }
+
+    var clickUpManagedOAuthAvailable: Bool {
+        publicIntegrationConfig?.managedOAuth.clickUp ?? false
+    }
+
+    var linearManagedOAuthAvailable: Bool {
+        publicIntegrationConfig?.managedOAuth.linear ?? false
+    }
+
+    var zapierManagedConnectionAvailable: Bool {
+        publicIntegrationConfig?.managedOAuth.zapier ?? false
     }
 
     var teamWorkspaceConfigured: Bool {
@@ -798,6 +826,15 @@ final class ActivityStore {
 
         Task { [weak self] in
             await self?.runCalendarConnect(for: day)
+        }
+    }
+
+    func refreshPublicIntegrationConfig(force: Bool = false) {
+        guard force || publicIntegrationConfig == nil else { return }
+        guard !isLoadingPublicIntegrationConfig else { return }
+
+        Task { [weak self] in
+            await self?.runPublicIntegrationConfigRefresh()
         }
     }
 
@@ -2819,6 +2856,46 @@ final class ActivityStore {
             scheduleCloudSyncIfNeeded(reason: "calendar-connect")
         } catch {
             googleCalendarStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func runPublicIntegrationConfigRefresh() async {
+        isLoadingPublicIntegrationConfig = true
+        publicIntegrationStatusMessage = "Verificando conexoes disponiveis no Luum..."
+        defer { isLoadingPublicIntegrationConfig = false }
+
+        do {
+            let config = try await publicIntegrationConfigService.fetch()
+            publicIntegrationConfig = config
+            if let clientID = config.googleCalendar.clientID?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !clientID.isEmpty,
+               googleCalendarClientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            {
+                googleCalendarClientID = clientID
+                persistGoogleCalendar()
+            }
+
+            let availableCount = [
+                config.managedOAuth.googleCalendar,
+                config.managedOAuth.outlookCalendar,
+                config.managedOAuth.notion,
+                config.managedOAuth.clickUp,
+                config.managedOAuth.linear,
+                config.managedOAuth.zapier,
+            ]
+            .filter { $0 }
+            .count
+
+            publicIntegrationStatusMessage = switch availableCount {
+            case 0:
+                "As proximas conexoes guiadas ainda estao sendo preparadas."
+            case 1:
+                "1 conexao guiada disponivel pela conta Luum."
+            default:
+                "\(availableCount) conexoes guiadas disponiveis pela conta Luum."
+            }
+        } catch {
+            publicIntegrationStatusMessage = error.localizedDescription
         }
     }
 

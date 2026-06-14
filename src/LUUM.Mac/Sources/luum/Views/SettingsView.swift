@@ -55,6 +55,9 @@ struct SettingsView: View {
             .padding(28)
         }
         .background(LuumTheme.pageGradient.opacity(0.46))
+        .task {
+            store.refreshPublicIntegrationConfig()
+        }
     }
 
     private var appVersionCard: some View {
@@ -93,6 +96,13 @@ struct SettingsView: View {
                 ForEach(IntegrationKind.allCases) { kind in
                     IntegrationStatusTile(snapshot: integrationSnapshot(for: kind))
                 }
+            }
+
+            if let message = store.publicIntegrationStatusMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(22)
@@ -199,38 +209,43 @@ struct SettingsView: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 12)], spacing: 12) {
                 pendingIntegrationRow(
-                    title: store.hasNotionToken ? "Notion conectado" : "Conectar Notion",
-                    subtitle: store.hasNotionToken ? "Pronto para sincronizar quando ativado." : "Login em um clique sera liberado em breve.",
+                    title: pendingTitle(name: "Notion", isConnected: store.hasNotionToken, isAvailable: store.notionManagedOAuthAvailable),
+                    subtitle: pendingSubtitle(connected: "Pronto para sincronizar quando ativado.", isConnected: store.hasNotionToken, isAvailable: store.notionManagedOAuthAvailable),
                     systemImage: "doc.text.image",
-                    isConnected: store.hasNotionToken
+                    isConnected: store.hasNotionToken,
+                    isAvailable: store.notionManagedOAuthAvailable
                 )
 
                 pendingIntegrationRow(
-                    title: store.hasOutlookToken ? "Outlook conectado" : "Conectar Outlook",
-                    subtitle: store.hasOutlookToken ? "Pronto para sincronizar quando ativado." : "Login Microsoft em um clique sera liberado em breve.",
+                    title: pendingTitle(name: "Outlook", isConnected: store.hasOutlookToken, isAvailable: store.outlookManagedOAuthAvailable),
+                    subtitle: pendingSubtitle(connected: "Pronto para sincronizar quando ativado.", isConnected: store.hasOutlookToken, isAvailable: store.outlookManagedOAuthAvailable),
                     systemImage: "calendar",
-                    isConnected: store.hasOutlookToken
+                    isConnected: store.hasOutlookToken,
+                    isAvailable: store.outlookManagedOAuthAvailable
                 )
 
                 pendingIntegrationRow(
-                    title: store.hasClickUpToken ? "ClickUp conectado" : "Conectar ClickUp",
-                    subtitle: store.hasClickUpToken ? "Pronto para sincronizar quando ativado." : "Login em um clique sera liberado em breve.",
+                    title: pendingTitle(name: "ClickUp", isConnected: store.hasClickUpToken, isAvailable: store.clickUpManagedOAuthAvailable),
+                    subtitle: pendingSubtitle(connected: "Pronto para sincronizar quando ativado.", isConnected: store.hasClickUpToken, isAvailable: store.clickUpManagedOAuthAvailable),
                     systemImage: "checklist",
-                    isConnected: store.hasClickUpToken
+                    isConnected: store.hasClickUpToken,
+                    isAvailable: store.clickUpManagedOAuthAvailable
                 )
 
                 pendingIntegrationRow(
-                    title: store.hasLinearToken ? "Linear conectado" : "Conectar Linear",
-                    subtitle: store.hasLinearToken ? "Pronto para sincronizar quando ativado." : "Login em um clique sera liberado em breve.",
+                    title: pendingTitle(name: "Linear", isConnected: store.hasLinearToken, isAvailable: store.linearManagedOAuthAvailable),
+                    subtitle: pendingSubtitle(connected: "Pronto para sincronizar quando ativado.", isConnected: store.hasLinearToken, isAvailable: store.linearManagedOAuthAvailable),
                     systemImage: "arrow.up.right.square",
-                    isConnected: store.hasLinearToken
+                    isConnected: store.hasLinearToken,
+                    isAvailable: store.linearManagedOAuthAvailable
                 )
 
                 pendingIntegrationRow(
-                    title: store.zapierConfigured ? "Zapier conectado" : "Conectar Zapier",
-                    subtitle: store.zapierConfigured ? "Automacao pronta neste Mac." : "Automacoes guiadas serao liberadas em breve.",
+                    title: pendingTitle(name: "Zapier", isConnected: store.zapierConfigured, isAvailable: store.zapierManagedConnectionAvailable),
+                    subtitle: pendingSubtitle(connected: "Automacao pronta neste Mac.", isConnected: store.zapierConfigured, isAvailable: store.zapierManagedConnectionAvailable),
                     systemImage: "bolt.horizontal",
-                    isConnected: store.zapierConfigured
+                    isConnected: store.zapierConfigured,
+                    isAvailable: store.zapierManagedConnectionAvailable
                 )
             }
 
@@ -621,6 +636,15 @@ struct SettingsView: View {
                 )
             }
 
+            if store.notionManagedOAuthAvailable {
+                return IntegrationSnapshot(
+                    kind: kind,
+                    status: "Pronto",
+                    detail: "Conexao guiada preparada",
+                    tint: LuumTheme.secondaryAccent
+                )
+            }
+
             if store.notionCalendarSettings.isEnabled {
                 return IntegrationSnapshot(
                     kind: kind,
@@ -642,6 +666,15 @@ struct SettingsView: View {
                     kind: kind,
                     status: "Ativo",
                     detail: "\(store.outlookCalendarSettings.calendars.filter(\.isSelected).count) calendario(s) sincronizados",
+                    tint: LuumTheme.electricBlue
+                )
+            }
+
+            if store.outlookManagedOAuthAvailable {
+                return IntegrationSnapshot(
+                    kind: kind,
+                    status: "Pronto",
+                    detail: "Conexao guiada preparada",
                     tint: LuumTheme.electricBlue
                 )
             }
@@ -671,6 +704,15 @@ struct SettingsView: View {
                 )
             }
 
+            if store.clickUpManagedOAuthAvailable {
+                return IntegrationSnapshot(
+                    kind: kind,
+                    status: "Pronto",
+                    detail: "Conexao guiada preparada",
+                    tint: LuumTheme.secondaryAccent
+                )
+            }
+
             if store.clickUpSettings.isEnabled {
                 return IntegrationSnapshot(
                     kind: kind,
@@ -696,6 +738,15 @@ struct SettingsView: View {
                 )
             }
 
+            if store.linearManagedOAuthAvailable {
+                return IntegrationSnapshot(
+                    kind: kind,
+                    status: "Pronto",
+                    detail: "Conexao guiada preparada",
+                    tint: LuumTheme.secondaryAccent
+                )
+            }
+
             if store.linearSettings.isEnabled {
                 return IntegrationSnapshot(
                     kind: kind,
@@ -717,6 +768,15 @@ struct SettingsView: View {
                     kind: kind,
                     status: "Ativo",
                     detail: "Automacoes prontas",
+                    tint: ActivityCategory.work.tint
+                )
+            }
+
+            if store.zapierManagedConnectionAvailable {
+                return IntegrationSnapshot(
+                    kind: kind,
+                    status: "Pronto",
+                    detail: "Conexao guiada preparada",
                     tint: ActivityCategory.work.tint
                 )
             }
@@ -764,6 +824,22 @@ struct SettingsView: View {
         }
     }
 
+    private func pendingTitle(name: String, isConnected: Bool, isAvailable: Bool) -> String {
+        if isConnected {
+            return "\(name) conectado"
+        }
+        return isAvailable ? "Conectar \(name)" : "\(name) em breve"
+    }
+
+    private func pendingSubtitle(connected: String, isConnected: Bool, isAvailable: Bool) -> String {
+        if isConnected {
+            return connected
+        }
+        return isAvailable
+            ? "Conexao guiada disponivel pela conta Luum."
+            : "Login guiado sera liberado pelo Luum, sem token manual."
+    }
+
     private func settingsCard(title: String, lines: [String], tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
@@ -807,7 +883,7 @@ struct SettingsView: View {
         )
     }
 
-    private func pendingIntegrationRow(title: String, subtitle: String, systemImage: String, isConnected: Bool) -> some View {
+    private func pendingIntegrationRow(title: String, subtitle: String, systemImage: String, isConnected: Bool, isAvailable: Bool) -> some View {
         HStack(alignment: .center, spacing: 14) {
             Image(systemName: systemImage)
                 .font(.title3.weight(.semibold))
@@ -831,9 +907,13 @@ struct SettingsView: View {
                 Button("Conectado") {}
                     .buttonStyle(.bordered)
                     .disabled(true)
-            } else {
+            } else if isAvailable {
                 Button("Conectar") {}
                     .buttonStyle(.glassProminent)
+                    .disabled(true)
+            } else {
+                Button("Em breve") {}
+                    .buttonStyle(.bordered)
                     .disabled(true)
             }
         }
