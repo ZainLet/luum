@@ -67,7 +67,6 @@ struct SettingsView: View {
             lines: [
                 "Luum \(AppVersionInfo.current.displayVersion)",
                 "Build \(AppVersionInfo.current.build) • \(AppVersionInfo.current.channel)",
-                "Bundle \(AppVersionInfo.current.bundleIdentifier)",
             ],
             tint: LuumTheme.accent.opacity(0.12)
         )
@@ -204,7 +203,7 @@ struct SettingsView: View {
 
             pendingIntegrationRow(
                 title: store.hasNotionToken ? "Conectado neste Mac" : "Conectar Notion",
-                subtitle: store.hasNotionToken ? "Conexao local antiga detectada." : "Conexao por um clique sera liberada pelo backend do Luum.",
+                subtitle: store.hasNotionToken ? "Pronto para sincronizar quando ativado." : "Conexao em um clique sera liberada em breve.",
                 systemImage: "doc.text.image",
                 isConnected: store.hasNotionToken
             )
@@ -250,7 +249,7 @@ struct SettingsView: View {
 
             pendingIntegrationRow(
                 title: store.hasOutlookToken ? "Conectado neste Mac" : "Conectar Outlook",
-                subtitle: store.hasOutlookToken ? "Conexao local antiga detectada." : "Conexao Microsoft sera liberada pelo backend do Luum.",
+                subtitle: store.hasOutlookToken ? "Pronto para sincronizar quando ativado." : "Conexao Microsoft em um clique sera liberada em breve.",
                 systemImage: "calendar",
                 isConnected: store.hasOutlookToken
             )
@@ -300,7 +299,7 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("A chave Gemini fica no backend do Luum, nao neste Mac.")
+            Text("A IA usa a configuracao segura da sua conta Luum.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -332,7 +331,7 @@ struct SettingsView: View {
 
             pendingIntegrationRow(
                 title: store.hasClickUpToken ? "Conectado neste Mac" : "Conectar ClickUp",
-                subtitle: store.hasClickUpToken ? "Conexao local antiga detectada." : "Conexao ClickUp sera liberada pelo backend do Luum.",
+                subtitle: store.hasClickUpToken ? "Pronto para sincronizar quando ativado." : "Conexao ClickUp em um clique sera liberada em breve.",
                 systemImage: "checklist",
                 isConnected: store.hasClickUpToken
             )
@@ -370,7 +369,7 @@ struct SettingsView: View {
 
             pendingIntegrationRow(
                 title: store.hasLinearToken ? "Conectado neste Mac" : "Conectar Linear",
-                subtitle: store.hasLinearToken ? "Conexao local antiga detectada." : "Conexao Linear sera liberada pelo backend do Luum.",
+                subtitle: store.hasLinearToken ? "Pronto para sincronizar quando ativado." : "Conexao Linear em um clique sera liberada em breve.",
                 systemImage: "arrow.up.right.square",
                 isConnected: store.hasLinearToken
             )
@@ -408,7 +407,7 @@ struct SettingsView: View {
 
             pendingIntegrationRow(
                 title: store.zapierConfigured ? "Zapier conectado" : "Conectar Zapier",
-                subtitle: store.zapierConfigured ? "Automacao pronta neste Mac." : "Conector oficial sera liberado pelo backend do Luum.",
+                subtitle: store.zapierConfigured ? "Automacao pronta neste Mac." : "Conexao em um clique sera liberada em breve.",
                 systemImage: "bolt.horizontal",
                 isConnected: store.zapierConfigured
             )
@@ -584,7 +583,7 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("Tokens e segredos das conexoes continuam fora do backup.")
+            Text("Dados sensiveis das conexoes ficam fora do backup.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -948,15 +947,13 @@ private struct AppVersionInfo {
     let version: String
     let build: String
     let channel: String
-    let bundleIdentifier: String
 
     static var current: AppVersionInfo {
         let bundle = Bundle.main
         return AppVersionInfo(
             version: bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev",
             build: bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "local",
-            channel: bundle.object(forInfoDictionaryKey: "LuumReleaseChannel") as? String ?? "development",
-            bundleIdentifier: bundle.bundleIdentifier ?? "swiftpm.local"
+            channel: bundle.object(forInfoDictionaryKey: "LuumReleaseChannel") as? String ?? "development"
         )
     }
 
