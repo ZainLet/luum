@@ -13,7 +13,7 @@ Este arquivo separa o que o repositorio ja implementa do que precisa ser feito f
 - App macOS: usa `luum://auth`, valida `/api/auth/status`, salva sessao em cofre local cifrado e evita Keychain do macOS por padrao enquanto nao houver Apple Developer ID.
 - Backup: usa `/api/sync/{uid}` com Firebase ID token e payload sanitizado.
 - Google Calendar: o app ja tenta carregar `GOOGLE_CALENDAR_CLIENT_ID` em `/api/public/integrations`, para o usuario clicar em conectar sem colar chaves.
-- Alpha macOS atual: `0.0.4-alpha`, bundle id `com.luum.apple`, instalador principal `.pkg` que coloca `luum.app` em `/Applications`; `.zip` fica apenas como fallback tecnico.
+- Alpha macOS atual: `0.0.4-alpha`, bundle id `com.luum.apple`, instalador principal `.pkg` que coloca `luum.app` em `/Applications`; use `Luum-alpha-latest.pkg` para o teste interno mais recente e deixe `.zip` apenas como fallback tecnico.
 
 ## Politica de versao
 

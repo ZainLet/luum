@@ -19,6 +19,8 @@ No Mac de desenvolvimento:
 O script gera os artefatos em `dist/releases/`. Para teste em outro Mac, prefira o `.pkg`: ele instala `luum.app` em `/Applications` com duplo clique, sem terminal.
 
 - `Luum-...pkg`: instalador simples da alpha.
+- `Luum-alpha-latest.pkg`: cópia estável do instalador mais recente para teste interno.
+- `Luum-0.0.4-alpha.pkg`: cópia estável da versão alpha atual.
 - `Luum-...pkg.sha256`: checksum do instalador.
 - `Luum-...pkg.txt`: notas rápidas do instalador.
 - `Luum-...zip`: fallback técnico com o app bundle completo `luum.app`, não arquivos soltos.
@@ -33,7 +35,7 @@ Nao crie varias tags com sufixos do tipo `v0.0.2-alpha.5` para cada ajuste peque
 
 ## Instalar em outro Mac
 
-1. Transfira o `.pkg` para o Mac de teste.
+1. Transfira `Luum-alpha-latest.pkg` para o Mac de teste.
 2. Abra o `.pkg` com duplo clique.
 3. Siga o instalador para colocar `luum.app` em `Aplicativos`.
 4. No primeiro uso, abra com `Control-click > Abrir`.

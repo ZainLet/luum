@@ -143,8 +143,11 @@ package_app() {
   local archive_path="$release_dir/$archive_name"
   local pkg_name="Luum-${APP_VERSION}-${RELEASE_CHANNEL}-${git_sha}-${timestamp}.pkg"
   local pkg_path="$release_dir/$pkg_name"
+  local stable_pkg_path="$release_dir/Luum-${APP_VERSION}-${RELEASE_CHANNEL}.pkg"
+  local latest_pkg_path="$release_dir/Luum-${RELEASE_CHANNEL}-latest.pkg"
   local pkg_stage
   rm -f "$archive_path" "$archive_path.sha256" "$archive_path.txt" "$pkg_path" "$pkg_path.sha256" "$pkg_path.txt"
+  rm -f "$stable_pkg_path" "$stable_pkg_path.sha256" "$stable_pkg_path.txt" "$latest_pkg_path" "$latest_pkg_path.sha256" "$latest_pkg_path.txt"
 
   COPYFILE_DISABLE=1 /usr/bin/ditto -c -k --norsrc --noextattr --noacl --noqtn --keepParent "$APP_BUNDLE" "$archive_path"
   if ! /usr/bin/zipinfo -1 "$archive_path" | grep -Eqx "(\./)?luum.app/Contents/Info.plist"; then
@@ -169,6 +172,10 @@ package_app() {
     exit 1
   fi
   shasum -a 256 "$pkg_path" >"$pkg_path.sha256"
+  cp "$pkg_path" "$stable_pkg_path"
+  shasum -a 256 "$stable_pkg_path" >"$stable_pkg_path.sha256"
+  cp "$pkg_path" "$latest_pkg_path"
+  shasum -a 256 "$latest_pkg_path" >"$latest_pkg_path.sha256"
 
   cat >"$archive_path.txt" <<NOTES
 Luum ${APP_VERSION} (${APP_BUILD}) ${RELEASE_CHANNEL}
@@ -220,6 +227,8 @@ Se aparecer prompt das Chaves do macOS por build antigo:
 Sem Apple Developer ID, o instalador ainda nao e notarizado.
 Guia completo: docs/MACOS_ALPHA_INSTALL.md
 NOTES
+  cp "$pkg_path.txt" "$stable_pkg_path.txt"
+  cp "$pkg_path.txt" "$latest_pkg_path.txt"
 
   echo "$pkg_path"
 }
