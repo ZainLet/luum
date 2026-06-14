@@ -17,11 +17,7 @@ struct SettingsView: View {
                 integrationHubCard
                 aiClassificationCard
                 googleCalendarCard
-                notionCalendarCard
-                outlookCalendarCard
-                clickUpCard
-                linearCard
-                zapierCard
+                pendingConnectionsCard
                 teamCard
                 privacyCard
                 cloudSyncCard
@@ -180,15 +176,15 @@ struct SettingsView: View {
         .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.14), cornerRadius: 30)
     }
 
-    private var notionCalendarCard: some View {
+    private var pendingConnectionsCard: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Notion Calendar")
+                    Text("Conexoes em breve")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Traga prazos e eventos do Notion quando o conector oficial estiver ativo.")
+                    Text("Essas integracoes vao usar login guiado. Nada de token, chave ou webhook manual.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -196,73 +192,64 @@ struct SettingsView: View {
                 Spacer()
 
                 CompactStatPill(
-                    title: store.notionCalendarConfigured ? "Ativo" : "Off",
-                    detail: "Notion"
+                    title: "\(pendingProviderConnectedCount)",
+                    detail: "prontas"
                 )
             }
 
-            pendingIntegrationRow(
-                title: store.hasNotionToken ? "Conectado neste Mac" : "Conectar Notion",
-                subtitle: store.hasNotionToken ? "Pronto para sincronizar quando ativado." : "Conexao em um clique sera liberada em breve.",
-                systemImage: "doc.text.image",
-                isConnected: store.hasNotionToken
-            )
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 12)], spacing: 12) {
+                pendingIntegrationRow(
+                    title: store.hasNotionToken ? "Notion conectado" : "Conectar Notion",
+                    subtitle: store.hasNotionToken ? "Pronto para sincronizar quando ativado." : "Login em um clique sera liberado em breve.",
+                    systemImage: "doc.text.image",
+                    isConnected: store.hasNotionToken
+                )
 
-            if let message = store.notionCalendarStatusMessage {
+                pendingIntegrationRow(
+                    title: store.hasOutlookToken ? "Outlook conectado" : "Conectar Outlook",
+                    subtitle: store.hasOutlookToken ? "Pronto para sincronizar quando ativado." : "Login Microsoft em um clique sera liberado em breve.",
+                    systemImage: "calendar",
+                    isConnected: store.hasOutlookToken
+                )
+
+                pendingIntegrationRow(
+                    title: store.hasClickUpToken ? "ClickUp conectado" : "Conectar ClickUp",
+                    subtitle: store.hasClickUpToken ? "Pronto para sincronizar quando ativado." : "Login em um clique sera liberado em breve.",
+                    systemImage: "checklist",
+                    isConnected: store.hasClickUpToken
+                )
+
+                pendingIntegrationRow(
+                    title: store.hasLinearToken ? "Linear conectado" : "Conectar Linear",
+                    subtitle: store.hasLinearToken ? "Pronto para sincronizar quando ativado." : "Login em um clique sera liberado em breve.",
+                    systemImage: "arrow.up.right.square",
+                    isConnected: store.hasLinearToken
+                )
+
+                pendingIntegrationRow(
+                    title: store.zapierConfigured ? "Zapier conectado" : "Conectar Zapier",
+                    subtitle: store.zapierConfigured ? "Automacao pronta neste Mac." : "Automacoes guiadas serao liberadas em breve.",
+                    systemImage: "bolt.horizontal",
+                    isConnected: store.zapierConfigured
+                )
+            }
+
+            pendingStatusMessages
+        }
+        .padding(22)
+        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.12), cornerRadius: 30)
+    }
+
+    @ViewBuilder
+    private var pendingStatusMessages: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(pendingConnectionMessages, id: \.self) { message in
                 Text(message)
                     .font(.caption)
                     .foregroundStyle(LuumTheme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-
-            if let lastSyncAt = store.notionCalendarLastSyncAt {
-                Text("Ultimo sync do Notion: \(LuumFormatters.relativeTime(until: lastSyncAt)).")
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textMuted)
-            }
-
         }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.14), cornerRadius: 30)
-    }
-
-    private var outlookCalendarCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Outlook Calendar")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.white)
-
-                    Text("Sincronize compromissos do Microsoft 365 com conexao guiada.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer()
-
-                CompactStatPill(
-                    title: store.outlookCalendarConfigured ? "Ativo" : "Off",
-                    detail: "Outlook"
-                )
-            }
-
-            pendingIntegrationRow(
-                title: store.hasOutlookToken ? "Conectado neste Mac" : "Conectar Outlook",
-                subtitle: store.hasOutlookToken ? "Pronto para sincronizar quando ativado." : "Conexao Microsoft em um clique sera liberada em breve.",
-                systemImage: "calendar",
-                isConnected: store.hasOutlookToken
-            )
-
-            if let message = store.outlookCalendarStatusMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textSecondary)
-            }
-
-        }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.12), cornerRadius: 30)
     }
 
     private var aiClassificationCard: some View {
@@ -306,120 +293,6 @@ struct SettingsView: View {
         }
         .padding(22)
         .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.12), cornerRadius: 30)
-    }
-
-    private var clickUpCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("ClickUp")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.white)
-
-                    Text("Inclua tarefas com prazo no seu planejamento diario.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer()
-
-                CompactStatPill(
-                    title: store.clickUpConfigured ? "Ativo" : "Off",
-                    detail: "ClickUp"
-                )
-            }
-
-            pendingIntegrationRow(
-                title: store.hasClickUpToken ? "Conectado neste Mac" : "Conectar ClickUp",
-                subtitle: store.hasClickUpToken ? "Pronto para sincronizar quando ativado." : "Conexao ClickUp em um clique sera liberada em breve.",
-                systemImage: "checklist",
-                isConnected: store.hasClickUpToken
-            )
-
-            if let message = store.clickUpStatusMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textSecondary)
-            }
-        }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.hotPink.opacity(0.12), cornerRadius: 30)
-    }
-
-    private var linearCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Linear")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.white)
-
-                    Text("Traga ciclos, issues e prazos para comparar plano e execucao.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer()
-
-                CompactStatPill(
-                    title: store.linearConfigured ? "Ativo" : "Off",
-                    detail: "Linear"
-                )
-            }
-
-            pendingIntegrationRow(
-                title: store.hasLinearToken ? "Conectado neste Mac" : "Conectar Linear",
-                subtitle: store.hasLinearToken ? "Pronto para sincronizar quando ativado." : "Conexao Linear em um clique sera liberada em breve.",
-                systemImage: "arrow.up.right.square",
-                isConnected: store.hasLinearToken
-            )
-
-            if let message = store.linearStatusMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textSecondary)
-            }
-        }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.12), cornerRadius: 30)
-    }
-
-    private var zapierCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Zapier")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.white)
-
-                    Text("Dispare automacoes a partir de foco, agenda e ranking.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer()
-
-                CompactStatPill(
-                    title: store.zapierConfigured ? "Ativo" : "Off",
-                    detail: "Zapier"
-                )
-            }
-
-            pendingIntegrationRow(
-                title: store.zapierConfigured ? "Zapier conectado" : "Conectar Zapier",
-                subtitle: store.zapierConfigured ? "Automacao pronta neste Mac." : "Conexao em um clique sera liberada em breve.",
-                systemImage: "bolt.horizontal",
-                isConnected: store.zapierConfigured
-            )
-
-            if let message = store.zapierStatusMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textSecondary)
-            }
-        }
-        .padding(22)
-        .luumGlassCard(tint: ActivityCategory.work.glassTint, cornerRadius: 30)
     }
 
     private var teamCard: some View {
@@ -651,6 +524,35 @@ struct SettingsView: View {
         ]
         .filter { $0 }
         .count
+    }
+
+    private var pendingProviderConnectedCount: Int {
+        [
+            store.hasNotionToken,
+            store.hasOutlookToken,
+            store.hasClickUpToken,
+            store.hasLinearToken,
+            store.zapierConfigured,
+        ]
+        .filter { $0 }
+        .count
+    }
+
+    private var pendingConnectionMessages: [String] {
+        var seen: Set<String> = []
+        return [
+            store.notionCalendarStatusMessage,
+            store.outlookCalendarStatusMessage,
+            store.clickUpStatusMessage,
+            store.linearStatusMessage,
+            store.zapierStatusMessage,
+        ]
+        .compactMap { message in
+            let trimmed = message?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard !trimmed.isEmpty, !seen.contains(trimmed) else { return nil }
+            seen.insert(trimmed)
+            return trimmed
+        }
     }
 
     private func integrationSnapshot(for kind: IntegrationKind) -> IntegrationSnapshot {
