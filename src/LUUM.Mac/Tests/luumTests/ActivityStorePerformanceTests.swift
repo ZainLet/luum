@@ -36,4 +36,42 @@ func searchResultsRespectLimitAndPreferRecentSamples() throws {
     #expect(results.first?.title == "target sample 119")
     #expect(results.last?.title == "target sample 110")
 }
+
+@MainActor
+@Test
+func cancelledPersistenceDebounceDoesNotFlushImmediately() async throws {
+    let tempDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("luum-persistence-\(UUID().uuidString)", isDirectory: true)
+    defer {
+        try? FileManager.default.removeItem(at: tempDirectory)
+    }
+
+    let persistence = ActivityPersistence(directoryURL: tempDirectory)
+    let baseDate = Date()
+    let sample = ActivitySample(
+        startDate: baseDate.addingTimeInterval(-60),
+        endDate: baseDate,
+        applicationName: "Editor",
+        bundleIdentifier: "app.luum.editor",
+        webURL: nil,
+        webDomain: nil,
+        pageTitle: nil,
+        source: .nativeApp
+    )
+    try persistence.save(samples: [sample], retentionDays: 365)
+
+    let store = ActivityStore(
+        persistence: persistence,
+        activityPersistenceDebounce: .milliseconds(250)
+    )
+
+    store.updateActivityNote(sampleID: sample.id, note: "primeira")
+    store.updateActivityNote(sampleID: sample.id, note: "segunda")
+
+    try await Task.sleep(for: .milliseconds(80))
+    #expect(persistence.load(retentionDays: 365).first?.note == nil)
+
+    try await Task.sleep(for: .milliseconds(260))
+    #expect(persistence.load(retentionDays: 365).first?.note == "segunda")
+}
 #endif

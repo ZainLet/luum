@@ -90,7 +90,7 @@ final class ActivityStore {
     @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
     @ObservationIgnored private let calendarRefreshInterval: TimeInterval = 900
     @ObservationIgnored private let cloudSyncInterval: TimeInterval = 900
-    @ObservationIgnored private let activityPersistenceDebounce: Duration = .seconds(5)
+    @ObservationIgnored private let activityPersistenceDebounce: Duration
     @ObservationIgnored private let preferencesPersistenceDebounce: Duration = .milliseconds(300)
     @ObservationIgnored private let liveSummaryRefreshInterval: TimeInterval = 30
     @ObservationIgnored private var lastLiveSummaryRefreshAt: Date?
@@ -118,7 +118,8 @@ final class ActivityStore {
         authService: FirebaseAuthService = FirebaseAuthService(),
         aiClassificationService: AIClassificationService = AIClassificationService(),
         weeklyReportEmailService: WeeklyReportEmailService = WeeklyReportEmailService(),
-        publicIntegrationConfigService: PublicIntegrationConfigService = PublicIntegrationConfigService()
+        publicIntegrationConfigService: PublicIntegrationConfigService = PublicIntegrationConfigService(),
+        activityPersistenceDebounce: Duration = .seconds(5)
     ) {
         self.persistence = persistence
         self.monitor = monitor ?? ActivityMonitor()
@@ -138,6 +139,7 @@ final class ActivityStore {
         self.aiClassificationService = aiClassificationService
         self.weeklyReportEmailService = weeklyReportEmailService
         self.publicIntegrationConfigService = publicIntegrationConfigService
+        self.activityPersistenceDebounce = activityPersistenceDebounce
 
         let monitoringPreferences = monitoringPreferencesPersistence.load().normalized()
         let calendarSnapshot = googleCalendarPersistence.load()
@@ -3591,6 +3593,7 @@ final class ActivityStore {
         persistTask?.cancel()
         persistTask = Task { [weak self] in
             try? await Task.sleep(for: self?.activityPersistenceDebounce ?? .seconds(5))
+            guard !Task.isCancelled else { return }
             self?.flushPersistence()
         }
     }
