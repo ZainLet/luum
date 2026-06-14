@@ -2687,7 +2687,6 @@ final class ActivityStore {
 
             let response = try await weeklyReportEmailService.send(
                 firebaseToken: verified.idToken,
-                email: verified.email,
                 report: weeklyReportEmailPayload(containing: day)
             )
             guard isCurrentVerifiedSession(verified) else { return }

@@ -17,7 +17,6 @@ func weeklyReportEmailServiceSendsReportToOfficialBackend() async throws {
 
     let response = try await service.send(
         firebaseToken: "firebase-token",
-        email: "user@luum.app",
         report: weeklyReportPayloadForTesting()
     )
 
@@ -31,7 +30,7 @@ func weeklyReportEmailServiceSendsReportToOfficialBackend() async throws {
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
     let body = try #require(request.httpBody)
     let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
-    #expect(json["email"] as? String == "user@luum.app")
+    #expect(json["email"] == nil)
     #expect((json["report"] as? [String: Any])?["startDate"] as? String == "2026-06-08")
 }
 
@@ -44,7 +43,6 @@ func weeklyReportEmailServiceRejectsNonOfficialBackendBeforeSendingToken() async
         _ = try await service.send(
             baseURL: "https://example.com",
             firebaseToken: "firebase-token",
-            email: "user@luum.app",
             report: weeklyReportPayloadForTesting()
         )
         Issue.record("Endpoint externo nao deveria receber token Firebase.")
@@ -69,7 +67,6 @@ func weeklyReportEmailServiceSurfacesAPIErrorMessage() async throws {
     do {
         _ = try await service.send(
             firebaseToken: "firebase-token",
-            email: "user@luum.app",
             report: weeklyReportPayloadForTesting()
         )
         Issue.record("Erro 403 deveria ser repassado para a UI.")
@@ -94,7 +91,6 @@ func weeklyReportEmailServiceExplainsMissingVercelRoute() async throws {
     do {
         _ = try await service.send(
             firebaseToken: "firebase-token",
-            email: "user@luum.app",
             report: weeklyReportPayloadForTesting()
         )
         Issue.record("Erro 404 deveria explicar deploy/rota da Vercel.")
