@@ -4,7 +4,15 @@ const { profileEmail, profileOnboarding, profileText } = require('../_profileSec
 
 function jsonBody(req) {
     if (!req.body) return {};
-    if (typeof req.body === 'string') return JSON.parse(req.body || '{}');
+    if (typeof req.body === 'string') {
+        try {
+            return JSON.parse(req.body || '{}');
+        } catch {
+            const error = new Error('JSON da conta inválido');
+            error.statusCode = 400;
+            throw error;
+        }
+    }
     return req.body;
 }
 
@@ -59,12 +67,17 @@ async function upsertUserHandler(req, res) {
         const saved = await ref.get();
         return res.json({ ok: true, user: saved.data() || null });
     } catch (err) {
-        console.error('[Auth Upsert User Error]', err);
+        const statusCode = err.statusCode || 500;
+        if (statusCode >= 500) {
+            console.error('[Auth Upsert User Error]', err);
+        }
         const message = String(err.message || '');
         const isCredentialError = message.includes('credential') ||
             message.includes('Could not load the default credentials');
-        return res.status(500).json({
-            error: isCredentialError
+        return res.status(statusCode).json({
+            error: err.statusCode
+                ? err.message
+                : isCredentialError
                 ? 'Firebase Admin não configurado na Vercel. Configure FIREBASE_SERVICE_ACCOUNT_JSON.'
                 : 'Não foi possível preparar a conta no backend'
         });

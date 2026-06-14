@@ -212,6 +212,34 @@ test('upsert existing user keeps plan and subscription untouched', async () => {
     assert.deepEqual(writes[0].options, { merge: true });
 });
 
+test('upsert user rejects malformed JSON as a client error', async () => {
+    const writes = [];
+    installFirebaseAdminMock({
+        decoded: {
+            uid: 'firebase-user',
+            email: 'user@luum.app'
+        },
+        userExists: true,
+        userData: { uid: 'firebase-user', plan: 'profissional' },
+        onSet: (data, options) => writes.push({ data, options })
+    });
+
+    const handler = require('../api/auth/upsert-user');
+    const res = response();
+    await handler({
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: '{"onboarding":'
+    }, res);
+
+    assert.equal(res.code, 400);
+    assert.equal(res.body.error, 'JSON da conta inválido');
+    assert.equal(writes.length, 0);
+});
+
 test('auth status returns entitlement from the verified Firebase uid document', async () => {
     const now = Date.now();
     const writes = [];
