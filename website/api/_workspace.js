@@ -1,6 +1,7 @@
 const { admin, getFirestore } = require('./_firebaseAdmin');
 const { addCors: addSharedCors, handleOptions: handleSharedOptions } = require('./_cors');
 const { entitlementForUser, includesFeature } = require('./_entitlements');
+const { jsonBody: sharedJSONBody } = require('./_jsonBody');
 const { sameHash, secretHash, validID } = require('./_workspaceSecurity');
 
 const SWIFT_REFERENCE_SECONDS = 978307200;
@@ -14,9 +15,7 @@ function handleOptions(req, res) {
 }
 
 function jsonBody(req) {
-    if (!req.body) return {};
-    if (typeof req.body === 'string') return JSON.parse(req.body || '{}');
-    return req.body;
+    return sharedJSONBody(req, 'JSON do workspace inválido');
 }
 
 function routeValue(req, name) {

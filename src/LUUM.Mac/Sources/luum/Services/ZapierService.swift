@@ -17,9 +17,9 @@ enum ZapierIssue: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingWebhook:
-            "Configure a URL do webhook do Zapier para usar essa automacao."
+            "Automacoes Zapier guiadas serao liberadas em breve."
         case .invalidWebhook:
-            "A URL do webhook do Zapier nao e valida."
+            "Nao foi possivel validar a conexao do Zapier."
         case let .apiError(message):
             message
         }

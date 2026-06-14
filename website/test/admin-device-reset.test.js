@@ -150,3 +150,52 @@ test('admin clearDevices action deletes tracked device fields without changing p
     assert.equal(Object.hasOwn(writes[0].data, 'plan'), false);
     assert.equal(Object.hasOwn(writes[0].data, 'subscription'), false);
 });
+
+test('admin users action rejects malformed JSON as a client error', async () => {
+    const writes = [];
+    const firestoreData = {
+        plan: 'profissional',
+        subscription: { status: 'active' },
+        security: {}
+    };
+    installFirebaseAdminMock({ writes, firestoreData });
+
+    const { adminUsersHandler } = require('../api/_adminActions');
+    const res = response();
+    await adminUsersHandler({
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: '{"uid":'
+    }, res);
+
+    assert.equal(res.code, 400);
+    assert.equal(res.body.error, 'JSON do admin inválido');
+    assert.equal(writes.length, 0);
+});
+
+test('admin integrations action rejects malformed JSON as a client error', async () => {
+    const writes = [];
+    const firestoreData = {
+        plan: 'profissional',
+        subscription: { status: 'active' },
+        security: {}
+    };
+    installFirebaseAdminMock({ writes, firestoreData });
+
+    const { integrationsHandler } = require('../api/_adminActions');
+    const res = response();
+    await integrationsHandler({
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: '{"updates":'
+    }, res);
+
+    assert.equal(res.code, 400);
+    assert.equal(res.body.error, 'JSON do admin inválido');
+});

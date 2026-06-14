@@ -53,7 +53,6 @@ struct WeeklyReportEmailService {
     func send(
         baseURL: String = FirebaseAuthService.defaultBaseURL,
         firebaseToken: String,
-        email: String,
         report: WeeklyReportEmailPayload
     ) async throws -> WeeklyReportEmailResponse {
         let trimmed = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -67,7 +66,7 @@ struct WeeklyReportEmailService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(firebaseToken)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONEncoder().encode(
-            WeeklyReportEmailRequest(email: email, report: report)
+            WeeklyReportEmailRequest(report: report)
         )
 
         let (data, response) = try await session.data(for: request)
@@ -93,7 +92,6 @@ struct WeeklyReportEmailService {
 }
 
 private struct WeeklyReportEmailRequest: Encodable {
-    let email: String
     let report: WeeklyReportEmailPayload
 }
 

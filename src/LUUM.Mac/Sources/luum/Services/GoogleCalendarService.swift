@@ -25,7 +25,7 @@ enum GoogleCalendarIssue: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingClientID:
-            "Informe um OAuth Client ID do tipo Desktop app para conectar a Google Agenda."
+            "Nao foi possivel carregar a configuracao da Google Agenda. Tente novamente mais tarde."
         case .localCallbackFailed:
             "Nao foi possivel iniciar o retorno local do OAuth no macOS."
         case .browserOpenFailed:

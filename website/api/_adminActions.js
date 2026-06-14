@@ -3,6 +3,7 @@ const { addCors, handleOptions } = require('./_cors');
 const { claimsForAdminRole } = require('./_adminClaims');
 const { allowedAdminEmails, requireAdmin } = require('./_adminAuth');
 const { accountPlan } = require('./_entitlements');
+const { jsonBody: sharedJSONBody } = require('./_jsonBody');
 const {
     normalizeAdminPlan,
     normalizeAdminRole,
@@ -23,9 +24,7 @@ const WEBHOOK_EVENTS = [
 ];
 
 function jsonBody(req) {
-    if (!req.body) return {};
-    if (typeof req.body === 'string') return JSON.parse(req.body || '{}');
-    return req.body;
+    return sharedJSONBody(req, 'JSON do admin inválido');
 }
 
 function routeAction(req) {
@@ -213,14 +212,18 @@ async function adminUsersHandler(req, res) {
         const refreshed = await admin.auth().getUser(userRecord.uid);
         return res.json({ ok: true, user: userResponse(refreshed, snap.data() || {}) });
     } catch (err) {
-        console.error('[Admin Users Error]', err);
-        const code = err.code === 'auth/user-not-found' ? 404 : 500;
+        const code = err.statusCode || (err.code === 'auth/user-not-found' ? 404 : 500);
+        if (code >= 500) {
+            console.error('[Admin Users Error]', err);
+        }
         const message = String(err.message || '');
         const isCredentialError = message.includes('credential') ||
             message.includes('Could not load the default credentials') ||
             message.includes('FIREBASE_SERVICE_ACCOUNT_JSON');
         return res.status(code).json({
-            error: code === 404
+            error: err.statusCode
+                ? err.message
+                : code === 404
                 ? 'Usuário não encontrado no Firebase Auth'
                 : (isCredentialError
                     ? 'Firebase Admin não configurado na Vercel. Configure FIREBASE_SERVICE_ACCOUNT_JSON.'
@@ -247,10 +250,15 @@ async function integrationsHandler(req, res) {
 
         return res.json({ ok: true, settings: await maskedSettings() });
     } catch (err) {
-        console.error('[Admin Integrations Error]', err);
+        const code = err.statusCode || 500;
+        if (code >= 500) {
+            console.error('[Admin Integrations Error]', err);
+        }
         const message = String(err.message || '');
-        return res.status(500).json({
-            error: message.includes('LUUM_SETTINGS_ENCRYPTION_KEY')
+        return res.status(code).json({
+            error: err.statusCode
+                ? err.message
+                : message.includes('LUUM_SETTINGS_ENCRYPTION_KEY')
                 ? 'Configure LUUM_SETTINGS_ENCRYPTION_KEY na Vercel antes de usar o cofre.'
                 : 'Não foi possível salvar as integrações.'
         });
@@ -329,8 +337,11 @@ async function stripeHealthHandler(req, res) {
             }
         });
     } catch (err) {
-        console.error('[Stripe Health Error]', err);
-        return res.status(err.statusCode || 500).json({
+        const code = err.statusCode || 500;
+        if (code >= 500) {
+            console.error('[Stripe Health Error]', err);
+        }
+        return res.status(code).json({
             error: err.statusCode ? err.message : 'Diagnóstico Stripe falhou. Verifique logs da Vercel.'
         });
     }

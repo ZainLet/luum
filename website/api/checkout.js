@@ -5,11 +5,12 @@
 //  ════════════════════════════════════════════════════════
 //
 //  Funcionamento:
-//   1. Front-end chama esta rota com { plan, uid, email }
+//   1. Front-end chama esta rota com { plan, uid, billing, quantity }
 //   2. Criamos um Stripe Checkout Session
 //   3. Stripe redireciona para a página de pagamento
 //   4. Após pagamento, Stripe chama o webhook (webhook.js)
 //   5. Webhook atualiza o Firestore
+//  O email do checkout vem apenas do Firebase ID token verificado.
 //
 
 const { admin, getAdminApp } = require('./_firebaseAdmin');

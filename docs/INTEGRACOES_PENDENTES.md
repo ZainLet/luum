@@ -17,6 +17,7 @@ Este arquivo lista o que depende de contas, chaves externas ou decisões que nã
 - Build local do app continua assinado ad-hoc e usa cofre local cifrado por padrão, sem Keychain do macOS, para evitar prompts recorrentes enquanto não houver Apple Developer ID estável.
 - O app também limpa silenciosamente o item legado `login` do Keychain do macOS no bootstrap, sem abrir UI de senha, para instalações antigas que ainda tinham resquícios de builds anteriores.
 - IA de classificação no app macOS usa por padrão o backend seguro do Luum em `/api/ai/classify`; a chave Gemini deve ficar na Vercel, e o usuário só aciona sugestões em Apps/Sites.
+- Alpha macOS `0.0.4` gerada com bundle id `com.luum.apple`; o caminho principal de teste agora e instalador `.pkg` com `luum.app` em `/Applications`, mantendo `.zip` apenas como fallback.
 
 Progresso aproximado para finalizar o produto:
 
@@ -28,6 +29,12 @@ Progresso aproximado para finalizar o produto:
 - Integrações externas de agenda/tarefas/automação: 45-60%. A UI do app já foi simplificada: Google Calendar tem conexão guiada; Notion, Outlook, ClickUp, Linear e Zapier aparecem com status simples e botão `Conectar` bloqueado até existir OAuth/backend real para funcionar de ponta a ponta sem configuração manual.
 
 Ainda precisa de validação manual com uma conta real: entrar no site, abrir o app pelo deeplink, alterar plano no `admin.html` e clicar em validar assinatura no app.
+
+Política de versionamento adotada:
+
+- `v0.0.x`: builds alpha pequenos, correções e testes de instalador.
+- `v0.1.0`: primeira grande atualização de UI/UX.
+- `v1.0.0`: lançamento final/publico.
 
 ## Firebase
 

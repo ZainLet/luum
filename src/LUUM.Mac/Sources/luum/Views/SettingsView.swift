@@ -17,11 +17,7 @@ struct SettingsView: View {
                 integrationHubCard
                 aiClassificationCard
                 googleCalendarCard
-                notionCalendarCard
-                outlookCalendarCard
-                clickUpCard
-                linearCard
-                zapierCard
+                pendingConnectionsCard
                 teamCard
                 privacyCard
                 cloudSyncCard
@@ -59,6 +55,9 @@ struct SettingsView: View {
             .padding(28)
         }
         .background(LuumTheme.pageGradient.opacity(0.46))
+        .task {
+            store.refreshPublicIntegrationConfig()
+        }
     }
 
     private var appVersionCard: some View {
@@ -67,7 +66,6 @@ struct SettingsView: View {
             lines: [
                 "Luum \(AppVersionInfo.current.displayVersion)",
                 "Build \(AppVersionInfo.current.build) • \(AppVersionInfo.current.channel)",
-                "Bundle \(AppVersionInfo.current.bundleIdentifier)",
             ],
             tint: LuumTheme.accent.opacity(0.12)
         )
@@ -98,6 +96,13 @@ struct SettingsView: View {
                 ForEach(IntegrationKind.allCases) { kind in
                     IntegrationStatusTile(snapshot: integrationSnapshot(for: kind))
                 }
+            }
+
+            if let message = store.publicIntegrationStatusMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(22)
@@ -181,15 +186,15 @@ struct SettingsView: View {
         .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.14), cornerRadius: 30)
     }
 
-    private var notionCalendarCard: some View {
+    private var pendingConnectionsCard: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Notion Calendar")
+                    Text("Conexoes em breve")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Traga prazos e eventos do Notion quando o conector oficial estiver ativo.")
+                    Text("Essas integracoes vao usar login guiado. Nada de token, chave ou webhook manual.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -197,73 +202,69 @@ struct SettingsView: View {
                 Spacer()
 
                 CompactStatPill(
-                    title: store.notionCalendarConfigured ? "Ativo" : "Off",
-                    detail: "Notion"
+                    title: "\(pendingProviderConnectedCount)",
+                    detail: "prontas"
                 )
             }
 
-            pendingIntegrationRow(
-                title: store.hasNotionToken ? "Conectado neste Mac" : "Conectar Notion",
-                subtitle: store.hasNotionToken ? "Conexao local antiga detectada." : "Conexao por um clique sera liberada pelo backend do Luum.",
-                systemImage: "doc.text.image",
-                isConnected: store.hasNotionToken
-            )
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 12)], spacing: 12) {
+                pendingIntegrationRow(
+                    title: pendingTitle(name: "Notion", isConnected: store.hasNotionToken, isAvailable: store.notionManagedOAuthAvailable),
+                    subtitle: pendingSubtitle(connected: "Pronto para sincronizar quando ativado.", isConnected: store.hasNotionToken, isAvailable: store.notionManagedOAuthAvailable),
+                    systemImage: "doc.text.image",
+                    isConnected: store.hasNotionToken,
+                    isAvailable: store.notionManagedOAuthAvailable
+                )
 
-            if let message = store.notionCalendarStatusMessage {
+                pendingIntegrationRow(
+                    title: pendingTitle(name: "Outlook", isConnected: store.hasOutlookToken, isAvailable: store.outlookManagedOAuthAvailable),
+                    subtitle: pendingSubtitle(connected: "Pronto para sincronizar quando ativado.", isConnected: store.hasOutlookToken, isAvailable: store.outlookManagedOAuthAvailable),
+                    systemImage: "calendar",
+                    isConnected: store.hasOutlookToken,
+                    isAvailable: store.outlookManagedOAuthAvailable
+                )
+
+                pendingIntegrationRow(
+                    title: pendingTitle(name: "ClickUp", isConnected: store.hasClickUpToken, isAvailable: store.clickUpManagedOAuthAvailable),
+                    subtitle: pendingSubtitle(connected: "Pronto para sincronizar quando ativado.", isConnected: store.hasClickUpToken, isAvailable: store.clickUpManagedOAuthAvailable),
+                    systemImage: "checklist",
+                    isConnected: store.hasClickUpToken,
+                    isAvailable: store.clickUpManagedOAuthAvailable
+                )
+
+                pendingIntegrationRow(
+                    title: pendingTitle(name: "Linear", isConnected: store.hasLinearToken, isAvailable: store.linearManagedOAuthAvailable),
+                    subtitle: pendingSubtitle(connected: "Pronto para sincronizar quando ativado.", isConnected: store.hasLinearToken, isAvailable: store.linearManagedOAuthAvailable),
+                    systemImage: "arrow.up.right.square",
+                    isConnected: store.hasLinearToken,
+                    isAvailable: store.linearManagedOAuthAvailable
+                )
+
+                pendingIntegrationRow(
+                    title: pendingTitle(name: "Zapier", isConnected: store.zapierConfigured, isAvailable: store.zapierManagedConnectionAvailable),
+                    subtitle: pendingSubtitle(connected: "Automacao pronta neste Mac.", isConnected: store.zapierConfigured, isAvailable: store.zapierManagedConnectionAvailable),
+                    systemImage: "bolt.horizontal",
+                    isConnected: store.zapierConfigured,
+                    isAvailable: store.zapierManagedConnectionAvailable
+                )
+            }
+
+            pendingStatusMessages
+        }
+        .padding(22)
+        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.12), cornerRadius: 30)
+    }
+
+    @ViewBuilder
+    private var pendingStatusMessages: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(pendingConnectionMessages, id: \.self) { message in
                 Text(message)
                     .font(.caption)
                     .foregroundStyle(LuumTheme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-
-            if let lastSyncAt = store.notionCalendarLastSyncAt {
-                Text("Ultimo sync do Notion: \(LuumFormatters.relativeTime(until: lastSyncAt)).")
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textMuted)
-            }
-
         }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.14), cornerRadius: 30)
-    }
-
-    private var outlookCalendarCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Outlook Calendar")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.white)
-
-                    Text("Sincronize compromissos do Microsoft 365 com conexao guiada.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer()
-
-                CompactStatPill(
-                    title: store.outlookCalendarConfigured ? "Ativo" : "Off",
-                    detail: "Outlook"
-                )
-            }
-
-            pendingIntegrationRow(
-                title: store.hasOutlookToken ? "Conectado neste Mac" : "Conectar Outlook",
-                subtitle: store.hasOutlookToken ? "Conexao local antiga detectada." : "Conexao Microsoft sera liberada pelo backend do Luum.",
-                systemImage: "calendar",
-                isConnected: store.hasOutlookToken
-            )
-
-            if let message = store.outlookCalendarStatusMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textSecondary)
-            }
-
-        }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.12), cornerRadius: 30)
     }
 
     private var aiClassificationCard: some View {
@@ -300,127 +301,13 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("A chave Gemini fica no backend do Luum, nao neste Mac.")
+            Text("A IA usa a configuracao segura da sua conta Luum.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(22)
         .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.12), cornerRadius: 30)
-    }
-
-    private var clickUpCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("ClickUp")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.white)
-
-                    Text("Inclua tarefas com prazo no seu planejamento diario.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer()
-
-                CompactStatPill(
-                    title: store.clickUpConfigured ? "Ativo" : "Off",
-                    detail: "ClickUp"
-                )
-            }
-
-            pendingIntegrationRow(
-                title: store.hasClickUpToken ? "Conectado neste Mac" : "Conectar ClickUp",
-                subtitle: store.hasClickUpToken ? "Conexao local antiga detectada." : "Conexao ClickUp sera liberada pelo backend do Luum.",
-                systemImage: "checklist",
-                isConnected: store.hasClickUpToken
-            )
-
-            if let message = store.clickUpStatusMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textSecondary)
-            }
-        }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.hotPink.opacity(0.12), cornerRadius: 30)
-    }
-
-    private var linearCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Linear")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.white)
-
-                    Text("Traga ciclos, issues e prazos para comparar plano e execucao.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer()
-
-                CompactStatPill(
-                    title: store.linearConfigured ? "Ativo" : "Off",
-                    detail: "Linear"
-                )
-            }
-
-            pendingIntegrationRow(
-                title: store.hasLinearToken ? "Conectado neste Mac" : "Conectar Linear",
-                subtitle: store.hasLinearToken ? "Conexao local antiga detectada." : "Conexao Linear sera liberada pelo backend do Luum.",
-                systemImage: "arrow.up.right.square",
-                isConnected: store.hasLinearToken
-            )
-
-            if let message = store.linearStatusMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textSecondary)
-            }
-        }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.12), cornerRadius: 30)
-    }
-
-    private var zapierCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Zapier")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.white)
-
-                    Text("Dispare automacoes a partir de foco, agenda e ranking.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer()
-
-                CompactStatPill(
-                    title: store.zapierConfigured ? "Ativo" : "Off",
-                    detail: "Zapier"
-                )
-            }
-
-            pendingIntegrationRow(
-                title: store.zapierConfigured ? "Zapier conectado" : "Conectar Zapier",
-                subtitle: store.zapierConfigured ? "Automacao pronta neste Mac." : "Conector oficial sera liberado pelo backend do Luum.",
-                systemImage: "bolt.horizontal",
-                isConnected: store.zapierConfigured
-            )
-
-            if let message = store.zapierStatusMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textSecondary)
-            }
-        }
-        .padding(22)
-        .luumGlassCard(tint: ActivityCategory.work.glassTint, cornerRadius: 30)
     }
 
     private var teamCard: some View {
@@ -584,7 +471,7 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("Tokens e segredos das conexoes continuam fora do backup.")
+            Text("Dados sensiveis das conexoes ficam fora do backup.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -654,6 +541,35 @@ struct SettingsView: View {
         .count
     }
 
+    private var pendingProviderConnectedCount: Int {
+        [
+            store.hasNotionToken,
+            store.hasOutlookToken,
+            store.hasClickUpToken,
+            store.hasLinearToken,
+            store.zapierConfigured,
+        ]
+        .filter { $0 }
+        .count
+    }
+
+    private var pendingConnectionMessages: [String] {
+        var seen: Set<String> = []
+        return [
+            store.notionCalendarStatusMessage,
+            store.outlookCalendarStatusMessage,
+            store.clickUpStatusMessage,
+            store.linearStatusMessage,
+            store.zapierStatusMessage,
+        ]
+        .compactMap { message in
+            let trimmed = message?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard !trimmed.isEmpty, !seen.contains(trimmed) else { return nil }
+            seen.insert(trimmed)
+            return trimmed
+        }
+    }
+
     private func integrationSnapshot(for kind: IntegrationKind) -> IntegrationSnapshot {
         switch kind {
         case .aiClassification:
@@ -720,6 +636,15 @@ struct SettingsView: View {
                 )
             }
 
+            if store.notionManagedOAuthAvailable {
+                return IntegrationSnapshot(
+                    kind: kind,
+                    status: "Pronto",
+                    detail: "Conexao guiada preparada",
+                    tint: LuumTheme.secondaryAccent
+                )
+            }
+
             if store.notionCalendarSettings.isEnabled {
                 return IntegrationSnapshot(
                     kind: kind,
@@ -741,6 +666,15 @@ struct SettingsView: View {
                     kind: kind,
                     status: "Ativo",
                     detail: "\(store.outlookCalendarSettings.calendars.filter(\.isSelected).count) calendario(s) sincronizados",
+                    tint: LuumTheme.electricBlue
+                )
+            }
+
+            if store.outlookManagedOAuthAvailable {
+                return IntegrationSnapshot(
+                    kind: kind,
+                    status: "Pronto",
+                    detail: "Conexao guiada preparada",
                     tint: LuumTheme.electricBlue
                 )
             }
@@ -770,6 +704,15 @@ struct SettingsView: View {
                 )
             }
 
+            if store.clickUpManagedOAuthAvailable {
+                return IntegrationSnapshot(
+                    kind: kind,
+                    status: "Pronto",
+                    detail: "Conexao guiada preparada",
+                    tint: LuumTheme.secondaryAccent
+                )
+            }
+
             if store.clickUpSettings.isEnabled {
                 return IntegrationSnapshot(
                     kind: kind,
@@ -795,6 +738,15 @@ struct SettingsView: View {
                 )
             }
 
+            if store.linearManagedOAuthAvailable {
+                return IntegrationSnapshot(
+                    kind: kind,
+                    status: "Pronto",
+                    detail: "Conexao guiada preparada",
+                    tint: LuumTheme.secondaryAccent
+                )
+            }
+
             if store.linearSettings.isEnabled {
                 return IntegrationSnapshot(
                     kind: kind,
@@ -816,6 +768,15 @@ struct SettingsView: View {
                     kind: kind,
                     status: "Ativo",
                     detail: "Automacoes prontas",
+                    tint: ActivityCategory.work.tint
+                )
+            }
+
+            if store.zapierManagedConnectionAvailable {
+                return IntegrationSnapshot(
+                    kind: kind,
+                    status: "Pronto",
+                    detail: "Conexao guiada preparada",
                     tint: ActivityCategory.work.tint
                 )
             }
@@ -863,6 +824,22 @@ struct SettingsView: View {
         }
     }
 
+    private func pendingTitle(name: String, isConnected: Bool, isAvailable: Bool) -> String {
+        if isConnected {
+            return "\(name) conectado"
+        }
+        return isAvailable ? "Conectar \(name)" : "\(name) em breve"
+    }
+
+    private func pendingSubtitle(connected: String, isConnected: Bool, isAvailable: Bool) -> String {
+        if isConnected {
+            return connected
+        }
+        return isAvailable
+            ? "Conexao guiada disponivel pela conta Luum."
+            : "Login guiado sera liberado pelo Luum, sem token manual."
+    }
+
     private func settingsCard(title: String, lines: [String], tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
@@ -906,7 +883,7 @@ struct SettingsView: View {
         )
     }
 
-    private func pendingIntegrationRow(title: String, subtitle: String, systemImage: String, isConnected: Bool) -> some View {
+    private func pendingIntegrationRow(title: String, subtitle: String, systemImage: String, isConnected: Bool, isAvailable: Bool) -> some View {
         HStack(alignment: .center, spacing: 14) {
             Image(systemName: systemImage)
                 .font(.title3.weight(.semibold))
@@ -930,9 +907,13 @@ struct SettingsView: View {
                 Button("Conectado") {}
                     .buttonStyle(.bordered)
                     .disabled(true)
-            } else {
+            } else if isAvailable {
                 Button("Conectar") {}
                     .buttonStyle(.glassProminent)
+                    .disabled(true)
+            } else {
+                Button("Em breve") {}
+                    .buttonStyle(.bordered)
                     .disabled(true)
             }
         }
@@ -948,15 +929,13 @@ private struct AppVersionInfo {
     let version: String
     let build: String
     let channel: String
-    let bundleIdentifier: String
 
     static var current: AppVersionInfo {
         let bundle = Bundle.main
         return AppVersionInfo(
             version: bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev",
             build: bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "local",
-            channel: bundle.object(forInfoDictionaryKey: "LuumReleaseChannel") as? String ?? "development",
-            bundleIdentifier: bundle.bundleIdentifier ?? "swiftpm.local"
+            channel: bundle.object(forInfoDictionaryKey: "LuumReleaseChannel") as? String ?? "development"
         )
     }
 

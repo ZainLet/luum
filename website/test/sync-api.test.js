@@ -134,6 +134,28 @@ test('sync API requires Firebase account metadata for new backup writes', async 
     assert.equal(backupWrites.length, 0);
 });
 
+test('sync API rejects malformed JSON as a client error', async () => {
+    const backupWrites = [];
+    installFirebaseAdminMock({ backupWrites });
+
+    const handler = require('../api/sync/[backupID].js');
+    const res = response();
+
+    await handler({
+        method: 'PUT',
+        url: '/api/sync/firebase-user',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: '{"payload":'
+    }, res);
+
+    assert.equal(res.code, 400);
+    assert.equal(res.body.message, 'JSON do backup inválido');
+    assert.equal(backupWrites.length, 0);
+});
+
 test('sync API accepts current backup writes only when account uid matches Firebase token', async () => {
     const backupWrites = [];
     installFirebaseAdminMock({ backupWrites });

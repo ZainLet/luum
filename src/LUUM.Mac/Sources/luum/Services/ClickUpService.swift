@@ -17,13 +17,13 @@ enum ClickUpIssue: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingToken:
-            "Informe um token da API do ClickUp para sincronizar tarefas."
+            "Conexao ClickUp em um clique sera liberada em breve."
         case .missingLists:
-            "Adicione pelo menos um List ID do ClickUp para buscar tarefas."
+            "Conexao ClickUp em um clique sera liberada em breve."
         case .invalidResponse:
             "O ClickUp respondeu sem um payload utilizavel."
         case .unauthorized:
-            "O token do ClickUp foi rejeitado. Revise a integracao."
+            "Nao foi possivel validar a conexao do ClickUp. Reconecte quando o conector estiver disponivel."
         case let .apiError(message):
             message
         }

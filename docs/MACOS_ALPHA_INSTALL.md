@@ -19,15 +19,23 @@ No Mac de desenvolvimento:
 O script gera os artefatos em `dist/releases/`. Para teste em outro Mac, prefira o `.pkg`: ele instala `luum.app` em `/Applications` com duplo clique, sem terminal.
 
 - `Luum-...pkg`: instalador simples da alpha.
+- `Luum-alpha-latest.pkg`: cópia estável do instalador mais recente para teste interno.
+- `Luum-0.0.4-alpha.pkg`: cópia estável da versão alpha atual.
 - `Luum-...pkg.sha256`: checksum do instalador.
 - `Luum-...pkg.txt`: notas rápidas do instalador.
 - `Luum-...zip`: fallback técnico com o app bundle completo `luum.app`, não arquivos soltos.
 - `Luum-...zip.sha256`: checksum para conferir integridade.
 - `Luum-...zip.txt`: notas rápidas da build.
 
+## Versoes alpha
+
+Durante a fase alpha, avance o ultimo digito para builds pequenos de teste, por exemplo `v0.0.3`, `v0.0.4` e `v0.0.5`. Reserve o digito do meio para mudancas grandes que precisam ficar faceis de identificar, como a reformulacao de UI/UX: `v0.1.0`. A versao `v1.0.0` fica reservada para o lancamento final/publico.
+
+Nao crie varias tags com sufixos do tipo `v0.0.2-alpha.5` para cada ajuste pequeno. Prefira promover o patch (`v0.0.5`, `v0.0.6`) quando for publicar uma nova alpha de teste.
+
 ## Instalar em outro Mac
 
-1. Transfira o `.pkg` para o Mac de teste.
+1. Transfira `Luum-alpha-latest.pkg` para o Mac de teste.
 2. Abra o `.pkg` com duplo clique.
 3. Siga o instalador para colocar `luum.app` em `Aplicativos`.
 4. No primeiro uso, abra com `Control-click > Abrir`.
@@ -36,18 +44,39 @@ O script gera os artefatos em `dist/releases/`. Para teste em outro Mac, prefira
 
 Se estiver usando o `.zip` fallback, abra o zip e arraste `luum.app` manualmente para `Aplicativos`.
 
+## Checklist da alpha 0.0.4
+
+Use este roteiro para validar a build de teste antes de chamar a alpha de pronta:
+
+1. Instalar pelo `.pkg` com duplo clique, sem comandos de terminal.
+2. Confirmar que `luum.app` aparece em `Aplicativos`.
+3. Abrir com `Control-click > Abrir` se o Gatekeeper bloquear.
+4. Confirmar em Ajustes que a versão exibida é `0.0.4-alpha`.
+5. Clicar em entrar/conectar conta e concluir o fluxo `luum://auth`.
+6. Confirmar que o app mostra email, plano e estado de monitoramento corretos.
+7. Pausar e retomar o monitoramento sem travar.
+8. Permitir Automação do navegador quando o macOS pedir.
+9. Abrir um navegador suportado e confirmar que a atividade aparece/classifica.
+10. Revalidar plano no app e confirmar que recursos bloqueados/liberados batem com o Firebase.
+11. Ativar backup Firebase e executar um sync manual.
+12. Enviar um PDF semanal por email em conta com plano permitido.
+13. Sair da conta e confirmar que sync, IA, workspace e envio de PDF param sem erro visual.
+14. Fechar e abrir o app novamente, confirmando que não aparece prompt repetido das Chaves.
+
+Resultado esperado: instalação simples pelo `.pkg`, login funcionando pelo callback `luum://auth`, permissões de plano vindas do Firebase e app responsivo durante monitoramento básico.
+
 ## Se o macOS bloquear a abertura
 
 Sem Apple Developer ID, o Gatekeeper pode bloquear o primeiro launch. Primeiro tente:
 
-1. `Control-click` no `Luum.app`.
+1. `Control-click` no `luum.app`.
 2. Clique em `Abrir`.
 3. Confirme `Abrir` de novo.
 
 Se isso ainda falhar em um Mac de teste interno, remova a quarentena manualmente:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/Luum.app
+xattr -dr com.apple.quarantine /Applications/luum.app
 ```
 
 Depois abra o app novamente.
@@ -69,8 +98,8 @@ Depois abra o Luum novamente. O app também tenta limpar esse item silenciosamen
 No Mac de teste:
 
 ```bash
-codesign --verify --deep --strict --verbose=2 /Applications/Luum.app
-spctl --assess --type execute --verbose=4 /Applications/Luum.app
+codesign --verify --deep --strict --verbose=2 /Applications/luum.app
+spctl --assess --type execute --verbose=4 /Applications/luum.app
 ```
 
 Com assinatura ad-hoc, `codesign --verify` deve passar. O `spctl` pode rejeitar por falta de notarização; isso é esperado nesta alpha sem Apple Developer ID. O instalador `.pkg` também fica sem assinatura/notarização nesta fase.

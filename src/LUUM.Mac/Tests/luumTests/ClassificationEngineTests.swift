@@ -96,6 +96,44 @@ func categorizesInstalledUtilitiesByBundleIdentifier() {
 }
 
 @Test
+func categorizesCommonDeveloperToolsByDefault() {
+    let engine = ClassificationEngine()
+
+    let githubDesktop = engine.classify(
+        applicationName: "GitHub Desktop",
+        bundleIdentifier: "com.github.GitHubClient",
+        webURL: nil
+    )
+    let insomnia = engine.classify(
+        applicationName: "Insomnia",
+        bundleIdentifier: "com.insomnia.app",
+        webURL: nil
+    )
+
+    #expect(githubDesktop == .work)
+    #expect(insomnia == .work)
+}
+
+@Test
+func categorizesCommonMacUtilitiesByDefault() {
+    let engine = ClassificationEngine()
+
+    let rectangle = engine.classify(
+        applicationName: "Rectangle",
+        bundleIdentifier: "com.knollsoft.Rectangle",
+        webURL: nil
+    )
+    let cleanMyMac = engine.classify(
+        applicationName: "CleanMyMac",
+        bundleIdentifier: "com.macpaw.CleanMyMac-mas",
+        webURL: nil
+    )
+
+    #expect(rectangle == .utilities)
+    #expect(cleanMyMac == .utilities)
+}
+
+@Test
 func ignoresSystemApplicationsByDefault() {
     let engine = ClassificationEngine()
 
@@ -121,6 +159,27 @@ func ignoresTechnicalAppleUtilitiesByDefault() {
     )
 
     #expect(ignored == true)
+}
+
+@Test
+func ignoresMoreAppleSystemUtilitiesByDefault() {
+    let engine = ClassificationEngine()
+
+    let appStoreIgnored = engine.isIgnored(
+        applicationName: "App Store",
+        bundleIdentifier: "com.apple.AppStore",
+        webURL: nil,
+        preferences: .default
+    )
+    let keychainIgnored = engine.isIgnored(
+        applicationName: "Keychain Access",
+        bundleIdentifier: "com.apple.keychainaccess",
+        webURL: nil,
+        preferences: .default
+    )
+
+    #expect(appStoreIgnored == true)
+    #expect(keychainIgnored == true)
 }
 
 @Test
@@ -383,6 +442,42 @@ final class ClassificationEngineTests: XCTestCase {
         XCTAssertEqual(category, .utilities)
     }
 
+    func testCategorizesCommonDeveloperToolsByDefault() {
+        let engine = ClassificationEngine()
+
+        let githubDesktop = engine.classify(
+            applicationName: "GitHub Desktop",
+            bundleIdentifier: "com.github.GitHubClient",
+            webURL: nil
+        )
+        let insomnia = engine.classify(
+            applicationName: "Insomnia",
+            bundleIdentifier: "com.insomnia.app",
+            webURL: nil
+        )
+
+        XCTAssertEqual(githubDesktop, .work)
+        XCTAssertEqual(insomnia, .work)
+    }
+
+    func testCategorizesCommonMacUtilitiesByDefault() {
+        let engine = ClassificationEngine()
+
+        let rectangle = engine.classify(
+            applicationName: "Rectangle",
+            bundleIdentifier: "com.knollsoft.Rectangle",
+            webURL: nil
+        )
+        let cleanMyMac = engine.classify(
+            applicationName: "CleanMyMac",
+            bundleIdentifier: "com.macpaw.CleanMyMac-mas",
+            webURL: nil
+        )
+
+        XCTAssertEqual(rectangle, .utilities)
+        XCTAssertEqual(cleanMyMac, .utilities)
+    }
+
     func testIgnoresSystemApplicationsByDefault() {
         let engine = ClassificationEngine()
 
@@ -407,6 +502,26 @@ final class ClassificationEngineTests: XCTestCase {
         )
 
         XCTAssertTrue(ignored)
+    }
+
+    func testIgnoresMoreAppleSystemUtilitiesByDefault() {
+        let engine = ClassificationEngine()
+
+        let appStoreIgnored = engine.isIgnored(
+            applicationName: "App Store",
+            bundleIdentifier: "com.apple.AppStore",
+            webURL: nil,
+            preferences: .default
+        )
+        let keychainIgnored = engine.isIgnored(
+            applicationName: "Keychain Access",
+            bundleIdentifier: "com.apple.keychainaccess",
+            webURL: nil,
+            preferences: .default
+        )
+
+        XCTAssertTrue(appStoreIgnored)
+        XCTAssertTrue(keychainIgnored)
     }
 
     func testPrioritizesManualRuleOverrides() {

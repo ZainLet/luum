@@ -62,8 +62,11 @@ async function workspaceRankingHandler(req, res) {
             entries
         });
     } catch (error) {
-        console.error('[Workspace Ranking Error]', error);
-        return res.status(error.statusCode || 500).json({
+        const statusCode = error.statusCode || 500;
+        if (statusCode >= 500) {
+            console.error('[Workspace Ranking Error]', error);
+        }
+        return res.status(statusCode).json({
             message: error.statusCode ? error.message : 'Erro interno no workspace'
         });
     }

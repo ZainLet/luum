@@ -261,17 +261,9 @@ struct AgendaView: View {
                 .foregroundStyle(LuumTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 16) {
-                Link("OAuth desktop do Google", destination: URL(string: "https://developers.google.com/identity/protocols/oauth2/native-app")!)
-                    .foregroundStyle(LuumTheme.electricBlue)
-
-                Link("API do Notion", destination: URL(string: "https://developers.notion.com/reference/intro")!)
-                    .foregroundStyle(LuumTheme.secondaryAccent)
-
-                Link("Microsoft Graph", destination: URL(string: "https://learn.microsoft.com/graph/api/resources/calendar?view=graph-rest-1.0")!)
-                    .foregroundStyle(LuumTheme.hotPink)
-            }
-            .font(.caption)
+            Text("Abra Preferencias > Conexoes para conectar uma fonte de agenda.")
+                .font(.caption)
+                .foregroundStyle(LuumTheme.textMuted)
         }
         .padding(24)
         .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.16))
@@ -326,7 +318,7 @@ struct AgendaView: View {
 
     private var emptyStateDescription: String {
         if !agenda.isConfigured {
-            return "Nas preferencias do luum voce pode configurar OAuth desktop do Google e tambem adicionar data sources do Notion com propriedade de data."
+            return "Conecte Google, Notion, Outlook, ClickUp ou Linear nas preferencias para montar sua linha do tempo planejada."
         }
 
         if !agenda.isConnected {

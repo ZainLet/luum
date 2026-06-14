@@ -17,11 +17,11 @@ enum OutlookCalendarIssue: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingToken:
-            "Informe um token de acesso do Microsoft Graph para sincronizar o Outlook Calendar."
+            "Conexao Microsoft em um clique sera liberada em breve."
         case .invalidResponse:
             "O Outlook Calendar respondeu sem um payload utilizavel."
         case .unauthorized:
-            "O token do Outlook nao foi aceito. Revise as permissoes do Microsoft Graph."
+            "Nao foi possivel validar a conexao do Outlook. Reconecte quando o conector estiver disponivel."
         case let .apiError(message):
             message
         }

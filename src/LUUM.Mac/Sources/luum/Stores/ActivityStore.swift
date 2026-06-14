@@ -53,6 +53,9 @@ final class ActivityStore {
     private(set) var aiClassificationStatusMessage: String?
     private(set) var isClassifyingWithAI = false
     private(set) var isSendingWeeklyReportEmail = false
+    private(set) var publicIntegrationConfig: PublicIntegrationConfig?
+    private(set) var publicIntegrationStatusMessage: String?
+    private(set) var isLoadingPublicIntegrationConfig = false
 
     let classifier = ClassificationEngine()
 
@@ -83,13 +86,19 @@ final class ActivityStore {
     @ObservationIgnored private var persistenceWriteTask: Task<Void, Never>?
     @ObservationIgnored private var preferencesWriteTask: Task<Void, Never>?
     @ObservationIgnored private var reminderEvaluationTask: Task<Void, Never>?
+    @ObservationIgnored private var lastReminderEvaluationRequestAt: Date?
     @ObservationIgnored private var authRefreshTask: Task<Void, Never>?
     @ObservationIgnored private var authRefreshGeneration = 0
     @ObservationIgnored private var cloudSyncTask: Task<Void, Never>?
+    @ObservationIgnored private var cloudSyncPendingAfterCurrent = false
+    @ObservationIgnored private var workspaceSyncTask: Task<Void, Never>?
+    @ObservationIgnored private var aiClassificationTask: Task<Void, Never>?
+    @ObservationIgnored private var weeklyReportEmailTask: Task<Void, Never>?
     @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
     @ObservationIgnored private let calendarRefreshInterval: TimeInterval = 900
     @ObservationIgnored private let cloudSyncInterval: TimeInterval = 900
-    @ObservationIgnored private let activityPersistenceDebounce: Duration = .seconds(5)
+    @ObservationIgnored private let reminderEvaluationMinimumInterval: TimeInterval = 30
+    @ObservationIgnored private let activityPersistenceDebounce: Duration
     @ObservationIgnored private let preferencesPersistenceDebounce: Duration = .milliseconds(300)
     @ObservationIgnored private let liveSummaryRefreshInterval: TimeInterval = 30
     @ObservationIgnored private var lastLiveSummaryRefreshAt: Date?
@@ -98,6 +107,12 @@ final class ActivityStore {
     @ObservationIgnored private var clickUpAgendaDay: Date?
     @ObservationIgnored private var linearAgendaDay: Date?
     private(set) var summaryRevision = 0
+
+    @ObservationIgnored private static let notionPendingConnectionMessage = "Conexao Notion em um clique sera liberada em breve."
+    @ObservationIgnored private static let outlookPendingConnectionMessage = "Conexao Microsoft em um clique sera liberada em breve."
+    @ObservationIgnored private static let clickUpPendingConnectionMessage = "Conexao ClickUp em um clique sera liberada em breve."
+    @ObservationIgnored private static let linearPendingConnectionMessage = "Conexao Linear em um clique sera liberada em breve."
+    @ObservationIgnored private static let zapierPendingConnectionMessage = "Automacoes Zapier guiadas serao liberadas em breve."
 
     init(
         persistence: ActivityPersistence = ActivityPersistence(),
@@ -117,7 +132,8 @@ final class ActivityStore {
         authService: FirebaseAuthService = FirebaseAuthService(),
         aiClassificationService: AIClassificationService = AIClassificationService(),
         weeklyReportEmailService: WeeklyReportEmailService = WeeklyReportEmailService(),
-        publicIntegrationConfigService: PublicIntegrationConfigService = PublicIntegrationConfigService()
+        publicIntegrationConfigService: PublicIntegrationConfigService = PublicIntegrationConfigService(),
+        activityPersistenceDebounce: Duration = .seconds(5)
     ) {
         self.persistence = persistence
         self.monitor = monitor ?? ActivityMonitor()
@@ -137,6 +153,7 @@ final class ActivityStore {
         self.aiClassificationService = aiClassificationService
         self.weeklyReportEmailService = weeklyReportEmailService
         self.publicIntegrationConfigService = publicIntegrationConfigService
+        self.activityPersistenceDebounce = activityPersistenceDebounce
 
         let monitoringPreferences = monitoringPreferencesPersistence.load().normalized()
         let calendarSnapshot = googleCalendarPersistence.load()
@@ -150,11 +167,26 @@ final class ActivityStore {
         self.googleCalendarClientSecret = keychainService.string(for: Self.googleCalendarClientSecretKey) ?? calendarSnapshot.clientSecret
         self.googleCalendarConnections = calendarSnapshot.connections
         self.googleCalendarStatusMessage = googleCalendarConnections.isEmpty ? nil : "Google Agenda pronta para sincronizar."
-        self.notionCalendarStatusMessage = monitoringPreferences.notionCalendarSettings.isEnabled ? "Notion pronta para sincronizar." : nil
-        self.outlookCalendarStatusMessage = monitoringPreferences.outlookCalendarSettings.isEnabled ? "Outlook pronto para sincronizar." : nil
-        self.clickUpStatusMessage = monitoringPreferences.clickUpSettings.isEnabled ? "ClickUp pronto para sincronizar." : nil
-        self.linearStatusMessage = monitoringPreferences.linearSettings.isEnabled ? "Linear pronto para sincronizar." : nil
-        self.zapierStatusMessage = monitoringPreferences.zapierSettings.isEnabled ? "Zapier pronto para disparar automacoes." : nil
+        let hasStoredNotionToken = keychainService.string(for: Self.notionCalendarTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        let hasStoredOutlookToken = keychainService.string(for: Self.outlookCalendarTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        let hasStoredClickUpToken = keychainService.string(for: Self.clickUpTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        let hasStoredLinearToken = keychainService.string(for: Self.linearTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        let hasStoredZapierWebhook = monitoringPreferences.zapierSettings.webhookURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        self.notionCalendarStatusMessage = monitoringPreferences.notionCalendarSettings.isEnabled
+            ? (hasStoredNotionToken && !monitoringPreferences.notionCalendarSettings.databaseIDs.isEmpty ? "Notion pronto para sincronizar." : Self.notionPendingConnectionMessage)
+            : nil
+        self.outlookCalendarStatusMessage = monitoringPreferences.outlookCalendarSettings.isEnabled
+            ? (hasStoredOutlookToken ? "Outlook pronto para sincronizar." : Self.outlookPendingConnectionMessage)
+            : nil
+        self.clickUpStatusMessage = monitoringPreferences.clickUpSettings.isEnabled
+            ? (hasStoredClickUpToken && !monitoringPreferences.clickUpSettings.listIDs.isEmpty ? "ClickUp pronto para sincronizar." : Self.clickUpPendingConnectionMessage)
+            : nil
+        self.linearStatusMessage = monitoringPreferences.linearSettings.isEnabled
+            ? (hasStoredLinearToken && !monitoringPreferences.linearSettings.teamIDs.isEmpty ? "Linear pronto para sincronizar." : Self.linearPendingConnectionMessage)
+            : nil
+        self.zapierStatusMessage = monitoringPreferences.zapierSettings.isEnabled
+            ? (hasStoredZapierWebhook ? "Zapier pronto para disparar automacoes." : Self.zapierPendingConnectionMessage)
+            : nil
         self.cloudSyncStatusMessage = nil
         self.workspaceSyncStatusMessage = nil
         self.aiClassificationStatusMessage = nil
@@ -408,8 +440,17 @@ final class ActivityStore {
         isCheckingAuth = false
         cloudSyncTask?.cancel()
         cloudSyncTask = nil
+        cloudSyncPendingAfterCurrent = false
+        workspaceSyncTask?.cancel()
+        workspaceSyncTask = nil
+        aiClassificationTask?.cancel()
+        aiClassificationTask = nil
+        weeklyReportEmailTask?.cancel()
+        weeklyReportEmailTask = nil
         isSyncingCloud = false
         isSyncingWorkspace = false
+        isClassifyingWithAI = false
+        isSendingWeeklyReportEmail = false
         stopMonitoring()
         authSession = nil
         authStatusMessage = "Conta desconectada deste Mac."
@@ -618,7 +659,8 @@ final class ActivityStore {
     }
 
     var isGoogleCalendarConfigured: Bool {
-        !googleCalendarClientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !googleCalendarClientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            (publicIntegrationConfig?.googleCalendar.configured ?? false)
     }
 
     var isGoogleCalendarConnected: Bool {
@@ -687,6 +729,30 @@ final class ActivityStore {
 
     var zapierConfigured: Bool {
         !zapierSettings.webhookURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var googleCalendarManagedOAuthAvailable: Bool {
+        publicIntegrationConfig?.managedOAuth.googleCalendar ?? false
+    }
+
+    var notionManagedOAuthAvailable: Bool {
+        publicIntegrationConfig?.managedOAuth.notion ?? false
+    }
+
+    var outlookManagedOAuthAvailable: Bool {
+        publicIntegrationConfig?.managedOAuth.outlookCalendar ?? false
+    }
+
+    var clickUpManagedOAuthAvailable: Bool {
+        publicIntegrationConfig?.managedOAuth.clickUp ?? false
+    }
+
+    var linearManagedOAuthAvailable: Bool {
+        publicIntegrationConfig?.managedOAuth.linear ?? false
+    }
+
+    var zapierManagedConnectionAvailable: Bool {
+        publicIntegrationConfig?.managedOAuth.zapier ?? false
     }
 
     var teamWorkspaceConfigured: Bool {
@@ -760,6 +826,15 @@ final class ActivityStore {
 
         Task { [weak self] in
             await self?.runCalendarConnect(for: day)
+        }
+    }
+
+    func refreshPublicIntegrationConfig(force: Bool = false) {
+        guard force || publicIntegrationConfig == nil else { return }
+        guard !isLoadingPublicIntegrationConfig else { return }
+
+        Task { [weak self] in
+            await self?.runPublicIntegrationConfigRefresh()
         }
     }
 
@@ -886,7 +961,7 @@ final class ActivityStore {
 
         notionCalendarStatusMessage = notionCalendarConfigured
             ? "Notion pronto para sincronizar."
-            : "Ative o token e pelo menos uma data source do Notion para concluir essa integracao."
+            : Self.notionPendingConnectionMessage
     }
 
     func updateNotionWorkspaceLabel(_ value: String) {
@@ -906,7 +981,7 @@ final class ActivityStore {
 
     func addNotionDataSourceID(_ value: String) {
         guard let normalizedID = NotionCalendarSettings.normalizedDatabaseID(value) else {
-            notionCalendarStatusMessage = "Cole um Data Source ID valido do Notion."
+            notionCalendarStatusMessage = Self.notionPendingConnectionMessage
             return
         }
 
@@ -933,10 +1008,10 @@ final class ActivityStore {
                 keychainService.removeValue(for: Self.notionCalendarTokenKey)
                 notionAgendaItems = []
                 notionAgendaDay = nil
-                notionCalendarStatusMessage = "Token do Notion removido deste Mac."
+                notionCalendarStatusMessage = Self.notionPendingConnectionMessage
             } else {
                 try keychainService.setString(value, for: Self.notionCalendarTokenKey)
-                notionCalendarStatusMessage = "Token do Notion atualizado neste Mac."
+                notionCalendarStatusMessage = "Notion conectado neste Mac."
             }
         } catch {
             notionCalendarStatusMessage = error.localizedDescription
@@ -970,7 +1045,7 @@ final class ActivityStore {
 
         outlookCalendarStatusMessage = outlookCalendarConfigured
             ? "Outlook pronto para sincronizar."
-            : "Salve um token do Microsoft Graph para concluir a integracao do Outlook."
+            : Self.outlookPendingConnectionMessage
     }
 
     func updateOutlookWorkspaceLabel(_ value: String) {
@@ -986,10 +1061,10 @@ final class ActivityStore {
                 outlookAgendaDay = nil
                 monitoringPreferences.outlookCalendarSettings.accountEmail = ""
                 monitoringPreferences.outlookCalendarSettings.calendars = []
-                outlookCalendarStatusMessage = "Token do Outlook removido deste Mac."
+                outlookCalendarStatusMessage = Self.outlookPendingConnectionMessage
             } else {
                 try keychainService.setString(value, for: Self.outlookCalendarTokenKey)
-                outlookCalendarStatusMessage = "Token do Outlook atualizado neste Mac."
+                outlookCalendarStatusMessage = "Outlook conectado neste Mac."
             }
             persistMonitoringPreferences()
         } catch {
@@ -1030,7 +1105,7 @@ final class ActivityStore {
 
         clickUpStatusMessage = clickUpConfigured
             ? "ClickUp pronto para sincronizar."
-            : "Salve um token e pelo menos uma lista do ClickUp."
+            : Self.clickUpPendingConnectionMessage
     }
 
     func updateClickUpWorkspaceLabel(_ value: String) {
@@ -1054,10 +1129,10 @@ final class ActivityStore {
                 keychainService.removeValue(for: Self.clickUpTokenKey)
                 clickUpAgendaItems = []
                 clickUpAgendaDay = nil
-                clickUpStatusMessage = "Token do ClickUp removido deste Mac."
+                clickUpStatusMessage = Self.clickUpPendingConnectionMessage
             } else {
                 try keychainService.setString(value, for: Self.clickUpTokenKey)
-                clickUpStatusMessage = "Token do ClickUp atualizado neste Mac."
+                clickUpStatusMessage = "ClickUp conectado neste Mac."
             }
         } catch {
             clickUpStatusMessage = error.localizedDescription
@@ -1067,7 +1142,7 @@ final class ActivityStore {
     func addClickUpListID(_ value: String) {
         let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty else {
-            clickUpStatusMessage = "Cole um List ID valido do ClickUp."
+            clickUpStatusMessage = Self.clickUpPendingConnectionMessage
             return
         }
 
@@ -1115,7 +1190,7 @@ final class ActivityStore {
 
         linearStatusMessage = linearConfigured
             ? "Linear pronto para sincronizar."
-            : "Salve uma API key e pelo menos um Team ID do Linear."
+            : Self.linearPendingConnectionMessage
     }
 
     func updateLinearWorkspaceLabel(_ value: String) {
@@ -1139,10 +1214,10 @@ final class ActivityStore {
                 keychainService.removeValue(for: Self.linearTokenKey)
                 linearAgendaItems = []
                 linearAgendaDay = nil
-                linearStatusMessage = "API key do Linear removida deste Mac."
+                linearStatusMessage = Self.linearPendingConnectionMessage
             } else {
                 try keychainService.setString(value, for: Self.linearTokenKey)
-                linearStatusMessage = "API key do Linear atualizada neste Mac."
+                linearStatusMessage = "Linear conectado neste Mac."
             }
         } catch {
             linearStatusMessage = error.localizedDescription
@@ -1152,7 +1227,7 @@ final class ActivityStore {
     func addLinearTeamID(_ value: String) {
         let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty else {
-            linearStatusMessage = "Cole um Team ID valido do Linear."
+            linearStatusMessage = Self.linearPendingConnectionMessage
             return
         }
 
@@ -1190,7 +1265,9 @@ final class ActivityStore {
 
         monitoringPreferences.zapierSettings.isEnabled = value
         persistMonitoringPreferences()
-        zapierStatusMessage = value ? "Zapier pronto para disparar automacoes." : "Integracao com Zapier pausada."
+        zapierStatusMessage = value
+            ? (zapierConfigured ? "Zapier pronto para disparar automacoes." : Self.zapierPendingConnectionMessage)
+            : "Integracao com Zapier pausada."
     }
 
     func updateZapierWebhookURL(_ value: String) {
@@ -1254,7 +1331,7 @@ final class ActivityStore {
     func updateAIClassificationEnabled(_ value: Bool) {
         monitoringPreferences.aiClassificationSettings.isEnabled = value
         aiClassificationStatusMessage = value
-            ? "IA de classificacao ativada. Salve uma chave Gemini para usar nas listas de apps e sites."
+            ? "IA de classificacao ativada. O Luum usa a configuracao segura da sua conta."
             : "IA de classificacao desativada."
         persistMonitoringPreferences()
     }
@@ -1289,13 +1366,15 @@ final class ActivityStore {
     }
 
     func classifyApplicationWithAI(_ item: UsageBreakdownItem) {
-        Task { [weak self] in
+        aiClassificationTask?.cancel()
+        aiClassificationTask = Task { [weak self] in
             await self?.runAIClassification(kind: .application, item: item)
         }
     }
 
     func classifyDomainWithAI(_ item: UsageBreakdownItem) {
-        Task { [weak self] in
+        aiClassificationTask?.cancel()
+        aiClassificationTask = Task { [weak self] in
             await self?.runAIClassification(kind: .domain, item: item)
         }
     }
@@ -1370,7 +1449,8 @@ final class ActivityStore {
 
     func syncWorkspaceRankingNow(for day: Date = Date()) {
         guard !isSyncingWorkspace else { return }
-        Task { [weak self] in
+        workspaceSyncTask?.cancel()
+        workspaceSyncTask = Task { [weak self] in
             await self?.runWorkspaceSync(for: day, force: true)
         }
     }
@@ -1477,6 +1557,8 @@ final class ActivityStore {
             scheduleCloudSyncIfNeeded(reason: "cloud-enabled")
         } else {
             cloudSyncTask?.cancel()
+            cloudSyncTask = nil
+            cloudSyncPendingAfterCurrent = false
         }
     }
 
@@ -1514,14 +1596,16 @@ final class ActivityStore {
 
     func syncCloudBackupNow() {
         guard !isSyncingCloud else { return }
-        Task { [weak self] in
+        cloudSyncTask?.cancel()
+        cloudSyncTask = Task { [weak self] in
             await self?.runCloudSync()
         }
     }
 
     func restoreCloudBackup() {
         guard !isSyncingCloud else { return }
-        Task { [weak self] in
+        cloudSyncTask?.cancel()
+        cloudSyncTask = Task { [weak self] in
             await self?.runCloudRestore()
         }
     }
@@ -2620,7 +2704,8 @@ final class ActivityStore {
         isSendingWeeklyReportEmail = true
         exportStatusMessage = "Gerando PDF e preparando envio por email..."
 
-        Task { [weak self] in
+        weeklyReportEmailTask?.cancel()
+        weeklyReportEmailTask = Task { [weak self] in
             await self?.runWeeklyReportEmail(containing: day)
         }
     }
@@ -2641,7 +2726,6 @@ final class ActivityStore {
 
             let response = try await weeklyReportEmailService.send(
                 firebaseToken: verified.idToken,
-                email: verified.email,
                 report: weeklyReportEmailPayload(containing: day)
             )
             guard isCurrentVerifiedSession(verified) else { return }
@@ -2775,6 +2859,46 @@ final class ActivityStore {
         }
     }
 
+    private func runPublicIntegrationConfigRefresh() async {
+        isLoadingPublicIntegrationConfig = true
+        publicIntegrationStatusMessage = "Verificando conexoes disponiveis no Luum..."
+        defer { isLoadingPublicIntegrationConfig = false }
+
+        do {
+            let config = try await publicIntegrationConfigService.fetch()
+            publicIntegrationConfig = config
+            if let clientID = config.googleCalendar.clientID?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !clientID.isEmpty,
+               googleCalendarClientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            {
+                googleCalendarClientID = clientID
+                persistGoogleCalendar()
+            }
+
+            let availableCount = [
+                config.managedOAuth.googleCalendar,
+                config.managedOAuth.outlookCalendar,
+                config.managedOAuth.notion,
+                config.managedOAuth.clickUp,
+                config.managedOAuth.linear,
+                config.managedOAuth.zapier,
+            ]
+            .filter { $0 }
+            .count
+
+            publicIntegrationStatusMessage = switch availableCount {
+            case 0:
+                "As proximas conexoes guiadas ainda estao sendo preparadas."
+            case 1:
+                "1 conexao guiada disponivel pela conta Luum."
+            default:
+                "\(availableCount) conexoes guiadas disponiveis pela conta Luum."
+            }
+        } catch {
+            publicIntegrationStatusMessage = error.localizedDescription
+        }
+    }
+
     private func runCalendarSync(for day: Date, force: Bool) async {
         guard canUse(.agendaIntegrations) else {
             if force {
@@ -2899,7 +3023,7 @@ final class ActivityStore {
 
         guard notionCalendarConfigured else {
             if force {
-                notionCalendarStatusMessage = "Informe token e Data Source IDs do Notion para liberar essa agenda."
+                notionCalendarStatusMessage = Self.notionPendingConnectionMessage
             }
             return
         }
@@ -2962,7 +3086,7 @@ final class ActivityStore {
 
         guard outlookCalendarConfigured else {
             if force {
-                outlookCalendarStatusMessage = "Informe um token do Microsoft Graph para liberar o Outlook."
+                outlookCalendarStatusMessage = Self.outlookPendingConnectionMessage
             }
             return
         }
@@ -3025,7 +3149,7 @@ final class ActivityStore {
 
         guard clickUpConfigured else {
             if force {
-                clickUpStatusMessage = "Informe um token e pelo menos uma lista do ClickUp."
+                clickUpStatusMessage = Self.clickUpPendingConnectionMessage
             }
             return
         }
@@ -3086,7 +3210,7 @@ final class ActivityStore {
 
         guard linearConfigured else {
             if force {
-                linearStatusMessage = "Informe uma API key e pelo menos um Team ID do Linear."
+                linearStatusMessage = Self.linearPendingConnectionMessage
             }
             return
         }
@@ -3222,7 +3346,7 @@ final class ActivityStore {
             }
         } else {
             guard !(apiKey?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) else {
-                aiClassificationStatusMessage = "Salve uma chave Gemini em Preferencias para usar a IA."
+                aiClassificationStatusMessage = "Use a IA segura do Luum para classificar sem configurar chave no app."
                 return
             }
             verifiedSession = nil
@@ -3275,9 +3399,20 @@ final class ActivityStore {
 
     private func runCloudSync() async {
         guard monitoringPreferences.cloudSyncSettings.isEnabled else { return }
+        guard !isSyncingCloud else {
+            cloudSyncPendingAfterCurrent = true
+            return
+        }
 
         isSyncingCloud = true
-        defer { isSyncingCloud = false }
+        defer {
+            let shouldSchedulePendingSync = cloudSyncPendingAfterCurrent
+            cloudSyncPendingAfterCurrent = false
+            isSyncingCloud = false
+            if shouldSchedulePendingSync {
+                scheduleCloudSyncIfNeeded(reason: "pending-changes")
+            }
+        }
 
         do {
             let verified = try await verifiedAuthSessionForProtectedRequest()
@@ -3551,7 +3686,7 @@ final class ActivityStore {
             coalescingLiveExtension: extendedCurrentSample
         )
         schedulePersistence()
-        evaluateReminders()
+        evaluateReminders(force: !extendedCurrentSample, now: snapshot.timestamp)
     }
 
     private func closeCurrentSession(at timestamp: Date) {
@@ -3575,6 +3710,7 @@ final class ActivityStore {
         persistTask?.cancel()
         persistTask = Task { [weak self] in
             try? await Task.sleep(for: self?.activityPersistenceDebounce ?? .seconds(5))
+            guard !Task.isCancelled else { return }
             self?.flushPersistence()
         }
     }
@@ -3582,7 +3718,9 @@ final class ActivityStore {
     private func flushPersistence() {
         let retentionDays = monitoringPreferences.privacySettings.retentionDays
         let cleanedSamples = persistence.trim(samples: samples, retentionDays: retentionDays)
-        samples = cleanedSamples
+        if cleanedSamples != samples {
+            samples = cleanedSamples
+        }
 
         persistenceWriteTask?.cancel()
         let persistence = persistence
@@ -3601,10 +3739,15 @@ final class ActivityStore {
     private func scheduleCloudSyncIfNeeded(reason _: String) {
         guard monitoringPreferences.cloudSyncSettings.isEnabled else { return }
         guard cloudSyncConfigured else { return }
+        if isSyncingCloud {
+            cloudSyncPendingAfterCurrent = true
+            return
+        }
 
         cloudSyncTask?.cancel()
         cloudSyncTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
             await self?.runCloudSync()
         }
     }
@@ -3615,6 +3758,7 @@ final class ActivityStore {
         maintenanceTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(300))
+                guard !Task.isCancelled else { return }
                 await self?.performScheduledMaintenance()
             }
         }
@@ -3672,7 +3816,16 @@ final class ActivityStore {
         await runCloudSync()
     }
 
-    private func evaluateReminders() {
+    private func evaluateReminders(force: Bool = true, now: Date = Date()) {
+        if Self.shouldSkipReminderEvaluation(
+            force: force,
+            lastRequestedAt: lastReminderEvaluationRequestAt,
+            now: now,
+            minimumInterval: reminderEvaluationMinimumInterval
+        ) {
+            return
+        }
+        lastReminderEvaluationRequestAt = now
         reminderEvaluationTask?.cancel()
         let canEvaluateReminders = canUse(.reminders)
         let canEvaluateFocusModes = canUse(.focusModes)
@@ -3687,6 +3840,7 @@ final class ActivityStore {
 
         reminderEvaluationTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
             guard let self else { return }
             let filteredSamples = self.visibleSamplesForCurrentStreak()
             if canEvaluateReminders {
@@ -3700,6 +3854,16 @@ final class ActivityStore {
                 await self.evaluateFocusModes(using: filteredSamples)
             }
         }
+    }
+
+    nonisolated static func shouldSkipReminderEvaluation(
+        force: Bool,
+        lastRequestedAt: Date?,
+        now: Date,
+        minimumInterval: TimeInterval
+    ) -> Bool {
+        guard !force, let lastRequestedAt else { return false }
+        return now.timeIntervalSince(lastRequestedAt) < minimumInterval
     }
 
     private func evaluateFocusModes(using filteredSamples: [ActivitySample]) async {
