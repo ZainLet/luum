@@ -117,4 +117,37 @@ func persistenceFlushDoesNotReassignUnchangedSamples() async throws {
     #expect(samplesInvalidatedByFlush == false)
     #expect(persistence.load(retentionDays: 365).first?.note == "nota")
 }
+
+@Test
+func reminderEvaluationThrottleSkipsOnlyRecentLiveExtensions() {
+    let lastRequest = Date(timeIntervalSince1970: 1_800_000_000)
+
+    #expect(ActivityStore.shouldSkipReminderEvaluation(
+        force: false,
+        lastRequestedAt: lastRequest,
+        now: lastRequest.addingTimeInterval(12),
+        minimumInterval: 30
+    ))
+
+    #expect(!ActivityStore.shouldSkipReminderEvaluation(
+        force: false,
+        lastRequestedAt: lastRequest,
+        now: lastRequest.addingTimeInterval(31),
+        minimumInterval: 30
+    ))
+
+    #expect(!ActivityStore.shouldSkipReminderEvaluation(
+        force: true,
+        lastRequestedAt: lastRequest,
+        now: lastRequest.addingTimeInterval(12),
+        minimumInterval: 30
+    ))
+
+    #expect(!ActivityStore.shouldSkipReminderEvaluation(
+        force: false,
+        lastRequestedAt: nil,
+        now: lastRequest,
+        minimumInterval: 30
+    ))
+}
 #endif

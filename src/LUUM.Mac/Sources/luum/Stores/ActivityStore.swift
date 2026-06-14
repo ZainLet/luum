@@ -83,6 +83,7 @@ final class ActivityStore {
     @ObservationIgnored private var persistenceWriteTask: Task<Void, Never>?
     @ObservationIgnored private var preferencesWriteTask: Task<Void, Never>?
     @ObservationIgnored private var reminderEvaluationTask: Task<Void, Never>?
+    @ObservationIgnored private var lastReminderEvaluationRequestAt: Date?
     @ObservationIgnored private var authRefreshTask: Task<Void, Never>?
     @ObservationIgnored private var authRefreshGeneration = 0
     @ObservationIgnored private var cloudSyncTask: Task<Void, Never>?
@@ -93,6 +94,7 @@ final class ActivityStore {
     @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
     @ObservationIgnored private let calendarRefreshInterval: TimeInterval = 900
     @ObservationIgnored private let cloudSyncInterval: TimeInterval = 900
+    @ObservationIgnored private let reminderEvaluationMinimumInterval: TimeInterval = 30
     @ObservationIgnored private let activityPersistenceDebounce: Duration
     @ObservationIgnored private let preferencesPersistenceDebounce: Duration = .milliseconds(300)
     @ObservationIgnored private let liveSummaryRefreshInterval: TimeInterval = 30
@@ -3607,7 +3609,7 @@ final class ActivityStore {
             coalescingLiveExtension: extendedCurrentSample
         )
         schedulePersistence()
-        evaluateReminders()
+        evaluateReminders(force: !extendedCurrentSample, now: snapshot.timestamp)
     }
 
     private func closeCurrentSession(at timestamp: Date) {
@@ -3737,7 +3739,16 @@ final class ActivityStore {
         await runCloudSync()
     }
 
-    private func evaluateReminders() {
+    private func evaluateReminders(force: Bool = true, now: Date = Date()) {
+        if Self.shouldSkipReminderEvaluation(
+            force: force,
+            lastRequestedAt: lastReminderEvaluationRequestAt,
+            now: now,
+            minimumInterval: reminderEvaluationMinimumInterval
+        ) {
+            return
+        }
+        lastReminderEvaluationRequestAt = now
         reminderEvaluationTask?.cancel()
         let canEvaluateReminders = canUse(.reminders)
         let canEvaluateFocusModes = canUse(.focusModes)
@@ -3766,6 +3777,16 @@ final class ActivityStore {
                 await self.evaluateFocusModes(using: filteredSamples)
             }
         }
+    }
+
+    nonisolated static func shouldSkipReminderEvaluation(
+        force: Bool,
+        lastRequestedAt: Date?,
+        now: Date,
+        minimumInterval: TimeInterval
+    ) -> Bool {
+        guard !force, let lastRequestedAt else { return false }
+        return now.timeIntervalSince(lastRequestedAt) < minimumInterval
     }
 
     private func evaluateFocusModes(using filteredSamples: [ActivitySample]) async {
