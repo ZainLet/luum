@@ -1,6 +1,6 @@
 # Checklist de integracoes externas do Luum
 
-Atualizado em 2026-06-12.
+Atualizado em 2026-06-14.
 
 Este arquivo separa o que o repositorio ja implementa do que precisa ser feito fora do codigo: contas, chaves, OAuth apps, webhooks e validacoes manuais. Nao cole segredos neste arquivo.
 
@@ -13,6 +13,13 @@ Este arquivo separa o que o repositorio ja implementa do que precisa ser feito f
 - App macOS: usa `luum://auth`, valida `/api/auth/status`, salva sessao em cofre local cifrado e evita Keychain do macOS por padrao enquanto nao houver Apple Developer ID.
 - Backup: usa `/api/sync/{uid}` com Firebase ID token e payload sanitizado.
 - Google Calendar: o app ja tenta carregar `GOOGLE_CALENDAR_CLIENT_ID` em `/api/public/integrations`, para o usuario clicar em conectar sem colar chaves.
+- Alpha macOS atual: `0.0.4-alpha`, bundle id `com.luum.apple`, instalador principal `.pkg` que coloca `luum.app` em `/Applications`; `.zip` fica apenas como fallback tecnico.
+
+## Politica de versao
+
+- Builds pequenos de teste alpha devem avancar o ultimo digito: `v0.0.4`, `v0.0.5`, `v0.0.6`.
+- Atualizacoes grandes, como a reformulacao de UI/UX, devem avancar o digito do meio: `v0.1.0`.
+- A versao `v1.0.0` fica reservada para o lancamento final/publico.
 
 ## Responsabilidades que dependem do dono do projeto
 
@@ -204,4 +211,4 @@ Para finalizar:
 9. Testar backup e restore.
 10. Testar Google Calendar sem Client ID manual.
 11. Testar Notion/Outlook/ClickUp/Linear/Zapier com credenciais reais.
-12. Testar em Mac limpo com alpha zip.
+12. Testar em Mac limpo com instalador alpha `.pkg`; usar `.zip` apenas como fallback tecnico.

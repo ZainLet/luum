@@ -29,6 +29,8 @@ O script gera os artefatos em `dist/releases/`. Para teste em outro Mac, prefira
 
 Durante a fase alpha, avance o ultimo digito para builds pequenos de teste, por exemplo `v0.0.3`, `v0.0.4` e `v0.0.5`. Reserve o digito do meio para mudancas grandes que precisam ficar faceis de identificar, como a reformulacao de UI/UX: `v0.1.0`. A versao `v1.0.0` fica reservada para o lancamento final/publico.
 
+Nao crie varias tags com sufixos do tipo `v0.0.2-alpha.5` para cada ajuste pequeno. Prefira promover o patch (`v0.0.5`, `v0.0.6`) quando for publicar uma nova alpha de teste.
+
 ## Instalar em outro Mac
 
 1. Transfira o `.pkg` para o Mac de teste.

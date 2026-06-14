@@ -107,6 +107,7 @@ Politica de versao enquanto o Luum estiver em alpha:
 - Use o ultimo digito para builds pequenos de teste: `v0.0.3`, `v0.0.4`, `v0.0.5`.
 - Use o digito do meio para atualizacoes grandes, como a mudanca de UI/UX inspirada no Rize: `v0.1.0`.
 - Reserve `v1.0.0` para a primeira versao final/publica do app.
+- Evite sequencias longas de tags como `v0.0.2-alpha.5`; quando uma nova alpha for publicada, avance o patch.
 
 Para assinar com uma identidade local de desenvolvedor:
 
