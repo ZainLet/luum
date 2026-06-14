@@ -62,6 +62,7 @@ test('checkout responses are never cacheable', async () => {
 });
 
 test('successful checkout responses are never cacheable', async () => {
+    let checkoutSessionOptions = null;
     const touchedModules = [
         '../api/_firebaseAdmin',
         '../api/_stripe',
@@ -87,7 +88,10 @@ test('successful checkout responses are never cacheable', async () => {
         getStripe: async () => ({
             checkout: {
                 sessions: {
-                    create: async () => ({ id: 'cs_test_luum', url: 'https://checkout.stripe.test/session' })
+                    create: async (options) => {
+                        checkoutSessionOptions = options;
+                        return { id: 'cs_test_luum', url: 'https://checkout.stripe.test/session' };
+                    }
                 }
             }
         }),
@@ -108,11 +112,20 @@ test('successful checkout responses are never cacheable', async () => {
             authorization: 'Bearer valid-token',
             origin: 'https://luum-app.web.app'
         },
-        body: { plan: 'essencial', uid: 'firebase-user', billing: 'monthly', quantity: 1 }
+        body: {
+            plan: 'essencial',
+            uid: 'firebase-user',
+            billing: 'monthly',
+            quantity: 1,
+            email: 'attacker@example.com'
+        }
     }, res);
 
     assert.equal(res.code, 200);
     assert.equal(res.body.id, 'cs_test_luum');
+    assert.equal(checkoutSessionOptions.customer_email, 'user@luum.app');
+    assert.equal(checkoutSessionOptions.metadata.uid, 'firebase-user');
+    assert.equal(checkoutSessionOptions.metadata.plan, 'essencial');
     assertNoStore(res);
     clearModules(touchedModules);
 });
