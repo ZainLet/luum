@@ -44,14 +44,14 @@ Se estiver usando o `.zip` fallback, abra o zip e arraste `luum.app` manualmente
 
 Sem Apple Developer ID, o Gatekeeper pode bloquear o primeiro launch. Primeiro tente:
 
-1. `Control-click` no `Luum.app`.
+1. `Control-click` no `luum.app`.
 2. Clique em `Abrir`.
 3. Confirme `Abrir` de novo.
 
 Se isso ainda falhar em um Mac de teste interno, remova a quarentena manualmente:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/Luum.app
+xattr -dr com.apple.quarantine /Applications/luum.app
 ```
 
 Depois abra o app novamente.
@@ -73,8 +73,8 @@ Depois abra o Luum novamente. O app também tenta limpar esse item silenciosamen
 No Mac de teste:
 
 ```bash
-codesign --verify --deep --strict --verbose=2 /Applications/Luum.app
-spctl --assess --type execute --verbose=4 /Applications/Luum.app
+codesign --verify --deep --strict --verbose=2 /Applications/luum.app
+spctl --assess --type execute --verbose=4 /Applications/luum.app
 ```
 
 Com assinatura ad-hoc, `codesign --verify` deve passar. O `spctl` pode rejeitar por falta de notarização; isso é esperado nesta alpha sem Apple Developer ID. O instalador `.pkg` também fica sem assinatura/notarização nesta fase.

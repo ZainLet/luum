@@ -5,7 +5,7 @@ MODE="${1:-run}"
 APP_NAME="luum"
 APP_DISPLAY_NAME="Luum"
 BUNDLE_ID="com.luum.apple"
-APP_VERSION="0.0.3"
+APP_VERSION="0.0.4"
 APP_BUILD="1"
 APP_CATEGORY="public.app-category.productivity"
 MIN_SYSTEM_VERSION="26.0"
@@ -18,7 +18,7 @@ PACKAGE_DIR="$ROOT_DIR/src/LUUM.Mac"
 DIST_DIR="$ROOT_DIR/dist"
 SWIFT_BUILD_DIR="${SWIFT_BUILD_DIR:-$DIST_DIR/swift-build}"
 ICON_SOURCE="$ROOT_DIR/src/LUUM.Client/wwwroot/favicon.png"
-APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
+APP_BUNDLE="$DIST_DIR/build/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"
@@ -155,6 +155,7 @@ package_app() {
 
   pkg_stage="$(mktemp -d "$DIST_DIR/pkg-stage.XXXXXX")"
   COPYFILE_DISABLE=1 /usr/bin/ditto --norsrc --noextattr --noacl --noqtn "$APP_BUNDLE" "$pkg_stage/$APP_NAME.app"
+  /usr/bin/xattr -cr "$pkg_stage" >/dev/null 2>&1 || true
   find "$pkg_stage" -name '._*' -delete
   COPYFILE_DISABLE=1 /usr/bin/pkgbuild \
     --identifier "$PKG_ID" \
@@ -181,17 +182,17 @@ Alpha de teste para instalação manual em outros Macs.
 Este zip contem o app bundle completo: luum.app.
 Instalação:
 1. Abra o zip.
-2. Arraste Luum.app para Aplicativos.
+2. Arraste luum.app para Aplicativos.
 3. No primeiro launch, use Control-click > Abrir se o Gatekeeper bloquear.
 
 Se um Mac de teste interno continuar bloqueando por quarentena:
-  xattr -dr com.apple.quarantine /Applications/Luum.app
+  xattr -dr com.apple.quarantine /Applications/luum.app
 
 Se aparecer prompt das Chaves do macOS por build antigo:
   security delete-generic-password -s com.zainlet.luum -a login 2>/dev/null || true
 
 Validação esperada:
-  codesign --verify --deep --strict --verbose=2 /Applications/Luum.app
+  codesign --verify --deep --strict --verbose=2 /Applications/luum.app
 
 Sem Apple Developer ID, spctl/Gatekeeper pode rejeitar por falta de notarização.
 Guia completo: docs/MACOS_ALPHA_INSTALL.md
