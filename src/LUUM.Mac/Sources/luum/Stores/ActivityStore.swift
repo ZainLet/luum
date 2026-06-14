@@ -86,6 +86,7 @@ final class ActivityStore {
     @ObservationIgnored private var authRefreshTask: Task<Void, Never>?
     @ObservationIgnored private var authRefreshGeneration = 0
     @ObservationIgnored private var cloudSyncTask: Task<Void, Never>?
+    @ObservationIgnored private var cloudSyncPendingAfterCurrent = false
     @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
     @ObservationIgnored private let calendarRefreshInterval: TimeInterval = 900
     @ObservationIgnored private let cloudSyncInterval: TimeInterval = 900
@@ -408,6 +409,7 @@ final class ActivityStore {
         isCheckingAuth = false
         cloudSyncTask?.cancel()
         cloudSyncTask = nil
+        cloudSyncPendingAfterCurrent = false
         isSyncingCloud = false
         isSyncingWorkspace = false
         stopMonitoring()
@@ -1477,6 +1479,8 @@ final class ActivityStore {
             scheduleCloudSyncIfNeeded(reason: "cloud-enabled")
         } else {
             cloudSyncTask?.cancel()
+            cloudSyncTask = nil
+            cloudSyncPendingAfterCurrent = false
         }
     }
 
@@ -3275,9 +3279,21 @@ final class ActivityStore {
 
     private func runCloudSync() async {
         guard monitoringPreferences.cloudSyncSettings.isEnabled else { return }
+        guard !isSyncingCloud else {
+            cloudSyncPendingAfterCurrent = true
+            return
+        }
 
+        cloudSyncTask = nil
         isSyncingCloud = true
-        defer { isSyncingCloud = false }
+        defer {
+            let shouldSchedulePendingSync = cloudSyncPendingAfterCurrent
+            cloudSyncPendingAfterCurrent = false
+            isSyncingCloud = false
+            if shouldSchedulePendingSync {
+                scheduleCloudSyncIfNeeded(reason: "pending-changes")
+            }
+        }
 
         do {
             let verified = try await verifiedAuthSessionForProtectedRequest()
@@ -3601,10 +3617,15 @@ final class ActivityStore {
     private func scheduleCloudSyncIfNeeded(reason _: String) {
         guard monitoringPreferences.cloudSyncSettings.isEnabled else { return }
         guard cloudSyncConfigured else { return }
+        if isSyncingCloud {
+            cloudSyncPendingAfterCurrent = true
+            return
+        }
 
         cloudSyncTask?.cancel()
         cloudSyncTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
             await self?.runCloudSync()
         }
     }
