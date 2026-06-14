@@ -3641,6 +3641,7 @@ final class ActivityStore {
         maintenanceTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(300))
+                guard !Task.isCancelled else { return }
                 await self?.performScheduledMaintenance()
             }
         }
