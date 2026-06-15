@@ -2863,6 +2863,7 @@ final class ActivityStore {
             do {
                 googleCalendarStatusMessage = "Carregando configuracao gerenciada do Google Calendar..."
                 let config = try await publicIntegrationConfigService.fetch()
+                publicIntegrationConfig = config
                 clientID = config.googleCalendar.clientID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 if !clientID.isEmpty {
                     googleCalendarClientID = clientID
