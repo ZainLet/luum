@@ -98,6 +98,7 @@ final class ActivityStore {
     @ObservationIgnored private var weeklyReportEmailTask: Task<Void, Never>?
     @ObservationIgnored private var weeklyReportEmailHealthTask: Task<Void, Never>?
     @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
+    @ObservationIgnored private var lastAuthCallbackSignature: String?
     @ObservationIgnored private let calendarRefreshInterval: TimeInterval = 900
     @ObservationIgnored private let cloudSyncInterval: TimeInterval = 900
     @ObservationIgnored private let reminderEvaluationMinimumInterval: TimeInterval = 30
@@ -365,6 +366,14 @@ final class ActivityStore {
     func handleAuthCallbackURL(_ url: URL) {
         do {
             let session = try authService.session(from: url)
+            let callbackSignature = Self.authCallbackSignature(for: session)
+            if callbackSignature == lastAuthCallbackSignature,
+               isCheckingAuth || authSession?.idToken == session.idToken {
+                authStatusMessage = "Login recebido. Validacao ja esta em andamento..."
+                return
+            }
+
+            lastAuthCallbackSignature = callbackSignature
             applyAuthSession(session, message: "Login recebido. Validando plano no Firebase...")
             refreshAccountStatus(restartInFlight: true)
         } catch {
@@ -440,6 +449,7 @@ final class ActivityStore {
         authRefreshTask?.cancel()
         authRefreshTask = nil
         authRefreshGeneration += 1
+        lastAuthCallbackSignature = nil
         isCheckingAuth = false
         cloudSyncTask?.cancel()
         cloudSyncTask = nil
@@ -533,6 +543,10 @@ final class ActivityStore {
     private func isCurrentVerifiedSession(_ verified: LuumAuthSession) -> Bool {
         guard let current = authSession else { return false }
         return current.uid == verified.uid && current.idToken == verified.idToken
+    }
+
+    nonisolated static func authCallbackSignature(for session: LuumAuthSession) -> String {
+        "\(session.uid):\(session.idToken.suffix(16))"
     }
 
     private func rejectAuthSession(_ session: LuumAuthSession) {

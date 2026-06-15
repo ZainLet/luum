@@ -123,6 +123,17 @@ func authErrorClassifiesExplicitRejectionsSeparatelyFromTemporaryFailures() {
 }
 
 @Test
+func authCallbackSignatureUsesOnlyStableNonSecretParts() {
+    var session = makeAuthSession(lastVerifiedAt: nil)
+    session.idToken = "header.payload.1234567890abcdef"
+
+    let signature = ActivityStore.authCallbackSignature(for: session)
+
+    #expect(signature == "firebase-user:1234567890abcdef")
+    #expect(!signature.contains("header.payload"))
+}
+
+@Test
 func localSessionLocksWithoutRecentServerVerification() {
     let verifiedRecently = makeAuthSession(lastVerifiedAt: Date().addingTimeInterval(-60))
     let staleVerification = makeAuthSession(lastVerifiedAt: Date().addingTimeInterval(-(LuumAuthSession.offlineGracePeriod + 60)))
