@@ -84,7 +84,7 @@ Stripe configurado em produção:
 - Revogar qualquer chave `sk_live_` ou `rk_live_` exposta em chat, log ou captura antes de uso. Salvar a substituta diretamente no cofre admin, nunca em arquivos versionados.
 - Para uma chave restrita, liberar somente o necessário ao backend: criação de Checkout Sessions, leitura/escrita de assinaturas e acesso exigido pelo Stripe para clientes. A assinatura do webhook usa uma credencial separada `whsec_`.
 - Diagnóstico criado em `GET /api/admin/stripe-health`; `POST /api/admin/stripe-health` faz bootstrap admin sem criar função Vercel extra.
-- Checkout de Equipes e Negócios solicita quantidade de assentos e respeita os mínimos configurados.
+- Checkout de Equipes e Negócios solicita quantidade de assentos e respeita mínimos somente quando `STRIPE_MIN_SEATS_*` estiver configurado. Por padrão, todos os planos aceitam 1 assento.
 - Webhook configurado para `checkout.session.completed`, `invoice.payment_succeeded`, `customer.subscription.updated` e `customer.subscription.deleted`.
 - Validar em produção o cancelamento em `POST /api/cancel-subscription` após existir uma assinatura real, ou substituir pelo Stripe Customer Portal.
 - Testar checkout com cartões de teste antes de produção.

@@ -23,3 +23,15 @@ test('security policy documents Luum alpha production boundaries', () => {
     assert.match(securityPolicy, /GEMINI_API_KEY/);
     assert.match(securityPolicy, /com\.luum\.apple/);
 });
+
+test('billing docs match the default one-seat checkout contract', () => {
+    const checklist = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'CHECKLIST_INTEGRACOES_EXTERNAS.md'), 'utf8');
+    const pending = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'INTEGRACOES_PENDENTES.md'), 'utf8');
+
+    assert.match(checklist, /checkout aceita 1 assento em todos os planos/i);
+    assert.match(checklist, /STRIPE_MIN_SEATS_EQUIPES/);
+    assert.match(checklist, /STRIPE_MIN_SEATS_NEGOCIOS/);
+    assert.doesNotMatch(checklist, /Equipes:.*minimo 2 usuarios/i);
+    assert.doesNotMatch(checklist, /Negocios:.*minimo 5 usuarios/i);
+    assert.match(pending, /Por padrão, todos os planos aceitam 1 assento/i);
+});

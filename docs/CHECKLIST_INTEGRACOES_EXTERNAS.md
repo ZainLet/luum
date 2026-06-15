@@ -91,8 +91,10 @@ Planos oficiais:
 
 - Essencial: R$ 29,90/mes ou R$ 299,00/ano.
 - Profissional: R$ 49,90/mes ou R$ 499,00/ano.
-- Equipes: R$ 45,00/usuario/mes ou R$ 450,00/usuario/ano, minimo 2 usuarios.
-- Negocios: R$ 65,00/usuario/mes ou R$ 650,00/usuario/ano, minimo 5 usuarios.
+- Equipes: R$ 45,00/usuario/mes ou R$ 450,00/usuario/ano.
+- Negocios: R$ 65,00/usuario/mes ou R$ 650,00/usuario/ano.
+
+Por padrao, o checkout aceita 1 assento em todos os planos. Se quiser impor um minimo comercial para Equipes ou Negocios, configure `STRIPE_MIN_SEATS_EQUIPES` e/ou `STRIPE_MIN_SEATS_NEGOCIOS` na Vercel.
 
 Eventos do webhook:
 
