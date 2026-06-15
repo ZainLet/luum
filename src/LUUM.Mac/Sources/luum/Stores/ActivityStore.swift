@@ -53,6 +53,8 @@ final class ActivityStore {
     private(set) var aiClassificationStatusMessage: String?
     private(set) var isClassifyingWithAI = false
     private(set) var isSendingWeeklyReportEmail = false
+    private(set) var weeklyReportEmailHealthMessage: String?
+    private(set) var isCheckingWeeklyReportEmailHealth = false
     private(set) var publicIntegrationConfig: PublicIntegrationConfig?
     private(set) var publicIntegrationStatusMessage: String?
     private(set) var isLoadingPublicIntegrationConfig = false
@@ -94,6 +96,7 @@ final class ActivityStore {
     @ObservationIgnored private var workspaceSyncTask: Task<Void, Never>?
     @ObservationIgnored private var aiClassificationTask: Task<Void, Never>?
     @ObservationIgnored private var weeklyReportEmailTask: Task<Void, Never>?
+    @ObservationIgnored private var weeklyReportEmailHealthTask: Task<Void, Never>?
     @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
     @ObservationIgnored private let calendarRefreshInterval: TimeInterval = 900
     @ObservationIgnored private let cloudSyncInterval: TimeInterval = 900
@@ -447,10 +450,13 @@ final class ActivityStore {
         aiClassificationTask = nil
         weeklyReportEmailTask?.cancel()
         weeklyReportEmailTask = nil
+        weeklyReportEmailHealthTask?.cancel()
+        weeklyReportEmailHealthTask = nil
         isSyncingCloud = false
         isSyncingWorkspace = false
         isClassifyingWithAI = false
         isSendingWeeklyReportEmail = false
+        isCheckingWeeklyReportEmailHealth = false
         stopMonitoring()
         authSession = nil
         authStatusMessage = "Conta desconectada deste Mac."
@@ -2708,6 +2714,49 @@ final class ActivityStore {
         weeklyReportEmailTask = Task { [weak self] in
             await self?.runWeeklyReportEmail(containing: day)
         }
+    }
+
+    func checkWeeklyReportEmailHealth() {
+        guard !isCheckingWeeklyReportEmailHealth else { return }
+
+        isCheckingWeeklyReportEmailHealth = true
+        weeklyReportEmailHealthMessage = "Verificando Gemini e email na Vercel..."
+        weeklyReportEmailHealthTask?.cancel()
+        weeklyReportEmailHealthTask = Task { [weak self] in
+            await self?.runWeeklyReportEmailHealthCheck()
+        }
+    }
+
+    private func runWeeklyReportEmailHealthCheck() async {
+        defer { isCheckingWeeklyReportEmailHealth = false }
+
+        do {
+            let health = try await weeklyReportEmailService.health()
+            guard !Task.isCancelled else { return }
+            weeklyReportEmailHealthMessage = Self.weeklyReportEmailHealthMessage(for: health)
+        } catch is CancellationError {
+            return
+        } catch {
+            weeklyReportEmailHealthMessage = error.localizedDescription
+        }
+    }
+
+    static func weeklyReportEmailHealthMessage(for health: WeeklyReportEmailHealth) -> String {
+        if health.ok {
+            return "PDF por email pronto: Gemini \(health.gemini.model) e \(health.email.provider) configurados."
+        }
+        var missing: [String] = []
+        if !health.gemini.configured {
+            missing.append("Gemini")
+        }
+        if !health.email.apiKeyConfigured {
+            missing.append("Resend")
+        }
+        if !health.email.fromConfigured {
+            missing.append("email de envio")
+        }
+        let detail = missing.isEmpty ? "configuracao da Vercel" : missing.joined(separator: ", ")
+        return "PDF por email pendente: configure \(detail) na Vercel."
     }
 
     private func runWeeklyReportEmail(containing day: Date) async {
