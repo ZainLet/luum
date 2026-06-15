@@ -17,6 +17,9 @@ final class ActivityMonitor {
     private var timer: Timer?
     private var activationObserver: NSObjectProtocol?
     private var cachedBrowserContext: CachedBrowserContext?
+    private var isRunning = false
+    private var captureTaskScheduled = false
+    private var pendingForceBrowserRefresh = false
 
     init(
         browserURLProvider: BrowserURLProvider = BrowserURLProvider(),
@@ -32,6 +35,7 @@ final class ActivityMonitor {
 
     func start() {
         guard timer == nil else { return }
+        isRunning = true
 
         updateInputMonitoringMessage()
         capture()
@@ -42,13 +46,13 @@ final class ActivityMonitor {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.capture(forceBrowserRefresh: true)
+                self?.scheduleCapture(forceBrowserRefresh: true)
             }
         }
 
         let timer = Timer.scheduledTimer(withTimeInterval: pollingInterval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.capture()
+                self?.scheduleCapture()
             }
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -58,6 +62,9 @@ final class ActivityMonitor {
     func stop() {
         timer?.invalidate()
         timer = nil
+        isRunning = false
+        captureTaskScheduled = false
+        pendingForceBrowserRefresh = false
 
         if let activationObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(activationObserver)
@@ -71,6 +78,26 @@ final class ActivityMonitor {
             onInputMonitoringMessage?(nil)
         } else {
             updateInputMonitoringMessage()
+        }
+    }
+
+    private func scheduleCapture(forceBrowserRefresh: Bool = false) {
+        guard isRunning else { return }
+        pendingForceBrowserRefresh = pendingForceBrowserRefresh || forceBrowserRefresh
+        guard !captureTaskScheduled else { return }
+
+        captureTaskScheduled = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard isRunning else {
+                captureTaskScheduled = false
+                pendingForceBrowserRefresh = false
+                return
+            }
+            let forceRefresh = pendingForceBrowserRefresh
+            pendingForceBrowserRefresh = false
+            captureTaskScheduled = false
+            capture(forceBrowserRefresh: forceRefresh)
         }
     }
 
