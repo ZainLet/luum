@@ -28,6 +28,8 @@ func defaultStorageCanCleanLegacyLoginKeyWithoutEnablingSystemKeychain() {
     let keychain = KeychainService()
 
     #expect(keychain.storageDescription.contains("sem Chaves do macOS"))
+    #expect(KeychainService.systemKeychainServiceForTesting == "com.luum.apple")
+    #expect(KeychainService.legacySystemKeychainServicesForTesting.contains("com.zainlet.luum"))
     #expect(KeychainService.legacySystemKeychainAccountsForTesting.contains("login"))
 
     keychain.removeLegacySystemKeychainItems()
