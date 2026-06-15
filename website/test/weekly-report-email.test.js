@@ -129,6 +129,40 @@ test('weekly report helper creates a PDF buffer', () => {
     assert.equal(pdf.subarray(0, 8).toString(), '%PDF-1.4');
 });
 
+test('weekly report health exposes configuration status without leaking secrets', async (t) => {
+    const originalGemini = process.env.GEMINI_API_KEY;
+    const originalResend = process.env.RESEND_API_KEY;
+    const originalFrom = process.env.REPORT_EMAIL_FROM;
+    process.env.GEMINI_API_KEY = 'test-gemini-secret';
+    process.env.RESEND_API_KEY = 'test-resend-secret';
+    process.env.REPORT_EMAIL_FROM = 'Luum <reports@luum.app>';
+    t.after(() => {
+        process.env.GEMINI_API_KEY = originalGemini;
+        process.env.RESEND_API_KEY = originalResend;
+        process.env.REPORT_EMAIL_FROM = originalFrom;
+        delete require.cache[weeklyReportPath];
+    });
+
+    const handler = require('../api/reports/weekly-email');
+    const res = response();
+
+    await handler({
+        method: 'GET',
+        headers: { origin: 'https://luum-app.web.app' }
+    }, res);
+
+    assert.equal(res.code, 200);
+    assert.equal(res.body.ok, true);
+    assert.equal(res.body.route, '/api/reports/weekly-email');
+    assert.equal(res.body.gemini.configured, true);
+    assert.equal(res.body.email.configured, true);
+    assert.equal(res.headers['Access-Control-Allow-Methods'], 'GET, POST, OPTIONS');
+    const serialized = JSON.stringify(res.body);
+    assert.equal(serialized.includes('test-gemini-secret'), false);
+    assert.equal(serialized.includes('test-resend-secret'), false);
+    assert.equal(serialized.includes('reports@luum.app'), false);
+});
+
 test('weekly report email requires Firebase auth', async () => {
     installFirebaseAdminMock({ userData: activeUser() });
     const handler = require('../api/reports/weekly-email');

@@ -144,6 +144,8 @@ Checklist manual:
 
 O app envia um resumo semanal sanitizado para `POST https://luum-app.vercel.app/api/reports/weekly-email`. O backend valida Firebase Auth, exige plano Profissional ou maior em assinaturas pagas, usa Gemini para gerar a narrativa e anexa um PDF simples ao email verificado da conta. O destino não deve ser aceito do corpo da requisição.
 
+Use `GET https://luum-app.vercel.app/api/reports/weekly-email` para diagnosticar se a rota esta publicada e se `GEMINI_API_KEY`, `RESEND_API_KEY` e `REPORT_EMAIL_FROM`/`RESEND_FROM_EMAIL` existem na Vercel. Essa resposta mostra apenas booleanos e modelo, nunca o valor das chaves.
+
 Checklist manual:
 
 1. Salvar `GEMINI_API_KEY` na Vercel.

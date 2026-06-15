@@ -12,6 +12,31 @@ const {
 
 const MAX_REPORT_BODY_BYTES = 80_000;
 
+function configured(value) {
+    return typeof value === 'string' && value.trim().length > 0;
+}
+
+function weeklyReportHealth() {
+    const geminiConfigured = configured(process.env.GEMINI_API_KEY);
+    const resendConfigured = configured(process.env.RESEND_API_KEY);
+    const fromConfigured = configured(process.env.REPORT_EMAIL_FROM || process.env.RESEND_FROM_EMAIL);
+
+    return {
+        ok: geminiConfigured && resendConfigured && fromConfigured,
+        route: '/api/reports/weekly-email',
+        gemini: {
+            configured: geminiConfigured,
+            model: process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+        },
+        email: {
+            provider: 'resend',
+            configured: resendConfigured && fromConfigured,
+            apiKeyConfigured: resendConfigured,
+            fromConfigured
+        }
+    };
+}
+
 function jsonBody(req) {
     if (!req.body) return {};
     if (typeof req.body === 'string') {
@@ -47,8 +72,9 @@ async function requireFirebaseUser(req) {
 }
 
 async function weeklyReportEmailHandler(req, res) {
-    addCors(req, res, { methods: 'POST, OPTIONS' });
-    if (req.method === 'OPTIONS') return handleOptions(req, res, { methods: 'POST, OPTIONS' });
+    addCors(req, res, { methods: 'GET, POST, OPTIONS' });
+    if (req.method === 'OPTIONS') return handleOptions(req, res, { methods: 'GET, POST, OPTIONS' });
+    if (req.method === 'GET') return res.json(weeklyReportHealth());
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
@@ -122,5 +148,6 @@ module.exports = weeklyReportEmailHandler;
 module.exports.handler = weeklyReportEmailHandler;
 module.exports._private = {
     MAX_REPORT_BODY_BYTES,
+    weeklyReportHealth,
     reportFileName
 };
