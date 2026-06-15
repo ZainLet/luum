@@ -27,6 +27,14 @@ O script gera os artefatos em `dist/releases/`. Para teste em outro Mac, prefira
 - `Luum-...zip.sha256`: checksum para conferir integridade.
 - `Luum-...zip.txt`: notas rápidas da build.
 
+Depois de gerar o pacote, valide os aliases estáveis do instalador:
+
+```bash
+./script/build_and_run.sh --verify-package
+```
+
+Esse comando confere checksum, payload `luum.app`, package id e instalação em `/Applications`, sem instalar o app novamente.
+
 ## Versoes alpha
 
 Durante a fase alpha, avance o ultimo digito para builds pequenos de teste, por exemplo `v0.0.3`, `v0.0.4` e `v0.0.5`. Reserve o digito do meio para mudancas grandes que precisam ficar faceis de identificar, como a reformulacao de UI/UX: `v0.1.0`. A versao `v1.0.0` fica reservada para o lancamento final/publico.
