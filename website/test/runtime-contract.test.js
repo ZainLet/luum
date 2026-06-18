@@ -10,6 +10,12 @@ const packageJSON = JSON.parse(
 test('website API runtime stays compatible with firebase-admin 14', () => {
     assert.match(packageJSON.dependencies['firebase-admin'], /\^14\./);
     assert.match(packageJSON.engines.node, />=22/);
+
+    const { admin } = require('../api/_firebaseAdmin');
+    assert.equal(typeof admin.auth, 'function');
+    assert.equal(typeof admin.firestore, 'function');
+    assert.equal(typeof admin.firestore.FieldValue.serverTimestamp, 'function');
+    assert.equal(typeof admin.firestore.Timestamp.fromMillis, 'function');
 });
 
 test('security policy documents Luum alpha production boundaries', () => {
