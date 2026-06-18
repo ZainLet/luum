@@ -7,8 +7,8 @@ const packageJSON = JSON.parse(
     fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')
 );
 
-test('website API runtime stays compatible with firebase-admin 14', () => {
-    assert.match(packageJSON.dependencies['firebase-admin'], /\^14\./);
+test('website API pins a CommonJS-compatible Firebase Admin runtime', () => {
+    assert.equal(packageJSON.dependencies['firebase-admin'], '13.6.0');
     assert.match(packageJSON.engines.node, />=22/);
 
     const { admin } = require('../api/_firebaseAdmin');
