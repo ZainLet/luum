@@ -134,7 +134,6 @@
             </div>
 
             <div class="success-actions">
-                <button id="openAppBtn" class="btn btn-primary" type="button" style="display:none;">Abrir app Luum</button>
                 <a href="account.html" class="btn btn-secondary">Minha conta</a>
                 <a href="index.html" class="btn btn-secondary">Voltar ao site</a>
             </div>
@@ -165,12 +164,6 @@
             });
         }
 
-        async function openMacApp(user) {
-            const idToken = await user.getIdToken(true);
-            const refreshToken = user.refreshToken || '';
-            window.location.href = `luum://auth?token=${encodeURIComponent(idToken)}&refreshToken=${encodeURIComponent(refreshToken)}&uid=${encodeURIComponent(user.uid)}`;
-        }
-
         async function fetchEntitlement(user) {
             const idToken = await user.getIdToken(true);
             const response = await fetch(luumApiUrl('/api/auth/status'), {
@@ -196,11 +189,6 @@
                     setStatusLine('Entre com a mesma conta usada na compra para validar seu plano.');
                     return;
                 }
-
-                document.getElementById('openAppBtn').style.display = 'inline-flex';
-                document.getElementById('openAppBtn').addEventListener('click', () => {
-                    openMacApp(user).catch(err => setStatusLine(err.message));
-                });
 
                 let entitlement = null;
                 for (let attempt = 0; attempt < 6; attempt += 1) {

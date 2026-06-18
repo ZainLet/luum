@@ -13,6 +13,8 @@ struct FirebaseSubscriptionStatus: Decodable, Sendable {
 
 enum FirebaseAuthServiceError: LocalizedError {
     case invalidCallback
+    case missingState
+    case stateMismatch
     case missingToken
     case invalidToken
     case invalidStatusEndpoint
@@ -22,6 +24,10 @@ enum FirebaseAuthServiceError: LocalizedError {
         switch self {
         case .invalidCallback:
             "O retorno de login do Luum veio incompleto. Tente entrar novamente pelo site."
+        case .missingState:
+            "Este login nao foi iniciado pelo app. Volte ao Luum e clique em Entrar novamente."
+        case .stateMismatch:
+            "O retorno de login nao corresponde a esta solicitacao. Volte ao Luum e tente novamente."
         case .missingToken:
             "O site nao enviou o token Firebase para o app."
         case .invalidToken:
@@ -35,7 +41,7 @@ enum FirebaseAuthServiceError: LocalizedError {
 
     var isExplicitAuthRejection: Bool {
         switch self {
-        case .missingToken, .invalidToken:
+        case .missingState, .stateMismatch, .missingToken, .invalidToken:
             true
         case let .statusRejected(reason):
             [
@@ -69,8 +75,14 @@ struct FirebaseAuthService {
         return defaultBaseURL
     }
 
-    static func loginURL() -> URL? {
-        URL(string: "\(defaultBaseURL)/login.html?app=mac")
+    static func loginURL(state: String) -> URL? {
+        guard !state.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        var components = URLComponents(string: "\(defaultBaseURL)/login.html")
+        components?.queryItems = [
+            URLQueryItem(name: "app", value: "mac"),
+            URLQueryItem(name: "state", value: state),
+        ]
+        return components?.url
     }
 
     static func officialBackendURL(from candidate: String) -> URL? {
@@ -92,7 +104,12 @@ struct FirebaseAuthService {
         Self.nonBlank(payload.issuer) == firebaseIssuer
     }
 
-    func session(from callbackURL: URL) throws -> LuumAuthSession {
+    static func callbackState(from callbackURL: URL) -> String? {
+        let items = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        return nonBlank(items.first(where: { $0.name == "state" })?.value)
+    }
+
+    func session(from callbackURL: URL, expectedState: String) throws -> LuumAuthSession {
         guard callbackURL.scheme == "luum", callbackURL.host == "auth" else {
             throw FirebaseAuthServiceError.invalidCallback
         }
@@ -101,7 +118,10 @@ struct FirebaseAuthService {
         let token = items.first(where: { $0.name == "token" })?.value?.trimmingCharacters(in: .whitespacesAndNewlines)
         let refreshToken = items.first(where: { $0.name == "refreshToken" })?.value?.trimmingCharacters(in: .whitespacesAndNewlines)
         let uid = items.first(where: { $0.name == "uid" })?.value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let state = Self.callbackState(from: callbackURL)
 
+        guard let state, !state.isEmpty else { throw FirebaseAuthServiceError.missingState }
+        guard state == expectedState else { throw FirebaseAuthServiceError.stateMismatch }
         guard let token, !token.isEmpty else { throw FirebaseAuthServiceError.missingToken }
         let payload = try decodeFirebaseToken(token)
         guard Self.isOfficialFirebaseTokenPayload(payload) else {

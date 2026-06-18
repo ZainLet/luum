@@ -7,9 +7,9 @@ import Testing
 @Test
 func authCallbackUsesUIDFromFirebaseToken() throws {
     let token = makeFirebaseToken(uid: "firebase-user", email: "user@luum.app")
-    let callback = try #require(URL(string: "luum://auth?token=\(token)&uid=firebase-user"))
+    let callback = try #require(URL(string: "luum://auth?token=\(token)&uid=firebase-user&state=request-state-1234567890"))
 
-    let session = try FirebaseAuthService().session(from: callback)
+    let session = try FirebaseAuthService().session(from: callback, expectedState: "request-state-1234567890")
 
     #expect(session.uid == "firebase-user")
     #expect(session.email == "user@luum.app")
@@ -19,10 +19,10 @@ func authCallbackUsesUIDFromFirebaseToken() throws {
 @Test
 func authCallbackRejectsUIDDifferentFromFirebaseToken() throws {
     let token = makeFirebaseToken(uid: "firebase-user", email: "user@luum.app")
-    let callback = try #require(URL(string: "luum://auth?token=\(token)&uid=another-user"))
+    let callback = try #require(URL(string: "luum://auth?token=\(token)&uid=another-user&state=request-state-1234567890"))
 
     do {
-        _ = try FirebaseAuthService().session(from: callback)
+        _ = try FirebaseAuthService().session(from: callback, expectedState: "request-state-1234567890")
         Issue.record("Callback com UID divergente deveria ser rejeitado.")
     } catch FirebaseAuthServiceError.invalidToken {
         // Esperado: o servidor ainda valida a assinatura antes de liberar a sessão.
@@ -39,10 +39,10 @@ func authCallbackRejectsTokenFromAnotherFirebaseProject() throws {
         audience: "other-project",
         issuer: "https://securetoken.google.com/other-project"
     )
-    let callback = try #require(URL(string: "luum://auth?token=\(token)&uid=firebase-user"))
+    let callback = try #require(URL(string: "luum://auth?token=\(token)&uid=firebase-user&state=request-state-1234567890"))
 
     do {
-        _ = try FirebaseAuthService().session(from: callback)
+        _ = try FirebaseAuthService().session(from: callback, expectedState: "request-state-1234567890")
         Issue.record("Callback de outro projeto Firebase deveria ser rejeitado localmente.")
     } catch FirebaseAuthServiceError.invalidToken {
         // Esperado: o app só aceita tokens emitidos para o projeto oficial luum-app.
@@ -58,10 +58,10 @@ func authCallbackRejectsTokenWithWrongIssuer() throws {
         email: "user@luum.app",
         issuer: "https://securetoken.google.com/other-project"
     )
-    let callback = try #require(URL(string: "luum://auth?token=\(token)&uid=firebase-user"))
+    let callback = try #require(URL(string: "luum://auth?token=\(token)&uid=firebase-user&state=request-state-1234567890"))
 
     do {
-        _ = try FirebaseAuthService().session(from: callback)
+        _ = try FirebaseAuthService().session(from: callback, expectedState: "request-state-1234567890")
         Issue.record("Callback com issuer Firebase divergente deveria ser rejeitado.")
     } catch FirebaseAuthServiceError.invalidToken {
         // Esperado.
@@ -72,16 +72,71 @@ func authCallbackRejectsTokenWithWrongIssuer() throws {
 
 @Test
 func authCallbackRequiresFirebaseToken() throws {
-    let callback = try #require(URL(string: "luum://auth?uid=firebase-user"))
+    let callback = try #require(URL(string: "luum://auth?uid=firebase-user&state=request-state-1234567890"))
 
     do {
-        _ = try FirebaseAuthService().session(from: callback)
+        _ = try FirebaseAuthService().session(from: callback, expectedState: "request-state-1234567890")
         Issue.record("Callback sem token Firebase deveria ser rejeitado.")
     } catch FirebaseAuthServiceError.missingToken {
         // Esperado: o app nunca libera login por UID local sem token Firebase.
     } catch {
         Issue.record("Erro inesperado: \(error)")
     }
+}
+
+@Test
+func loginURLCarriesAppAndRequestState() throws {
+    let url = try #require(FirebaseAuthService.loginURL(state: "request-state-1234567890"))
+    let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+    let items = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+
+    #expect(url.host == "luum-app.vercel.app")
+    #expect(items["app"] == "mac")
+    #expect(items["state"] == "request-state-1234567890")
+}
+
+@Test
+func authCallbackRequiresMatchingRequestState() throws {
+    let token = makeFirebaseToken(uid: "firebase-user", email: "user@luum.app")
+    let missing = try #require(URL(string: "luum://auth?token=\(token)&uid=firebase-user"))
+    let different = try #require(URL(string: "luum://auth?token=\(token)&uid=firebase-user&state=other-request-state-1234567890"))
+
+    do {
+        _ = try FirebaseAuthService().session(from: missing, expectedState: "request-state-1234567890")
+        Issue.record("Callback sem state deveria ser rejeitado.")
+    } catch FirebaseAuthServiceError.missingState {
+        // Esperado.
+    }
+
+    do {
+        _ = try FirebaseAuthService().session(from: different, expectedState: "request-state-1234567890")
+        Issue.record("Callback com state divergente deveria ser rejeitado.")
+    } catch FirebaseAuthServiceError.stateMismatch {
+        // Esperado.
+    }
+}
+
+@Test
+func authRequestExpiresAfterFifteenMinutes() {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let request = LuumAuthRequest(state: "request-state-1234567890", createdAt: now)
+
+    #expect(request.isValid(at: now.addingTimeInterval(14 * 60)))
+    #expect(!request.isValid(at: now.addingTimeInterval(16 * 60)))
+    #expect(!request.isValid(at: now.addingTimeInterval(-1)))
+}
+
+@Test
+func duplicateCompletedCallbackRequiresTheSameNonEmptyState() {
+    #expect(ActivityStore.isDuplicateCompletedAuthCallback(
+        callbackState: "request-state-1234567890",
+        completedState: "request-state-1234567890"
+    ))
+    #expect(!ActivityStore.isDuplicateCompletedAuthCallback(
+        callbackState: "different-state-1234567890",
+        completedState: "request-state-1234567890"
+    ))
+    #expect(!ActivityStore.isDuplicateCompletedAuthCallback(callbackState: nil, completedState: nil))
 }
 
 @Test

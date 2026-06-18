@@ -99,6 +99,8 @@ final class ActivityStore {
     @ObservationIgnored private var weeklyReportEmailHealthTask: Task<Void, Never>?
     @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
     @ObservationIgnored private var lastAuthCallbackSignature: String?
+    @ObservationIgnored private var lastCompletedAuthState: String?
+    @ObservationIgnored private var pendingAuthRequest: LuumAuthRequest?
     @ObservationIgnored private let calendarRefreshInterval: TimeInterval = 900
     @ObservationIgnored private let cloudSyncInterval: TimeInterval = 900
     @ObservationIgnored private let reminderEvaluationMinimumInterval: TimeInterval = 30
@@ -196,6 +198,12 @@ final class ActivityStore {
         self.aiClassificationStatusMessage = nil
         self.authSession = keychainService.codable(LuumAuthSession.self, for: Self.firebaseAuthSessionKey)
         self.authStatusMessage = self.authSession.map { "Conectado como \($0.accountLabel) • plano \($0.plan.title)" }
+        if let pendingRequest = keychainService.codable(LuumAuthRequest.self, for: Self.firebaseAuthRequestKey),
+           pendingRequest.isValid() {
+            self.pendingAuthRequest = pendingRequest
+        } else {
+            keychainService.removeValue(for: Self.firebaseAuthRequestKey)
+        }
 
         migrateCalendarSecretsIfNeeded(snapshot: calendarSnapshot)
 
@@ -359,13 +367,41 @@ final class ActivityStore {
     }
 
     func openLoginPage() {
-        guard let url = FirebaseAuthService.loginURL() else { return }
-        NSWorkspace.shared.open(url)
+        let request = LuumAuthRequest()
+        guard let url = FirebaseAuthService.loginURL(state: request.state) else {
+            authStatusMessage = "Nao foi possivel preparar o login do Luum."
+            return
+        }
+
+        do {
+            try keychainService.setCodable(request, for: Self.firebaseAuthRequestKey)
+            pendingAuthRequest = request
+        } catch {
+            authStatusMessage = "Nao foi possivel proteger esta solicitacao de login."
+            return
+        }
+
+        guard NSWorkspace.shared.open(url) else {
+            clearPendingAuthRequest()
+            authStatusMessage = "Nao foi possivel abrir o navegador para entrar no Luum."
+            return
+        }
+        authStatusMessage = "Conclua o login no navegador."
     }
 
     func handleAuthCallbackURL(_ url: URL) {
+        let callbackState = FirebaseAuthService.callbackState(from: url)
+        guard let pendingAuthRequest, pendingAuthRequest.isValid() else {
+            if Self.isDuplicateCompletedAuthCallback(callbackState: callbackState, completedState: lastCompletedAuthState) {
+                return
+            }
+            clearPendingAuthRequest()
+            authStatusMessage = "Esta solicitacao de login expirou. Clique em Entrar e tente novamente."
+            return
+        }
+
         do {
-            let session = try authService.session(from: url)
+            let session = try authService.session(from: url, expectedState: pendingAuthRequest.state)
             let callbackSignature = Self.authCallbackSignature(for: session)
             if callbackSignature == lastAuthCallbackSignature,
                isCheckingAuth || authSession?.idToken == session.idToken {
@@ -374,6 +410,8 @@ final class ActivityStore {
             }
 
             lastAuthCallbackSignature = callbackSignature
+            lastCompletedAuthState = pendingAuthRequest.state
+            clearPendingAuthRequest()
             applyAuthSession(session, message: "Login recebido. Validando plano no Firebase...")
             refreshAccountStatus(restartInFlight: true)
         } catch {
@@ -450,6 +488,8 @@ final class ActivityStore {
         authRefreshTask = nil
         authRefreshGeneration += 1
         lastAuthCallbackSignature = nil
+        lastCompletedAuthState = nil
+        clearPendingAuthRequest()
         isCheckingAuth = false
         cloudSyncTask?.cancel()
         cloudSyncTask = nil
@@ -547,6 +587,16 @@ final class ActivityStore {
 
     nonisolated static func authCallbackSignature(for session: LuumAuthSession) -> String {
         "\(session.uid):\(session.idToken.suffix(16))"
+    }
+
+    nonisolated static func isDuplicateCompletedAuthCallback(callbackState: String?, completedState: String?) -> Bool {
+        guard let callbackState, !callbackState.isEmpty else { return false }
+        return callbackState == completedState
+    }
+
+    private func clearPendingAuthRequest() {
+        pendingAuthRequest = nil
+        keychainService.removeValue(for: Self.firebaseAuthRequestKey)
     }
 
     private func rejectAuthSession(_ session: LuumAuthSession) {
@@ -4445,6 +4495,7 @@ final class ActivityStore {
     }
 
     private static let firebaseAuthSessionKey = "firebase-auth-session"
+    private static let firebaseAuthRequestKey = "firebase-auth-request"
     private static let googleCalendarClientSecretKey = "google-calendar-client-secret"
     private static let notionCalendarTokenKey = "notion-calendar-token"
     private static let outlookCalendarTokenKey = "outlook-calendar-token"

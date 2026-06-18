@@ -81,8 +81,8 @@ O cofre de integracoes do `admin.html` pode armazenar parte desses valores cript
 Contrato esperado do app:
 
 - Login comum do site termina em `account.html`.
-- Login do app usa `login.html?app=mac`.
-- O site abre `luum://auth?token=...&refreshToken=...&uid=...`.
+- Login do app usa `login.html?app=mac&state=...`, iniciado somente pelo botão Entrar do app.
+- O site abre `luum://auth?token=...&refreshToken=...&uid=...&state=...`; o app rejeita state ausente, divergente ou expirado.
 - O app rejeita UID divergente, projeto Firebase errado e endpoint de backend nao oficial.
 
 ## Stripe
