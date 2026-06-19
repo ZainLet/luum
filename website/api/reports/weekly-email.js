@@ -139,7 +139,9 @@ async function weeklyReportEmailHandler(req, res) {
             console.error('[Weekly Report Email Error]', err);
         }
         return res.status(statusCode).json({
-            error: err.message || 'Não foi possível gerar o relatório semanal'
+            error: err.statusCode
+                ? err.message
+                : 'Não foi possível gerar o relatório semanal'
         });
     }
 }

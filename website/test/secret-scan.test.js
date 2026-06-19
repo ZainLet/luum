@@ -40,17 +40,10 @@ function walk(directory, files = []) {
 }
 
 function isTextFile(filePath) {
+    if (fs.statSync(filePath).size >= 1_000_000) return false;
     const buffer = fs.readFileSync(filePath);
     if (buffer.includes(0)) return false;
-    return buffer.length < 1_000_000;
-}
-
-function isAllowedFixture(match) {
-    const lowered = match.toLowerCase();
-    return lowered.includes('should_not_leak') ||
-        lowered.includes('test') ||
-        lowered.includes('fake') ||
-        lowered.includes('example');
+    return true;
 }
 
 test('repository does not contain committed private integration secrets', () => {
@@ -65,7 +58,6 @@ test('repository does not contain committed private integration secrets', () => 
         for (const { name, pattern } of secretPatterns) {
             pattern.lastIndex = 0;
             for (const match of contents.matchAll(pattern)) {
-                if (isAllowedFixture(match[0])) continue;
                 findings.push(`${name} in ${relativePath}`);
             }
         }

@@ -211,12 +211,27 @@ private struct PublicIntegrationConfigMockResponse: Sendable {
 }
 
 private final class PublicIntegrationConfigMockURLProtocol: URLProtocol, @unchecked Sendable {
+    private nonisolated(unsafe) static let storageQueue = DispatchQueue(label: "luum.public-integrations-test-url-protocol")
     private nonisolated(unsafe) static var responses: [PublicIntegrationConfigMockResponse] = []
-    private(set) nonisolated(unsafe) static var observedRequests: [URLRequest] = []
+    private nonisolated(unsafe) static var storedObservedRequests: [URLRequest] = []
+
+    static var observedRequests: [URLRequest] {
+        storageQueue.sync { storedObservedRequests }
+    }
 
     static func configure(responses: [PublicIntegrationConfigMockResponse]) {
-        self.responses = responses
-        observedRequests = []
+        storageQueue.sync {
+            self.responses = responses
+            storedObservedRequests = []
+        }
+    }
+
+    private static func record(_ request: URLRequest) -> PublicIntegrationConfigMockResponse? {
+        storageQueue.sync {
+            storedObservedRequests.append(request)
+            guard let url = request.url?.absoluteString else { return nil }
+            return responses.first(where: { $0.url == url })
+        }
     }
 
     override class func canInit(with request: URLRequest) -> Bool {
@@ -228,9 +243,7 @@ private final class PublicIntegrationConfigMockURLProtocol: URLProtocol, @unchec
     }
 
     override func startLoading() {
-        Self.observedRequests.append(request)
-        guard let url = request.url?.absoluteString,
-              let response = Self.responses.first(where: { $0.url == url }),
+        guard let response = Self.record(request),
               let http = HTTPURLResponse(
                 url: request.url!,
                 statusCode: response.statusCode,

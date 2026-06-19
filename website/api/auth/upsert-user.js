@@ -1,19 +1,10 @@
 const { admin, getFirestore } = require('../_firebaseAdmin');
 const { addCors, handleOptions } = require('../_cors');
+const { jsonBody: sharedJSONBody } = require('../_jsonBody');
 const { profileEmail, profileOnboarding, profileText } = require('../_profileSecurity');
 
 function jsonBody(req) {
-    if (!req.body) return {};
-    if (typeof req.body === 'string') {
-        try {
-            return JSON.parse(req.body || '{}');
-        } catch {
-            const error = new Error('JSON da conta inválido');
-            error.statusCode = 400;
-            throw error;
-        }
-    }
-    return req.body;
+    return sharedJSONBody(req, 'JSON da conta inválido');
 }
 
 async function upsertUserHandler(req, res) {

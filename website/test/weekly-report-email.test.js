@@ -277,6 +277,38 @@ test('weekly report endpoint generates a PDF preview with Gemini', async (t) => 
     assert.equal(Buffer.from(res.body.pdfBase64, 'base64').subarray(0, 8).toString(), '%PDF-1.4');
 });
 
+test('weekly report endpoint hides unexpected provider errors', async (t) => {
+    installFirebaseAdminMock({ userData: activeUser('profissional') });
+    const originalFetch = global.fetch;
+    const originalKey = process.env.GEMINI_API_KEY;
+    process.env.GEMINI_API_KEY = 'test-gemini-key';
+    t.after(() => {
+        global.fetch = originalFetch;
+        process.env.GEMINI_API_KEY = originalKey;
+        delete require.cache[weeklyReportPath];
+        delete require.cache[helperPath];
+    });
+
+    global.fetch = async () => {
+        throw new Error('private provider diagnostic');
+    };
+
+    const handler = require('../api/reports/weekly-email');
+    const res = response();
+    await handler({
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: { report: reportPayload(), sendEmail: false }
+    }, res);
+
+    assert.equal(res.code, 500);
+    assert.equal(res.body.error, 'Não foi possível gerar o relatório semanal');
+    assert.equal(JSON.stringify(res.body).includes('private provider diagnostic'), false);
+});
+
 test('weekly report endpoint sends email through Resend when configured', async (t) => {
     installFirebaseAdminMock({ userData: activeUser('negocios') });
     const originalFetch = global.fetch;

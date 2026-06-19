@@ -190,11 +190,11 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Conexoes em breve")
+                    Text("Conexões em breve")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Essas integracoes vao usar login guiado. Nada de token, chave ou webhook manual.")
+                    Text("Essas integrações vão usar login guiado. Nada de token, chave ou webhook manual.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -416,7 +416,7 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Backup seguro da sua conta Luum para recuperar preferencias e resumos.")
+                    Text("Backup seguro da sua conta Luum para recuperar preferências e resumos.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -471,7 +471,7 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("Dados sensiveis das conexoes ficam fora do backup.")
+            Text("Dados sensíveis das conexões ficam fora do backup.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)

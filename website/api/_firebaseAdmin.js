@@ -34,7 +34,7 @@ function getFirestore() {
     return getFirestoreForApp(getAdminApp());
 }
 
-// Preserve the small namespace used by the handlers while firebase-admin 14
+// Preserve the small namespace used by the handlers while firebase-admin 13.6
 // exposes Auth and Firestore only through its modular entrypoints.
 const firestore = Object.assign(
     () => getFirestore(),
