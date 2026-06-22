@@ -670,7 +670,7 @@ private struct TimelineScene: View {
                     )
                 } else {
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 10) {
+                        LazyVStack(alignment: .leading, spacing: 10) {
                             if activities.count > displayedActivities.count {
                                 TimelineLimitNotice(
                                     text: "Mostrando \(displayedActivities.count) blocos mais recentes de \(activities.count)."
@@ -699,7 +699,7 @@ private struct TimelineScene: View {
                     )
                 } else {
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 10) {
+                        LazyVStack(alignment: .leading, spacing: 10) {
                             if agendaItems.count > displayedAgendaItems.count {
                                 TimelineLimitNotice(
                                     text: "Mostrando \(displayedAgendaItems.count) eventos mais recentes de \(agendaItems.count)."

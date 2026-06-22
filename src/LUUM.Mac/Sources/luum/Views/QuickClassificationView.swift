@@ -148,7 +148,7 @@ struct QuickClassificationView: View {
                         .padding(22)
                         .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.12), cornerRadius: 28, shadowOpacity: 0.12)
                 } else {
-                    VStack(spacing: 10) {
+                    LazyVStack(spacing: 10) {
                         ForEach(visibleItems) { item in
                             QuickClassificationRow(store: store, kind: kind, item: item)
                         }

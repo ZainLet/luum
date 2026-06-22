@@ -103,8 +103,7 @@ extension View {
             .background {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .fill(LuumTheme.elevatedBlack.opacity(0.88))
-                    .shadow(color: Color.black.opacity(0.28), radius: 18, x: 0, y: 14)
-                    .shadow(color: tint.opacity(min(shadowOpacity, 0.12)), radius: 12, x: 0, y: 8)
+                    .shadow(color: Color.black.opacity(0.20), radius: 8, x: 0, y: 6)
                     .overlay {
                         RoundedRectangle(cornerRadius: radius, style: .continuous)
                             .fill(
