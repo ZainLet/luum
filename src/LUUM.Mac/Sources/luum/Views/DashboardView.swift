@@ -693,7 +693,7 @@ private struct TimelineScene: View {
             TimelineColumnCard(title: "Agenda", icon: "calendar.badge.clock", tint: LuumTheme.electricBlue) {
                 if agendaItems.isEmpty {
                     TimelineEmptyState(
-                        text: "Nenhum compromisso das fontes integradas para o dia selecionado ou para os proximos 3 dias.",
+                        text: "Nenhum compromisso das fontes integradas para o dia selecionado ou para os próximos 3 dias.",
                         actionTitle: openAgenda != nil ? "Conectar agenda" : nil,
                         action: openAgenda
                     )

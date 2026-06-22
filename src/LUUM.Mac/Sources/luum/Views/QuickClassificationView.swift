@@ -201,22 +201,29 @@ struct QuickClassificationView: View {
 
             HStack(spacing: 10) {
                 if kind == .applications {
-                    Button {
-                        store.toggleMonitoring()
-                    } label: {
-                        Label(
-                            store.isMonitoring ? "Monitorando..." : "Iniciar monitoramento",
-                            systemImage: store.isMonitoring ? "pause.circle" : "play.circle.fill"
-                        )
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(LuumTheme.cyanGreen)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Capsule().fill(LuumTheme.cyanGreen.opacity(0.12)))
-                        .overlay(Capsule().stroke(LuumTheme.cyanGreen.opacity(0.30), lineWidth: 1))
-                        .contentShape(Capsule())
+                    if store.isMonitoring {
+                        Label("Monitoramento ativo", systemImage: "checkmark.circle.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(LuumTheme.cyanGreen)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Capsule().fill(LuumTheme.cyanGreen.opacity(0.12)))
+                            .overlay(Capsule().stroke(LuumTheme.cyanGreen.opacity(0.30), lineWidth: 1))
+                    } else {
+                        Button {
+                            store.toggleMonitoring()
+                        } label: {
+                            Label("Iniciar monitoramento", systemImage: "play.circle.fill")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(LuumTheme.cyanGreen)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(Capsule().fill(LuumTheme.cyanGreen.opacity(0.12)))
+                                .overlay(Capsule().stroke(LuumTheme.cyanGreen.opacity(0.30), lineWidth: 1))
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 } else {
                     Button {
                         SystemSettings.openAutomationPrivacy()

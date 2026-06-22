@@ -1,5 +1,6 @@
 import SwiftUI
 
+@MainActor
 struct LuumStatusBar: View {
     let store: ActivityStore
     let summary: DailySummary

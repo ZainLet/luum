@@ -474,7 +474,7 @@ private struct SidebarHero: View {
                     Circle()
                         .fill(store.currentActivityCategory?.tint ?? LuumTheme.electricBlue)
                         .frame(width: 6, height: 6)
-                    Text(store.currentActivityCategory?.title ?? "Aguardando classificacao")
+                    Text(store.currentActivityCategory?.title ?? "Aguardando classificação")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(store.currentActivityCategory?.tint ?? LuumTheme.electricBlue)
                 }

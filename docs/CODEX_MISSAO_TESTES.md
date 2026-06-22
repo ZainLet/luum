@@ -84,7 +84,7 @@ swift test --package-path src/LUUM.Mac 2>&1 | tee /tmp/luum-swift-tests.log
 Após o checkout:
 ```bash
 curl -s -X GET "https://luum-app.vercel.app/api/auth/status" \
-  -H "Authorization: Bearer SEU_FIREBASE_ID_TOKEN" | python3 -m json.tool
+  -H "Authorization: Bearer <SEU_FIREBASE_ID_TOKEN>" | python3 -m json.tool
 ```
 
 **Capturar:** resposta JSON completa (sem expor o token no relatório — substituir por `[REDACTED]`).
@@ -133,11 +133,11 @@ Com a conta atual (após testes do Bloco 3), navegar para cada seção do app e 
 
 **O que testar:**
 
-1. Copiar `dist/releases/Luum-0.0.4-alpha.pkg` para outro Mac
+1. Copiar `dist/releases/Luum-0.1.0-alpha.pkg` para outro Mac
 2. Tentar instalar — Gatekeeper deve bloquear (sem Developer ID)
 3. Instalar mesmo assim via **clique direito → Abrir** ou:
    ```bash
-   sudo installer -pkg /path/to/Luum-0.0.4-alpha.pkg -target /
+   sudo installer -pkg /path/to/Luum-0.1.0-alpha.pkg -target /
    ```
 4. Abrir o app instalado e verificar se inicia normalmente
 
