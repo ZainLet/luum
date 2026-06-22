@@ -131,7 +131,7 @@ async function classifyHandler(req, res) {
         const categories = cleanCategories(body.categories);
         const currentCategoryID = cleanText(body.currentCategoryID, 48);
         const { apiKey, endpoint, model } = geminiConfig();
-        if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY não configurada na Vercel' });
+        if (!apiKey) return res.status(503).json({ error: 'GEMINI_API_KEY não configurada na Vercel' });
 
         const prompt = buildClassifyPrompt({
             kind, label,
@@ -265,7 +265,7 @@ async function queryHandler(req, res) {
 
         const context = cleanContext(body.context);
         const { apiKey, endpoint, model } = geminiConfig();
-        if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY não configurada na Vercel' });
+        if (!apiKey) return res.status(503).json({ error: 'GEMINI_API_KEY não configurada na Vercel' });
 
         const prompt = buildQueryPrompt(query, context);
         const controller = new AbortController();

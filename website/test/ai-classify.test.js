@@ -124,7 +124,45 @@ test('ai classify fails clearly when Gemini key is missing', async () => {
     const res = response();
     await handler(classifyRequest(), res);
 
-    assert.equal(res.code, 500);
+    assert.equal(res.code, 503);
+    assert.match(res.body.error, /GEMINI_API_KEY/);
+
+    if (oldKey) process.env.GEMINI_API_KEY = oldKey;
+});
+
+test('ai query fails clearly when Gemini key is missing', async () => {
+    const oldKey = process.env.GEMINI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+
+    installFirebaseAdminMock({
+        decoded: { uid: 'user-1' },
+        userData: {
+            plan: 'essencial',
+            subscription: { status: 'trial', trialEndsAt: { toMillis: () => Date.now() + 86_400_000 } }
+        }
+    });
+
+    const handler = require('../api/ai/[action]');
+    const res = response();
+    await handler({
+        method: 'POST',
+        query: { action: 'query' },
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: {
+            query: 'How was my week?',
+            context: {
+                date: '2026-06-22',
+                totalTrackedTime: 18000,
+                categoryBreakdown: [{ label: 'Trabalho', duration: 12000 }],
+                topApps: [{ label: 'Xcode', duration: 7200 }]
+            }
+        }
+    }, res);
+
+    assert.equal(res.code, 503);
     assert.match(res.body.error, /GEMINI_API_KEY/);
 
     if (oldKey) process.env.GEMINI_API_KEY = oldKey;

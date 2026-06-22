@@ -130,7 +130,7 @@ async function generateNarrative({ report, accountEmail, fetchImpl = fetch }) {
     const apiKey = cleanText(process.env.GEMINI_API_KEY, 4096);
     if (!apiKey) {
         const error = new Error('GEMINI_API_KEY não configurada na Vercel');
-        error.statusCode = 500;
+        error.statusCode = 503;
         throw error;
     }
 
@@ -259,7 +259,7 @@ async function sendReportEmail({ to, subject, html, pdfBuffer, fileName, fetchIm
     const from = cleanText(process.env.REPORT_EMAIL_FROM || process.env.RESEND_FROM_EMAIL, 180);
     if (!apiKey || !from) {
         const error = new Error('RESEND_API_KEY e REPORT_EMAIL_FROM precisam estar configurados na Vercel');
-        error.statusCode = 500;
+        error.statusCode = 503;
         throw error;
     }
 
