@@ -1,6 +1,6 @@
 # Luum Distribution and Platform Roadmap
 
-Updated: 2026-05-12
+Updated: 2026-06-21
 
 ## Objetivo
 
@@ -12,19 +12,22 @@ Este documento resume o que o `luum` precisa para sair do modo de desenvolviment
 - base comercial para times e empresas
 - suporte futuro para site, onboarding e vendas B2B
 
-## Estado atual do app
+## Estado atual do app (2026-06-21)
 
-Hoje o `luum` ja possui uma base funcional de:
+Base funcional validada:
 
 - monitoramento de apps em primeiro plano
-- leitura de URLs em navegadores suportados via Automacao do macOS
-- categorizacao manual e por regras
+- leitura de URLs em navegadores suportados via Automação do macOS
+- categorização manual e por regras, com sugestão por IA (Gemini via Vercel)
 - lembretes, metas e foco
 - multi-conta Google Calendar
-- multi-calendario Google
-- integracao inicial com Notion via API oficial do Notion sobre data sources
-- ranking de equipe em modo preview/demo
-- backup/sync com backend sobre Firestore
+- login real validado `app → site → Firebase → luum://auth → app`
+- ranking de equipe com workspace real (Equipes/Negócios)
+- backup/sync com backend Vercel + Firestore
+- PDF semanal por email via Gemini
+- SettingsView com logout confirmado e campos de workspace
+- `signOut()` limpa workspaceID, chave e flags de sync (PR #13)
+- CodeRabbit ativo no repo; CLAUDE.md documentado
 
 ## O que falta para distribuir o app no macOS
 
@@ -330,18 +333,24 @@ Sugestao:
 - cliente Windows nativo
 - distribuicao por MSIX
 
-## Checklist pratico para a proxima semana
+## Checklist de distribuição macOS
 
-- [ ] fechar o fluxo final de multi-conta Google
-- [ ] validar Notion com 2 ou 3 data sources reais
-- [ ] revisar copy e estados vazios da agenda integrada
-- [ ] definir score final do ranking
-- [ ] escolher stack do backend corporativo
-- [ ] entrar com conta Apple Developer se ainda nao entrou
-- [ ] preparar assinatura e notarizacao
-- [ ] escrever politica de privacidade inicial
-- [ ] decidir stack do site
-- [ ] decidir stack do cliente Windows
+- [ ] Endereçar comentários do CodeRabbit no PR #13
+- [ ] Executar XCTest com Xcode completo (teste de logout pronto, aguarda runner)
+- [ ] QA manual ponta a ponta: login, captura, backup, logout, workspace
+- [ ] Instalar PKG em outro Mac (Gatekeeper bloqueia; sem Developer ID por ora)
+- [ ] Validar Stripe com compra e cancelamento reais
+- [ ] Configurar Google Calendar em produção (`GOOGLE_CALENDAR_CLIENT_ID` na Vercel)
+- [ ] Entrar no Apple Developer Program e obter Developer ID Application
+- [ ] Notarizar e testar em Mac limpo
+- [ ] Escrever política de privacidade inicial
+- [ ] Validar Notion, Outlook, ClickUp, Linear e Zapier com OAuth real
+
+## Checklist de plataformas futuras
+
+- [ ] Decidir stack do site público (Next.js sugerido)
+- [ ] Criar cliente Windows com WinUI 3 / .NET 8 (toolchain não disponível neste Mac)
+- [ ] Validar build .NET em Windows 11 com SDKs instalados
 
 ## Observacao final
 

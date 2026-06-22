@@ -4,6 +4,7 @@ enum LuumTheme {
     static let accent = Color(red: 0.48, green: 0.34, blue: 0.86)
     static let secondaryAccent = Color(red: 0.35, green: 0.30, blue: 0.56)
     static let electricBlue = Color(red: 0.62, green: 0.53, blue: 0.95)
+    static let cyanGreen = Color(red: 0.22, green: 0.84, blue: 1.0)
     static let hotPink = Color(red: 0.82, green: 0.18, blue: 0.39)
     static let baseBlack = Color(red: 0.035, green: 0.035, blue: 0.045)
     static let elevatedBlack = Color(red: 0.085, green: 0.082, blue: 0.105)

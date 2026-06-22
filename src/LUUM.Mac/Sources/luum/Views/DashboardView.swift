@@ -13,8 +13,11 @@ struct DashboardView: View {
     let openCategories: () -> Void
     let openFocus: () -> Void
     let openReports: () -> Void
-    let openSearch: () -> Void
+    let openSearch: (_ query: String) -> Void
     let openSettings: () -> Void
+
+    @State private var aiQuery = ""
+    @State private var appeared = false
 
     private var leadingCategory: CategoryBreakdown? {
         summary.categoryBreakdown.first
@@ -47,12 +50,9 @@ struct DashboardView: View {
     private var greetingTitle: String {
         let hour = Calendar.autoupdatingCurrent.component(.hour, from: Date())
         switch hour {
-        case 5 ..< 12:
-            return "Bom dia, Luum"
-        case 12 ..< 18:
-            return "Boa tarde, Luum"
-        default:
-            return "Boa noite, Luum"
+        case 5 ..< 12: return "Bom dia"
+        case 12 ..< 18: return "Boa tarde"
+        default: return "Boa noite"
         }
     }
 
@@ -60,16 +60,33 @@ struct DashboardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 contextHeader
+                    .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : -14)
+                    .animation(.spring(duration: 0.6, bounce: 0.25), value: appeared)
 
                 if store.needsOnboarding {
                     onboardingCard
+                        .opacity(appeared ? 1 : 0)
+                        .offset(y: appeared ? 0 : -8)
+                        .animation(.spring(duration: 0.55, bounce: 0.2).delay(0.07), value: appeared)
                 }
 
                 HStack(alignment: .top, spacing: 16) {
                     VStack(alignment: .leading, spacing: 16) {
                         metricsStrip
+                            .opacity(appeared ? 1 : 0)
+                            .offset(y: appeared ? 0 : 14)
+                            .animation(.spring(duration: 0.58, bounce: 0.2).delay(0.10), value: appeared)
+
                         quickActionStrip
+                            .opacity(appeared ? 1 : 0)
+                            .offset(y: appeared ? 0 : 14)
+                            .animation(.spring(duration: 0.58, bounce: 0.2).delay(0.18), value: appeared)
+
                         timelineBoard
+                            .opacity(appeared ? 1 : 0)
+                            .offset(y: appeared ? 0 : 14)
+                            .animation(.spring(duration: 0.58, bounce: 0.2).delay(0.26), value: appeared)
                     }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
 
@@ -79,11 +96,17 @@ struct DashboardView: View {
                         topBreakdownsCard
                     }
                     .frame(width: 312)
+                    .opacity(appeared ? 1 : 0)
+                    .offset(x: appeared ? 0 : 20)
+                    .animation(.spring(duration: 0.65, bounce: 0.15).delay(0.13), value: appeared)
                 }
             }
             .padding(20)
         }
         .scrollIndicators(.hidden)
+        .task {
+            appeared = true
+        }
     }
 
     private var onboardingCard: some View {
@@ -147,53 +170,126 @@ struct DashboardView: View {
     }
 
     private var contextHeader: some View {
-        HStack(alignment: .top, spacing: 22) {
-            VStack(alignment: .leading, spacing: 14) {
-                LuumSectionHeader(
-                    eyebrow: "Hoje",
-                    title: greetingTitle,
-                    subtitle: "Revise captura, agenda e sinais importantes do dia."
-                )
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 22) {
+                VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(greetingTitle)
+                            .font(.system(size: 34, weight: .bold, design: .default))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.white, LuumTheme.electricBlue.opacity(0.72)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .animation(.easeInOut(duration: 0.4), value: greetingTitle)
 
-                HStack(spacing: 10) {
-                    StatusPill(
-                        title: store.isMonitoring ? "Captura ativa" : "Captura pausada",
-                        detail: store.currentActivityCategory?.title ?? "Monitoramento local",
-                        tint: store.currentActivityCategory?.tint ?? LuumTheme.accent
-                    )
-
-                    StatusPill(
-                        title: agenda.isConnected ? "Agenda conectada" : "Agenda desconectada",
-                        detail: agenda.isConnected ? "\(agenda.selectedCalendarCount) fonte(s)" : "Agenda integrada",
-                        tint: agenda.isConnected ? LuumTheme.secondaryAccent : LuumTheme.hotPink
-                    )
-
-                    StatusPill(
-                        title: LuumFormatters.dayLabel(selectedDay),
-                        detail: "dia selecionado",
-                        tint: LuumTheme.electricBlue
-                    )
-
-                    if store.focusShieldProfilesCount > 0 {
-                        StatusPill(
-                            title: store.currentFocusBlockMatch == nil ? "Escudo pronto" : "Bloqueio ativo",
-                            detail: store.currentFocusBlockMatch?.title ?? "\(store.focusShieldProfilesCount) perfil(is)",
-                            tint: store.currentFocusBlockMatch == nil ? LuumTheme.hotPink : LuumTheme.electricBlue
-                        )
+                        Text("Aqui está o que importa hoje.")
+                            .font(.body)
+                            .foregroundStyle(LuumTheme.textSecondary)
                     }
+
+                    HStack(spacing: 10) {
+                        StatusPill(
+                            title: store.isMonitoring ? "Captura ativa" : "Captura pausada",
+                            detail: store.currentActivityCategory?.title ?? "Monitoramento local",
+                            tint: store.currentActivityCategory?.tint ?? LuumTheme.cyanGreen
+                        )
+
+                        StatusPill(
+                            title: agenda.isConnected ? "Agenda conectada" : "Agenda desconectada",
+                            detail: agenda.isConnected ? "\(agenda.selectedCalendarCount) fonte(s)" : "Agenda integrada",
+                            tint: agenda.isConnected ? LuumTheme.electricBlue : LuumTheme.hotPink
+                        )
+
+                        StatusPill(
+                            title: LuumFormatters.dayLabel(selectedDay),
+                            detail: "dia selecionado",
+                            tint: LuumTheme.secondaryAccent
+                        )
+
+                        if store.focusShieldProfilesCount > 0 {
+                            StatusPill(
+                                title: store.currentFocusBlockMatch == nil ? "Escudo pronto" : "Bloqueio ativo",
+                                detail: store.currentFocusBlockMatch?.title ?? "\(store.focusShieldProfilesCount) perfil(is)",
+                                tint: store.currentFocusBlockMatch == nil ? LuumTheme.hotPink : LuumTheme.electricBlue
+                            )
+                        }
+                    }
+                }
+
+                Spacer(minLength: 12)
+
+                VStack(alignment: .trailing, spacing: 14) {
+                    DashboardDatePanel(selectedDay: $selectedDay)
+                    summarySnapshotCard
+                        .frame(width: 330)
                 }
             }
 
-            Spacer(minLength: 12)
-
-            VStack(alignment: .trailing, spacing: 14) {
-                DashboardDatePanel(selectedDay: $selectedDay)
-                summarySnapshotCard
-                    .frame(width: 330)
-            }
+            aiPromptField
         }
-        .padding(20)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.10), cornerRadius: 18, shadowOpacity: 0.08)
+        .padding(22)
+        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.10), cornerRadius: 20, shadowOpacity: 0.08)
+    }
+
+    private var aiPromptField: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(LuumTheme.electricBlue)
+
+            TextField(
+                "Pergunte ao Luum... \"O que fiz hoje?\" ou \"Qual projeto está em risco?\"",
+                text: $aiQuery
+            )
+            .font(.subheadline)
+            .foregroundStyle(.white)
+            .textFieldStyle(.plain)
+            .onSubmit {
+                if !aiQuery.isEmpty {
+                    openSearch(aiQuery)
+                    aiQuery = ""
+                }
+            }
+
+            Group {
+                if aiQuery.isEmpty {
+                    Text("Em breve")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(LuumTheme.textMuted)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(LuumTheme.panelFill)
+                        )
+                } else {
+                    Button {
+                        openSearch(aiQuery)
+                        aiQuery = ""
+                    } label: {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(LuumTheme.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.scale(scale: 0.7).combined(with: .opacity))
+                }
+            }
+            .animation(.spring(duration: 0.25, bounce: 0.3), value: aiQuery.isEmpty)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(LuumTheme.panelFillStrong)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(LuumTheme.electricBlue.opacity(0.22), lineWidth: 1)
+        }
     }
 
     private var summarySnapshotCard: some View {
@@ -262,7 +358,7 @@ struct DashboardView: View {
                 detail: "encontre qualquer contexto",
                 symbol: "magnifyingglass",
                 tint: LuumTheme.accent,
-                action: openSearch
+                action: { openSearch("") }
             )
 
             QuickActionCard(
@@ -317,8 +413,14 @@ struct DashboardView: View {
                 }
             }
 
-            TimelineScene(store: store, activities: summary.timelineActivities, agendaItems: agenda.events)
-                .frame(height: 620)
+            TimelineScene(
+                store: store,
+                activities: summary.timelineActivities,
+                agendaItems: agenda.events,
+                openApps: openApps,
+                openAgenda: openAgenda
+            )
+            .frame(height: 620)
         }
         .padding(24)
         .frame(maxWidth: .infinity)
@@ -546,6 +648,8 @@ private struct TimelineScene: View {
     let store: ActivityStore
     let activities: [ResolvedActivitySample]
     let agendaItems: [CalendarAgendaItem]
+    var openApps: (() -> Void)? = nil
+    var openAgenda: (() -> Void)? = nil
 
     private var displayedActivities: [ResolvedActivitySample] {
         Array(activities.prefix(120))
@@ -559,10 +663,14 @@ private struct TimelineScene: View {
         HStack(alignment: .top, spacing: 18) {
             TimelineColumnCard(title: "Atividade real", icon: "waveform.path.ecg.rectangle.fill", tint: LuumTheme.accent) {
                 if activities.isEmpty {
-                    TimelineEmptyState(text: "Nenhuma atividade capturada neste dia.")
+                    TimelineEmptyState(
+                        text: "Nenhuma atividade capturada neste dia. Certifique-se de que o monitoramento está ativo.",
+                        actionTitle: openApps != nil ? "Ver apps e sites" : nil,
+                        action: openApps
+                    )
                 } else {
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 10) {
+                        LazyVStack(alignment: .leading, spacing: 10) {
                             if activities.count > displayedActivities.count {
                                 TimelineLimitNotice(
                                     text: "Mostrando \(displayedActivities.count) blocos mais recentes de \(activities.count)."
@@ -584,10 +692,14 @@ private struct TimelineScene: View {
 
             TimelineColumnCard(title: "Agenda", icon: "calendar.badge.clock", tint: LuumTheme.electricBlue) {
                 if agendaItems.isEmpty {
-                    TimelineEmptyState(text: "Nenhum compromisso das fontes integradas para o dia selecionado ou para os proximos 3 dias.")
+                    TimelineEmptyState(
+                        text: "Nenhum compromisso das fontes integradas para o dia selecionado ou para os próximos 3 dias.",
+                        actionTitle: openAgenda != nil ? "Conectar agenda" : nil,
+                        action: openAgenda
+                    )
                 } else {
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 10) {
+                        LazyVStack(alignment: .leading, spacing: 10) {
                             if agendaItems.count > displayedAgendaItems.count {
                                 TimelineLimitNotice(
                                     text: "Mostrando \(displayedAgendaItems.count) eventos mais recentes de \(agendaItems.count)."
@@ -691,12 +803,40 @@ private struct TimelineSectionHeader: View {
 
 private struct TimelineEmptyState: View {
     let text: String
+    var actionTitle: String? = nil
+    var action: (() -> Void)? = nil
 
     var body: some View {
-        Text(text)
-            .foregroundStyle(LuumTheme.textSecondary)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(.top, 8)
+        VStack(alignment: .leading, spacing: 14) {
+            Text(text)
+                .foregroundStyle(LuumTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let actionTitle, let action {
+                Button(action: action) {
+                    HStack(spacing: 7) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.caption.weight(.semibold))
+                        Text(actionTitle)
+                            .font(.caption.weight(.semibold))
+                    }
+                    .foregroundStyle(LuumTheme.electricBlue)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(LuumTheme.electricBlue.opacity(0.12))
+                    )
+                    .overlay {
+                        Capsule(style: .continuous)
+                            .stroke(LuumTheme.electricBlue.opacity(0.28), lineWidth: 1)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(.top, 8)
     }
 }
 
@@ -995,17 +1135,20 @@ private struct QuickActionCard: View {
     let tint: Color
     let action: () -> Void
 
+    @State private var isHovered = false
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(tint.opacity(0.18))
+                        .fill(tint.opacity(isHovered ? 0.28 : 0.18))
 
                     Image(systemName: symbol)
                         .foregroundStyle(tint)
                 }
                 .frame(width: 38, height: 38)
+                .animation(.easeInOut(duration: 0.18), value: isHovered)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
@@ -1018,10 +1161,19 @@ private struct QuickActionCard: View {
                 }
 
                 Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(LuumTheme.textMuted.opacity(isHovered ? 0.7 : 0))
+                    .animation(.easeInOut(duration: 0.18), value: isHovered)
             }
             .padding(16)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .scaleEffect(isHovered ? 1.015 : 1.0)
+        .animation(.spring(duration: 0.2, bounce: 0.2), value: isHovered)
+        .onHover { isHovered = $0 }
         .luumGlassCard(tint: tint.opacity(0.14), cornerRadius: 26, shadowOpacity: 0.1)
     }
 }
@@ -1033,6 +1185,8 @@ private struct OverviewMetricCard: View {
     let tint: Color
     let action: () -> Void
 
+    @State private var isHovered = false
+
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 8) {
@@ -1042,9 +1196,10 @@ private struct OverviewMetricCard: View {
                     .tracking(1.1)
 
                 Text(value)
-                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
                     .lineLimit(1)
+                    .contentTransition(.numericText())
 
                 Text(detail)
                     .font(.caption)
@@ -1053,8 +1208,13 @@ private struct OverviewMetricCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(18)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .scaleEffect(isHovered ? 1.018 : 1.0)
+        .brightness(isHovered ? 0.04 : 0)
+        .animation(.spring(duration: 0.22, bounce: 0.2), value: isHovered)
+        .onHover { isHovered = $0 }
         .luumGlassCard(tint: tint.opacity(0.16), cornerRadius: 26, shadowOpacity: 0.14)
     }
 }

@@ -2,7 +2,7 @@
 
 Este arquivo lista o que depende de contas, chaves externas ou decisões que não devem ficar hardcoded no repositório.
 
-## Estado validado em 08/06/2026
+## Estado validado em 21/06/2026
 
 - Vercel production atualizado em `https://luum-app.vercel.app` com as APIs de login, admin, checkout, backup, workspace e CORS restrito.
 - Correção publicada em produção: `/api/auth/status` agora resolve o plano efetivo mais forte entre `plan`, `subscription.plan` e campos legados `onboarding.plan`/`quiz.plan`, evitando o caso em que o Firestore mostra `equipes` mas o app continua preso em `Profissional`.
@@ -21,14 +21,18 @@ Este arquivo lista o que depende de contas, chaves externas ou decisões que nã
 
 Progresso aproximado para finalizar o produto:
 
-- Login, Firebase e gates por plano: 90%.
+- Login, Firebase e gates por plano: 93%.
+- Segurança de auth e checkout: verificação Firebase antes do corpo implementada e testada (PR #13).
+- Segurança de workspace/logout: `workspaceID` limpo no logout, condição de sync corrigida (PR #13).
 - Backup Firebase: 80-85%.
 - Stripe e billing: 75-80%, pendente de compra/cancelamento real e conferência do webhook no painel.
-- App macOS completo: 70-75%, pendente de QA manual ponta a ponta no Mac.
-- Performance do app macOS: meta contínua adicionada. Otimizações aplicadas no cache de resumos, debounce de lembretes/foco, corte de relatórios por janela de data, cálculo de streak recente, captura em background, persistência local e renderização de histórico grande.
-- Integrações externas de agenda/tarefas/automação: 45-60%. A UI do app já foi simplificada: Google Calendar tem conexão guiada; Notion, Outlook, ClickUp, Linear e Zapier aparecem com status simples e botão `Conectar` bloqueado até existir OAuth/backend real para funcionar de ponta a ponta sem configuração manual.
+- App macOS completo: 75-80%, pendente de QA manual ponta a ponta e XCTest com Xcode completo.
+- Performance do app macOS: meta contínua. Otimizações aplicadas no cache de resumos, debounce de lembretes/foco, corte de relatórios por janela de data, cálculo de streak recente, captura em background, persistência local e renderização de histórico grande.
+- Integrações externas de agenda/tarefas/automação: 45-60%. Google Calendar tem conexão guiada; Notion, Outlook, ClickUp, Linear e Zapier aparecem com botão `Conectar` bloqueado até existir OAuth/backend real.
 
 Ainda precisa de validação manual com uma conta real: entrar no site, abrir o app pelo deeplink, alterar plano no `admin.html` e clicar em validar assinatura no app.
+
+PR #13 (`codex/cloud-sync-coalesce`) em revisão pelo CodeRabbit: correções de segurança de checkout, logout e workspace. Ver `https://github.com/ZainLet/luum/pull/13`.
 
 Política de versionamento adotada:
 

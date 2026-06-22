@@ -161,208 +161,52 @@ Login real validado:
 
 Firebase Auth e Firestore permanecem como fontes de identidade e entitlement.
 
-Matriz server-side testada para:
+Matriz server-side testada para trial, Essencial, Profissional, Equipes e Negócios.
 
-* trial;
-* Essencial;
-* Profissional;
-* Equipes;
-* Negócios.
-
-Workspace `oluum-app` criado.
-
-Segredo salvo no cofre local.
-
-Sync e ranking real com 1 membro validados.
-
-Correção local faz o ranking sincronizar imediatamente após revalidar a conta no lançamento.
+Workspace `oluum-app` criado. Segredo salvo no cofre local. Sync e ranking com 1 membro validados.
 
 Backup e restauração reais no Firestore concluídos.
 
-Backend publicado em produção na Vercel:
+Backend Vercel:
 
 * deployment: `dpl_8y1RLPbTL2VRtufhWk9U8WjzHR8G`;
 * alias: `https://luum-app.vercel.app`;
 * estado: Ready.
 
-Limites Stripe validados em produção sem cobrança:
+Checkout anônimo: `401` verificado antes do corpo (corrigido em 2026-06-21).
 
-* checkout anônimo: 401 Login Firebase obrigatório;
-* cancelamento anônimo: 401 Login Firebase obrigatório;
-* webhook sem assinatura: 400 Webhook signature verification failed;
-* respostas com `Cache-Control: no-store, max-age=0`.
+Suíte Node: 105 testes aprovados, zero falhas.
 
-Fronteira anônima de administração validada em produção:
+Build macOS aprovado. PKG `0.0.4-alpha` verificado.
 
-* auth status: 401 com no-store;
-* health: 401 com no-store;
-* usuários: 401 com no-store;
-* integrações: 401 com no-store;
-* Stripe health: 401 com no-store.
+Gatekeeper rejeita por falta de Developer ID; instalação em outro Mac pendente.
 
-Configuração pública de integrações retorna 200 sanitizado, mas Google, Outlook, Notion, ClickUp, Linear e Zapier permanecem com `managedOAuth=false`.
+XCTest: teste de logout escrito, não executado (sem Xcode completo).
 
-Configuração e testes reais das integrações continuam pendentes.
+Windows/Linux: auditados documentalmente; nenhum build .NET executado.
 
-Testes:
+Graphify: 1.659 nós, 3.851 relações, 53 comunidades.
 
-* 32 testes focados Stripe/auth/entitlements aprovados.
-* Suíte Node completa: 105 testes aprovados, zero falhas.
-* `npm audit --omit=dev`: zero vulnerabilidades.
+CodeRabbit instalado no repo `ZainLet/luum`.
 
-Build macOS aprovado.
+CLAUDE.md adicionado ao repositório.
 
-`./script/build_and_run.sh --verify` validou:
+## Correções de segurança — LUUM-DIFF-001 resolvido
 
-* bundle;
-* assinatura ad-hoc;
-* lançamento;
-* processo ativo.
+Commit `1919d4d`, PR #13: `https://github.com/ZainLet/luum/pull/13`
 
-QA visual somente leitura confirmou:
+* `signOut()`: limpa `workspaceID`, `workspaceEndpointURL`, chave do Keychain e flags de sync.
+* Auth refresh: `shouldSyncWorkspace` não exige mais `sharesAnonymousMetrics` (era incorreto).
+* Teste: `workspaceID.isEmpty` adicionado em `ActivityStoreSignOutTests`.
+* `checkout.js`: token verificado antes de ler o corpo.
 
-* janela principal;
-* sessão Equipes;
-* captura ativa;
-* resumo;
-* busca local com resultados.
-
-Agenda, Equipe e Preferências ainda não foram comprovadas nessa rodada porque a automação perdeu acesso à janela, embora o processo tenha permanecido ativo.
-
-PKG local `0.0.4-alpha` regenerado e verificado:
-
-* payload em `/Applications`;
-* package id aprovado;
-* checksums dos aliases estáveis aprovados.
-
-Artefatos gerados com worktree modificado agora recebem `-dirty` no nome e nas notas para não aparentarem corresponder exatamente ao commit.
-
-Gatekeeper ainda rejeita app/PKG por falta de Developer ID e notarização.
-
-Instalação e QA em outro Mac continuam pendentes.
-
-XCTest ainda não foi executado.
-
-O teste focado de logout compilou, mas a instalação atual tem apenas Command Line Tools e não inclui o runner `xctest`.
-
-Windows/Linux auditados documentalmente:
-
-* projetos existentes são backend, cliente web e helper console legado;
-* ainda não há WinUI/MSIX;
-* ainda não há cliente/Flatpak Linux;
-* este Mac não possui toolchain .NET para executar build ou testes.
-
-Graphify atualizado:
-
-* 1.659 nós;
-* 3.851 relações;
-* 53 comunidades.
-
-## Revisão de segurança mais recente
-
-Foi executada auditoria formal do diff local com cobertura 3/3 dos arquivos-fonte alterados.
-
-Relatórios temporários:
-
-* `/tmp/codex-security-scans/luum/c6b877a_20260620T212930Z/report.md`
-* `/tmp/codex-security-scans/luum/c6b877a_20260620T212930Z/report.html`
-
-Um achado sobreviveu à validação:
-
-`LUUM-DIFF-001`
-
-* severidade: baixo/P3;
-* confiança: 0,75;
-* ao sair da conta, a chave e as preferências do workspace permanecem locais;
-* a próxima conta Equipes/Negócios no mesmo usuário do macOS pode sincronizar automaticamente usando esse workspace antigo;
-* impacto limitado a métricas agregadas e ranking;
-* não há exposição comprovada de tokens, atividade bruta ou billing.
-
-Correção local aplicada, ainda sem commit/push e pendente de execução com XCTest:
-
-* remover `team-workspace-secret` no logout;
-* desativar compartilhamento e sync automático;
-* limpar ranking em memória;
-* adicionar teste garantindo que o workspace deixa de estar configurado após logout.
-
-## Alterações locais ainda sem commit/push
-
-Branch atual:
-
-`codex/cloud-sync-coalesce`
-
-Arquivos alterados:
-
-### `script/build_and_run.sh`
-
-Marca builds produzidas por worktree modificado com `-dirty` no identificador do artefato e nas notas.
-
-### `src/LUUM.Mac/Sources/luum/Stores/ActivityStore.swift`
-
-Inclui:
-
-* sync imediato do workspace após revalidação Firebase;
-* limpeza da chave;
-* limpeza da participação;
-* limpeza do sync;
-* limpeza do ranking do workspace no logout.
-
-### `src/LUUM.Mac/Tests/luumTests/ActivityStoreSignOutTests.swift`
-
-Inclui regressão focada garantindo que o workspace deixa de estar configurado após logout.
-
-### `src/LUUM.Mac/Sources/luum/Views/SettingsView.swift`
-
-Inclui:
-
-* logout com confirmação;
-* campos de Workspace ID;
-* campo de chave compartilhada.
-
-### `website/api/checkout.js`
-
-Autenticação Firebase ocorre antes da validação do corpo.
-
-### `website/test/auth-handlers.test.js`
-
-Regressão para checkout anônimo retornar 401 primeiro.
-
-### `website/test/billing-cache.test.js`
-
-Contrato 401 e `no-store` atualizado.
-
-### `website/test/entitlements.test.js`
-
-Matriz completa dos planos.
-
-### `docs/META_LUUM_ATUALIZADA.md`
-
-Este handoff.
-
-## Regra crítica de versionamento
-
-Não fazer commit, push ou PR sem pedido explícito.
-
-O backend publicado contém a correção de autenticação do checkout.
-
-As alterações Swift continuam apenas locais.
+Status: commitado, PR aberto. CodeRabbit review pendente.
 
 ## Próxima ação objetiva
 
-Executar o teste:
-
-```text
-signOutClearsWorkspaceConfigurationAndParticipation()
-```
-
-com Xcode/XCTest completo.
-
-Se o teste passar:
-
-1. fazer revisão final de `LUUM-DIFF-001`;
-2. rodar `security-review` no diff atual;
-3. rodar `code-review` no diff atual;
-4. pedir autorização antes de commit/push.
+1. Endereçar comentários do CodeRabbit no PR #13.
+2. Executar `signOutClearsWorkspaceConfigurationAndParticipation()` com Xcode completo.
+3. QA manual de logout: Workspace ID deve sumir das preferências.
 
 ## Pendências obrigatórias da meta
 
@@ -620,5 +464,5 @@ O `HANDOFF.md` deve conter:
 ## Prompt curto para próximo chat
 
 ```text
-Estamos no Luum v1 macOS, agora usando Claude Code. Leia docs/META_LUUM_ATUALIZADA.md e graphify-out/GRAPH_REPORT.md. Use graphify + caveman + karpathy-guidelines. Não faça commit/push/PR. Próxima ação objetiva: executar signOutClearsWorkspaceConfigurationAndParticipation() com Xcode/XCTest completo; se passar, revisar LUUM-DIFF-001 com security-review e code-review. Mantenha patches pequenos, leia no máximo 3 a 6 arquivos antes de editar e rode /verify depois.
+Estamos no Luum v1 macOS, usando Claude Code. Leia docs/META_LUUM_ATUALIZADA.md e graphify-out/GRAPH_REPORT.md. Use graphify + caveman + karpathy-guidelines. Não faça commit/push/PR sem autorização. PR #13 aberto em github.com/ZainLet/luum/pull/13, CodeRabbit review pendente. Próxima ação: endereçar comentários do CodeRabbit; depois executar signOutClearsWorkspaceConfigurationAndParticipation() com Xcode completo. Patches pequenos, máximo 3-6 arquivos antes de editar, /verify depois.
 ```

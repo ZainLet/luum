@@ -6,7 +6,7 @@ MODE="${1:-run}"
 APP_NAME="luum"
 APP_DISPLAY_NAME="Luum"
 BUNDLE_ID="com.luum.apple"
-APP_VERSION="${LUUM_APP_VERSION:-0.0.4}"
+APP_VERSION="${LUUM_APP_VERSION:-0.1.0}"
 APP_BUILD="${LUUM_APP_BUILD:-1}"
 APP_CATEGORY="public.app-category.productivity"
 MIN_SYSTEM_VERSION="26.0"
@@ -34,6 +34,11 @@ clean_macos_metadata() {
   /usr/bin/xattr -dr com.apple.provenance "$target" >/dev/null 2>&1 || true
   find "$target" \( -name '._*' -o -name '.DS_Store' -o -name '.__*' \) -delete
 }
+
+if [[ "$MODE" == "--verify-package" || "$MODE" == "verify-package" ]]; then
+  # skip build — verify-package only inspects existing release artifacts
+  :
+else
 
 swift build --package-path "$PACKAGE_DIR" --build-path "$SWIFT_BUILD_DIR"
 BUILD_BINARY="$(swift build --package-path "$PACKAGE_DIR" --build-path "$SWIFT_BUILD_DIR" --show-bin-path)/$APP_NAME"
@@ -121,6 +126,8 @@ PLIST
 codesign --force --deep --sign "$CODESIGN_IDENTITY" --timestamp=none "$APP_BUNDLE"
 clean_macos_metadata "$APP_BUNDLE"
 
+fi # end of build-required block
+
 verify_bundle() {
   plutil -lint "$INFO_PLIST" >/dev/null
 
@@ -168,19 +175,19 @@ verify_package_file() {
     exit 1
   fi
 
-  expanded_dir="$(mktemp -u "$DIST_DIR/pkg-verify.XXXXXX")"
-  /usr/sbin/pkgutil --expand "$package_path" "$expanded_dir" >/dev/null
-  if ! grep -Eq "identifier=\"$PKG_ID\"" "$expanded_dir/PackageInfo"; then
+  expanded_base="$(mktemp -d "$DIST_DIR/pkg-verify.XXXXXX")"
+  /usr/sbin/pkgutil --expand "$package_path" "$expanded_base/expand" >/dev/null
+  if ! grep -Eq "identifier=\"$PKG_ID\"" "$expanded_base/expand/PackageInfo"; then
     echo "Instalador invalido: package id nao confere em $package_path." >&2
-    rm -rf "$expanded_dir"
+    rm -rf "$expanded_base"
     exit 1
   fi
-  if ! grep -Eq "install-location=\"/Applications\"" "$expanded_dir/PackageInfo"; then
+  if ! grep -Eq "install-location=\"/Applications\"" "$expanded_base/expand/PackageInfo"; then
     echo "Instalador invalido: install-location nao e /Applications em $package_path." >&2
-    rm -rf "$expanded_dir"
+    rm -rf "$expanded_base"
     exit 1
   fi
-  rm -rf "$expanded_dir"
+  rm -rf "$expanded_base"
 }
 
 verify_release_package() {

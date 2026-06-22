@@ -73,6 +73,7 @@ function installFirebaseAdminMock({ decoded, userExists = true, userData = {}, o
         loaded: true,
         exports: {
             admin,
+            getAdminApp() { return {}; },
             getFirestore() {
                 onGetFirestore();
                 return {
@@ -124,6 +125,44 @@ test('checkout rejects missing Firebase credentials before validating the reques
 
     assert.equal(res.code, 401);
     assert.equal(res.body.error, 'Login Firebase obrigatório');
+});
+
+test('checkout rejects invalid or expired Firebase tokens with 401', async () => {
+    installFirebaseAdminMock({ decoded: { uid: 'unused-user' } });
+    delete require.cache[checkoutPath];
+
+    const handler = require('../api/checkout');
+    const res = response();
+    await handler({
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer invalid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: { plan: 'essencial', uid: 'unused-user', billing: 'monthly', quantity: 1 }
+    }, res);
+
+    assert.equal(res.code, 401);
+    assert.equal(res.body.error, 'Token Firebase inválido ou expirado');
+});
+
+test('checkout rejects UID mismatch between token and request body with 403', async () => {
+    installFirebaseAdminMock({ decoded: { uid: 'token-uid' } });
+    delete require.cache[checkoutPath];
+
+    const handler = require('../api/checkout');
+    const res = response();
+    await handler({
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: { plan: 'essencial', uid: 'different-uid', billing: 'monthly', quantity: 1 }
+    }, res);
+
+    assert.equal(res.code, 403);
+    assert.equal(res.body.error, 'Usuário do token não confere com checkout');
 });
 
 test('upsert user creates a Firebase account document with trial entitlement', async () => {

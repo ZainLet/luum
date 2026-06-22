@@ -520,6 +520,7 @@ final class ActivityStore {
         monitoringPreferences.teamSettings.sharesAnonymousMetrics = false
         monitoringPreferences.teamSettings.automaticallySyncWorkspace = false
         monitoringPreferences.teamSettings.workspaceID = ""
+        monitoringPreferences.teamSettings.workspaceMemberID = ""
         monitoringPreferences.teamSettings.workspaceEndpointURL = FirebaseAuthService.defaultBaseURL
         workspaceRankingEntries = []
         workspaceSyncLastSyncAt = nil
@@ -2258,12 +2259,24 @@ final class ActivityStore {
         let dayStart = normalizedDay
         let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86_400)
 
+        // Binary search for first sample with startDate >= dayStart - tolerance.
+        // Samples are sorted ascending by startDate. This skips older days in O(log N).
+        let searchStart = dayStart.addingTimeInterval(-sessionGapTolerance)
+        var lo = 0, hi = samples.count
+        while lo < hi {
+            let mid = (lo + hi) / 2
+            if samples[mid].startDate < searchStart { lo = mid + 1 } else { hi = mid }
+        }
+        // Walk backward to pick up any sample that started before searchStart but
+        // whose endDate still overlaps this day (e.g. a session open since yesterday).
+        while lo > 0 && samples[lo - 1].endDate > dayStart { lo -= 1 }
+
         var categoryTotals: [ActivityCategory: TimeInterval] = [:]
         var appBuckets: [String: AggregateBucket] = [:]
         var websiteBuckets: [String: AggregateBucket] = [:]
         var resolvedActivities: [ResolvedActivitySample] = []
 
-        for sample in samples {
+        for sample in samples[lo...] {
             guard !sample.isHidden else { continue }
             if sample.startDate >= dayEnd { break }
             guard sampleOverlaps(sample, from: dayStart, to: dayEnd) else { continue }
@@ -3381,13 +3394,6 @@ final class ActivityStore {
     }
 
     private func runWorkspaceSync(for day: Date, force: Bool) async {
-        guard teamSettings.sharesAnonymousMetrics else {
-            if force {
-                workspaceSyncStatusMessage = "Ative o compartilhamento de metricas para usar o ranking corporativo."
-            }
-            return
-        }
-
         guard teamWorkspaceConfigured else {
             if force {
                 workspaceSyncStatusMessage = "Preencha endpoint, Workspace ID e chave para liberar o ranking corporativo."
