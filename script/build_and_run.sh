@@ -203,6 +203,9 @@ package_app() {
   timestamp="$(date -u +"%Y%m%dT%H%M%SZ")"
   if command -v git >/dev/null 2>&1; then
     git_sha="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    if [[ -n "$(git -C "$ROOT_DIR" status --porcelain 2>/dev/null)" ]]; then
+      git_sha="${git_sha}-dirty"
+    fi
   fi
 
   mkdir -p "$release_dir"

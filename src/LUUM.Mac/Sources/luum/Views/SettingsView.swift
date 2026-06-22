@@ -2,6 +2,8 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var store: ActivityStore
+    @State private var isShowingSignOutConfirmation = false
+    @State private var workspaceSecretDraft = ""
 
     var body: some View {
         ScrollView {
@@ -110,15 +112,42 @@ struct SettingsView: View {
     }
 
     private var localVaultCard: some View {
-        settingsCard(
-            title: "Conta e cofre local",
-            lines: [
-                "Conta: \(store.accountEmail.isEmpty ? "Entre com sua conta Luum" : store.accountEmail)",
-                "Armazenamento: \(store.secretStorageDescription)",
-                store.authStatusMessage ?? "Sessao local ainda nao validada.",
-            ],
-            tint: LuumTheme.secondaryAccent.opacity(0.16)
-        )
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Conta e cofre local")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.white)
+
+            Text("Conta: \(store.accountEmail.isEmpty ? "Entre com sua conta Luum" : store.accountEmail)")
+                .foregroundStyle(LuumTheme.textSecondary)
+            Text("Armazenamento: \(store.secretStorageDescription)")
+                .foregroundStyle(LuumTheme.textSecondary)
+            Text(store.authStatusMessage ?? "Sessao local ainda nao validada.")
+                .foregroundStyle(LuumTheme.textSecondary)
+
+            if !store.accountEmail.isEmpty {
+                Button("Sair desta conta", role: .destructive) {
+                    isShowingSignOutConfirmation = true
+                }
+                .buttonStyle(.bordered)
+                .padding(.top, 6)
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(22)
+        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.16), cornerRadius: 30)
+        .confirmationDialog(
+            "Sair desta conta neste Mac?",
+            isPresented: $isShowingSignOutConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Sair desta conta", role: .destructive) {
+                workspaceSecretDraft = ""
+                store.signOut()
+            }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("A sessao local sera removida. Seus dados da conta no Firebase nao serao apagados.")
+        }
     }
 
     private var googleCalendarCard: some View {
@@ -336,6 +365,31 @@ struct SettingsView: View {
                 title: store.teamSettings.organizationName.isEmpty ? "Workspace Luum" : store.teamSettings.organizationName,
                 subtitle: store.teamSettings.memberDisplayName.isEmpty ? "Perfil da conta atual" : store.teamSettings.memberDisplayName
             )
+
+            TextField("Workspace ID", text: Binding(
+                get: { store.teamSettings.workspaceID },
+                set: { store.updateTeamWorkspaceID($0) }
+            ))
+            .textFieldStyle(.roundedBorder)
+
+            HStack(spacing: 10) {
+                SecureField(
+                    store.hasWorkspaceSecret ? "Chave salva neste Mac" : "Chave compartilhada do workspace",
+                    text: $workspaceSecretDraft
+                )
+                .textFieldStyle(.roundedBorder)
+
+                Button(store.hasWorkspaceSecret ? "Atualizar chave" : "Salvar chave") {
+                    store.updateTeamWorkspaceSecret(workspaceSecretDraft)
+                    workspaceSecretDraft = ""
+                }
+                .buttonStyle(.bordered)
+                .disabled(workspaceSecretDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+
+            Text("O primeiro membro cria o workspace. Os demais usam o mesmo ID e a mesma chave de convite.")
+                .font(.caption)
+                .foregroundStyle(LuumTheme.textSecondary)
 
             Toggle("Compartilhar metricas anonimizadas no workspace", isOn: Binding(
                 get: { store.teamSettings.sharesAnonymousMetrics },

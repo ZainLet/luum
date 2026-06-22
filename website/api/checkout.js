@@ -25,6 +25,19 @@ async function checkoutHandler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
+        const authHeader = req.headers.authorization || '';
+        if (!authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'Login Firebase obrigatório' });
+        }
+
+        getAdminApp();
+        let decoded;
+        try {
+            decoded = await admin.auth().verifyIdToken(authHeader.slice('Bearer '.length));
+        } catch {
+            return res.status(401).json({ error: 'Token Firebase inválido ou expirado' });
+        }
+
         const { plan, uid, billing = 'monthly', quantity = 1 } = req.body || {};
 
         if (!plan || !uid) {
@@ -44,18 +57,6 @@ async function checkoutHandler(req, res) {
             return res.status(400).json({ error: `Quantidade inválida. Use entre ${minQuantity} e 1000.` });
         }
 
-        getAdminApp();
-        const authHeader = req.headers.authorization || '';
-        if (!authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'Login Firebase obrigatório' });
-        }
-
-        let decoded;
-        try {
-            decoded = await admin.auth().verifyIdToken(authHeader.slice('Bearer '.length));
-        } catch {
-            return res.status(401).json({ error: 'Token Firebase inválido ou expirado' });
-        }
         if (decoded.uid !== uid) {
             return res.status(403).json({ error: 'Usuário do token não confere com checkout' });
         }

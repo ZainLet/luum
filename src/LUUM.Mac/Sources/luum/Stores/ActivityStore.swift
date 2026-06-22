@@ -445,11 +445,16 @@ final class ActivityStore {
                     sessionToValidate,
                     deviceID: keychainService.installationID()
                 )
-                await MainActor.run {
-                    guard self.isCurrentAuthRefresh(generation, for: sessionToValidate) else { return }
+                let shouldSyncWorkspace = await MainActor.run {
+                    guard self.isCurrentAuthRefresh(generation, for: sessionToValidate) else { return false }
                     self.applyAuthSession(verified, message: "Plano \(verified.plan.title) validado.")
                     self.isCheckingAuth = false
                     self.authRefreshTask = nil
+                    return self.teamSettings.automaticallySyncWorkspace &&
+                        self.teamWorkspaceConfigured
+                }
+                if shouldSyncWorkspace {
+                    self.syncWorkspaceRankingNow()
                 }
             } catch {
                 let wasCancelled = Task.isCancelled
@@ -511,6 +516,15 @@ final class ActivityStore {
         authSession = nil
         authStatusMessage = "Conta desconectada deste Mac."
         keychainService.removeValue(for: Self.firebaseAuthSessionKey)
+        keychainService.removeValue(for: Self.teamWorkspaceSecretKey)
+        monitoringPreferences.teamSettings.sharesAnonymousMetrics = false
+        monitoringPreferences.teamSettings.automaticallySyncWorkspace = false
+        monitoringPreferences.teamSettings.workspaceID = ""
+        monitoringPreferences.teamSettings.workspaceEndpointURL = FirebaseAuthService.defaultBaseURL
+        workspaceRankingEntries = []
+        workspaceSyncLastSyncAt = nil
+        workspaceSyncStatusMessage = "Workspace desconectado deste Mac."
+        persistMonitoringPreferences()
     }
 
     private func applyAuthSession(_ session: LuumAuthSession, message: String) {

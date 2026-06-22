@@ -1,6 +1,6 @@
 # Checklist de integracoes externas do Luum
 
-Atualizado em 2026-06-14.
+Atualizado em 2026-06-21.
 
 Este arquivo separa o que o repositorio ja implementa do que precisa ser feito fora do codigo: contas, chaves, OAuth apps, webhooks e validacoes manuais. Nao cole segredos neste arquivo.
 
@@ -14,6 +14,10 @@ Este arquivo separa o que o repositorio ja implementa do que precisa ser feito f
 - Backup: usa `/api/sync/{uid}` com Firebase ID token e payload sanitizado.
 - Google Calendar: o app ja tenta carregar `GOOGLE_CALENDAR_CLIENT_ID` em `/api/public/integrations`, para o usuario clicar em conectar sem colar chaves.
 - Alpha macOS atual: `0.0.4-alpha`, bundle id `com.luum.apple`, instalador principal `.pkg` que coloca `luum.app` em `/Applications`; use `Luum-alpha-latest.pkg` para o teste interno mais recente e deixe `.zip` apenas como fallback tecnico.
+- Validacao anonima de producao em 2026-06-21:
+  - `/api/auth/status`, `/api/admin/health`, `/api/admin/users`, `/api/admin/integrations` e `/api/admin/stripe-health` retornaram `401 Login Firebase obrigatório` com `Cache-Control: no-store, max-age=0`;
+  - `/api/public/integrations` retornou `200` com configuracao publica sanitizada e `no-store`;
+  - `managedOAuth` esta `false` para Google Calendar, Outlook, Notion, ClickUp, Linear e Zapier; conexoes em um clique ainda nao estao configuradas em producao.
 
 ## Politica de versao
 
