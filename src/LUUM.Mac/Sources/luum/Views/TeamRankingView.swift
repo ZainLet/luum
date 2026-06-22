@@ -118,6 +118,22 @@ struct TeamRankingView: View {
                 .foregroundStyle(LuumTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if store.teamRankingUsesPreviewData {
+                Button {
+                    store.openLoginPage()
+                } label: {
+                    Label("Configurar workspace real", systemImage: "person.3.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LuumTheme.accent)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(LuumTheme.accent.opacity(0.12)))
+                        .overlay(Capsule().stroke(LuumTheme.accent.opacity(0.30), lineWidth: 1))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+
             if let message = store.workspaceSyncStatusMessage {
                 Text(message)
                     .font(.caption)

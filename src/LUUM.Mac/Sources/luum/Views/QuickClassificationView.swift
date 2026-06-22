@@ -140,11 +140,7 @@ struct QuickClassificationView: View {
                 filtersCard
 
                 if items.isEmpty {
-                    Text(emptyState)
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(22)
-                        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.12), cornerRadius: 28, shadowOpacity: 0.12)
+                    emptyStateCard
                 } else if filteredItems.isEmpty {
                     Text("Nada encontrado para essa busca.")
                         .foregroundStyle(LuumTheme.textSecondary)
@@ -180,6 +176,67 @@ struct QuickClassificationView: View {
             showsAllItems = false
             searchText = ""
         }
+    }
+
+    @ViewBuilder
+    private var emptyStateCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 14) {
+                Image(systemName: kind == .applications ? "app.dashed" : "globe.badge.chevron.backward")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(LuumTheme.textMuted)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(emptyState)
+                        .foregroundStyle(LuumTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if kind == .applications, !store.isMonitoring {
+                        Text("O monitoramento está pausado — ligue-o para começar a capturar.")
+                            .font(.caption)
+                            .foregroundStyle(LuumTheme.textMuted)
+                    }
+                }
+            }
+
+            HStack(spacing: 10) {
+                if kind == .applications {
+                    Button {
+                        store.toggleMonitoring()
+                    } label: {
+                        Label(
+                            store.isMonitoring ? "Monitorando..." : "Iniciar monitoramento",
+                            systemImage: store.isMonitoring ? "pause.circle" : "play.circle.fill"
+                        )
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LuumTheme.cyanGreen)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(LuumTheme.cyanGreen.opacity(0.12)))
+                        .overlay(Capsule().stroke(LuumTheme.cyanGreen.opacity(0.30), lineWidth: 1))
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Button {
+                        SystemSettings.openAutomationPrivacy()
+                    } label: {
+                        Label("Permitir Automação", systemImage: "gear.badge.checkmark")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(LuumTheme.electricBlue)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Capsule().fill(LuumTheme.electricBlue.opacity(0.12)))
+                            .overlay(Capsule().stroke(LuumTheme.electricBlue.opacity(0.30), lineWidth: 1))
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(22)
+        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.12), cornerRadius: 28, shadowOpacity: 0.12)
     }
 
     private var filtersCard: some View {

@@ -7,12 +7,14 @@ struct LuumPulsingDot: View {
     let color: Color
     var size: CGFloat = 8
 
-    private var ringSize: CGFloat { size * 2.6 }
+    // O ring ocupa a mesma área que o dot (size × size); a animação cresce além disso.
+    // Usamos um container ligeiramente maior para acomodar o halo.
+    private var containerSize: CGFloat { size * 3.2 }
 
     var body: some View {
         ZStack {
             if isActive {
-                PingRing(color: color, ringSize: ringSize)
+                PingRing(color: color, dotSize: size)
             }
             Circle()
                 .fill(isActive ? color : LuumTheme.textMuted)
@@ -20,24 +22,25 @@ struct LuumPulsingDot: View {
                 .shadow(color: isActive ? color.opacity(0.65) : .clear, radius: size * 0.6)
                 .animation(.easeInOut(duration: 0.35), value: isActive)
         }
-        .frame(width: ringSize, height: ringSize)
+        .frame(width: containerSize, height: containerSize)
     }
 }
 
-/// Anel separado para que o `.onAppear` seja chamado toda vez que `isActive` liga.
+/// Anel separado: `.onAppear` dispara toda vez que `isActive` passa a `true`,
+/// reiniciando a animação limpa. Core Animation lida com o loop — zero CPU.
 private struct PingRing: View {
     let color: Color
-    let ringSize: CGFloat
+    let dotSize: CGFloat
 
     @State private var expanding = false
 
     var body: some View {
         Circle()
-            .fill(color.opacity(expanding ? 0 : 0.38))
-            .frame(width: ringSize, height: ringSize)
-            .scaleEffect(expanding ? 1.0 : 0.42)
+            .fill(color.opacity(expanding ? 0 : 0.40))
+            .frame(width: dotSize, height: dotSize)
+            .scaleEffect(expanding ? 3.8 : 1.0)
             .onAppear {
-                withAnimation(.easeOut(duration: 1.5).repeatForever(autoreverses: false)) {
+                withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) {
                     expanding = true
                 }
             }
