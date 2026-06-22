@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const firebaseAdminPath = require.resolve('../api/_firebaseAdmin');
-const classifyPath = require.resolve('../api/ai/classify');
+const classifyPath = require.resolve('../api/ai/[action]');
 
 function response() {
     return {
@@ -73,6 +73,7 @@ function installFirebaseAdminMock({ decoded, userExists = true, userData = {} })
 function classifyRequest(body = {}) {
     return {
         method: 'POST',
+        query: { action: 'classify' },
         headers: {
             authorization: 'Bearer valid-token',
             origin: 'https://luum-app.web.app'
@@ -100,9 +101,9 @@ test('ai classify requires Firebase auth', async () => {
         userData: { plan: 'profissional', subscription: { status: 'trial', trialEndsAt: { toMillis: () => Date.now() + 86_400_000 } } }
     });
 
-    const handler = require('../api/ai/classify');
+    const handler = require('../api/ai/[action]');
     const res = response();
-    await handler({ method: 'POST', headers: {}, body: {} }, res);
+    await handler({ method: 'POST', query: { action: 'classify' }, headers: {}, body: {} }, res);
 
     assert.equal(res.code, 401);
 });
@@ -119,7 +120,7 @@ test('ai classify fails clearly when Gemini key is missing', async () => {
         }
     });
 
-    const handler = require('../api/ai/classify');
+    const handler = require('../api/ai/[action]');
     const res = response();
     await handler(classifyRequest(), res);
 
@@ -164,7 +165,7 @@ test('ai classify proxies a valid Gemini JSON response', async () => {
         };
     };
 
-    const handler = require('../api/ai/classify');
+    const handler = require('../api/ai/[action]');
     const res = response();
     await handler(classifyRequest(), res);
 
@@ -195,7 +196,7 @@ test('ai classify rejects invalid target payloads before Gemini call', async () 
         }
     });
 
-    const handler = require('../api/ai/classify');
+    const handler = require('../api/ai/[action]');
     const res = response();
     await handler(classifyRequest({ kind: 'other' }), res);
 
@@ -217,10 +218,11 @@ test('ai classify rejects malformed JSON as a client error', async () => {
         }
     });
 
-    const handler = require('../api/ai/classify');
+    const handler = require('../api/ai/[action]');
     const res = response();
     await handler({
         method: 'POST',
+        query: { action: 'classify' },
         headers: {
             authorization: 'Bearer valid-token',
             origin: 'https://luum-app.web.app'

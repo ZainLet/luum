@@ -2,8 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const firebaseAdminPath = require.resolve('../api/_firebaseAdmin');
-const statusPath = require.resolve('../api/auth/status');
-const upsertPath = require.resolve('../api/auth/upsert-user');
+const statusPath = require.resolve('../api/auth/[action]');
+const upsertPath = statusPath; // merged into auth/[action].js
 const checkoutPath = require.resolve('../api/checkout');
 
 function response() {
@@ -99,10 +99,11 @@ test('auth status rejects missing Firebase credentials before opening Firestore'
         onGetFirestore: () => { firestoreCalls += 1; }
     });
 
-    const handler = require('../api/auth/status');
+    const handler = require('../api/auth/[action]');
     const res = response();
     await handler({
         method: 'GET',
+        query: { action: 'status' },
         headers: { origin: 'https://luum-app.web.app' }
     }, res);
 
@@ -179,10 +180,11 @@ test('upsert user creates a Firebase account document with trial entitlement', a
         onSet: (data, options) => writes.push({ data, options })
     });
 
-    const handler = require('../api/auth/upsert-user');
+    const handler = require('../api/auth/[action]');
     const res = response();
     await handler({
         method: 'POST',
+        query: { action: 'upsert-user' },
         headers: {
             authorization: 'Bearer valid-token',
             origin: 'https://luum-app.web.app'
@@ -217,10 +219,11 @@ test('upsert user stores sanitized onboarding without trusting profile body fiel
         onSet: (data, options) => writes.push({ data, options })
     });
 
-    const handler = require('../api/auth/upsert-user');
+    const handler = require('../api/auth/[action]');
     const res = response();
     await handler({
         method: 'POST',
+        query: { action: 'upsert-user' },
         headers: {
             authorization: 'Bearer valid-token',
             origin: 'https://luum-app.web.app'
@@ -269,10 +272,11 @@ test('upsert existing user keeps plan and subscription untouched', async () => {
         onSet: (data, options) => writes.push({ data, options })
     });
 
-    const handler = require('../api/auth/upsert-user');
+    const handler = require('../api/auth/[action]');
     const res = response();
     await handler({
         method: 'POST',
+        query: { action: 'upsert-user' },
         headers: {
             authorization: 'Bearer valid-token',
             origin: 'https://luum-app.web.app'
@@ -300,10 +304,11 @@ test('upsert user rejects malformed JSON as a client error', async () => {
         onSet: (data, options) => writes.push({ data, options })
     });
 
-    const handler = require('../api/auth/upsert-user');
+    const handler = require('../api/auth/[action]');
     const res = response();
     await handler({
         method: 'POST',
+        query: { action: 'upsert-user' },
         headers: {
             authorization: 'Bearer valid-token',
             origin: 'https://luum-app.web.app'
@@ -331,11 +336,12 @@ test('auth status returns entitlement from the verified Firebase uid document', 
         onSet: (data, options) => writes.push({ data, options })
     });
 
-    const handler = require('../api/auth/status');
+    const handler = require('../api/auth/[action]');
     const res = response();
     const deviceID = 'a'.repeat(64);
     await handler({
         method: 'GET',
+        query: { action: 'status' },
         headers: {
             authorization: 'Bearer valid-token',
             'x-luum-device-id': deviceID,
@@ -364,10 +370,11 @@ test('auth status ignores malformed device ids', async () => {
         onSet: (data, options) => writes.push({ data, options })
     });
 
-    const handler = require('../api/auth/status');
+    const handler = require('../api/auth/[action]');
     const res = response();
     await handler({
         method: 'GET',
+        query: { action: 'status' },
         headers: {
             authorization: 'Bearer valid-token',
             'x-luum-device-id': 'not-a-device',
@@ -397,10 +404,11 @@ test('auth status honors stronger legacy onboarding plan for desktop gates', asy
         }
     });
 
-    const handler = require('../api/auth/status');
+    const handler = require('../api/auth/[action]');
     const res = response();
     await handler({
         method: 'GET',
+        query: { action: 'status' },
         headers: {
             authorization: 'Bearer valid-token',
             origin: 'https://luum-app.web.app'

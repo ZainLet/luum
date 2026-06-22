@@ -3593,8 +3593,15 @@ final class ActivityStore {
             aiQueryResponse = AIQueryResponse(query: question, answer: answer)
         } catch is CancellationError {
             return
+        } catch let err as AIQueryServiceError {
+            switch err {
+            case .rejected:
+                aiQueryError = "O assistente está temporariamente indisponível."
+            default:
+                aiQueryError = err.localizedDescription
+            }
         } catch {
-            aiQueryError = error.localizedDescription
+            aiQueryError = "O assistente está temporariamente indisponível."
         }
     }
 

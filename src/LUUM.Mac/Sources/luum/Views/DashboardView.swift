@@ -347,11 +347,12 @@ struct DashboardView: View {
             .transition(.opacity.combined(with: .offset(y: -6)))
         } else if let error = store.aiQueryError {
             HStack(spacing: 10) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(LuumTheme.hotPink)
+                Image(systemName: "clock.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(LuumTheme.textMuted)
                 Text(error)
                     .font(.subheadline)
-                    .foregroundStyle(LuumTheme.textSecondary)
+                    .foregroundStyle(LuumTheme.textMuted)
                 Spacer()
                 Button {
                     withAnimation(.spring(duration: 0.3)) {
@@ -367,7 +368,7 @@ struct DashboardView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(18)
-            .luumGlassCard(tint: LuumTheme.hotPink.opacity(0.08), cornerRadius: 28, shadowOpacity: 0.06)
+            .luumGlassCard(tint: .clear, cornerRadius: 28, shadowOpacity: 0.04)
             .transition(.opacity.combined(with: .offset(y: -6)))
         }
     }
