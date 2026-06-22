@@ -13,7 +13,7 @@ struct DashboardView: View {
     let openCategories: () -> Void
     let openFocus: () -> Void
     let openReports: () -> Void
-    let openSearch: () -> Void
+    let openSearch: (_ query: String) -> Void
     let openSettings: () -> Void
 
     @State private var aiQuery = ""
@@ -249,7 +249,7 @@ struct DashboardView: View {
             .textFieldStyle(.plain)
             .onSubmit {
                 if !aiQuery.isEmpty {
-                    openSearch()
+                    openSearch(aiQuery)
                     aiQuery = ""
                 }
             }
@@ -267,7 +267,7 @@ struct DashboardView: View {
                         )
                 } else {
                     Button {
-                        openSearch()
+                        openSearch(aiQuery)
                         aiQuery = ""
                     } label: {
                         Image(systemName: "arrow.up.circle.fill")
@@ -358,7 +358,7 @@ struct DashboardView: View {
                 detail: "encontre qualquer contexto",
                 symbol: "magnifyingglass",
                 tint: LuumTheme.accent,
-                action: openSearch
+                action: { openSearch("") }
             )
 
             QuickActionCard(

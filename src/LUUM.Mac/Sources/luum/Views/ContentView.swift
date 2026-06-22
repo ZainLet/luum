@@ -236,7 +236,7 @@ struct ContentView: View {
                 openCategories: { selection = .categories },
                 openFocus: { selection = .focus },
                 openReports: { selection = .reports },
-                openSearch: { selection = .search },
+                openSearch: { _ in selection = .search },
                 openSettings: { openSettings() }
             )
         case .search:

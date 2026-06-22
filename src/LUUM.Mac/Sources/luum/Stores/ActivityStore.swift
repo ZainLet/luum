@@ -2259,15 +2259,17 @@ final class ActivityStore {
         let dayStart = normalizedDay
         let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86_400)
 
-        // Binary search for the first sample that could overlap with this day.
-        // Samples are sorted ascending by startDate. A sample crossing midnight
-        // is bounded by sessionGapTolerance, so search from dayStart - tolerance.
+        // Binary search for first sample with startDate >= dayStart - tolerance.
+        // Samples are sorted ascending by startDate. This skips older days in O(log N).
         let searchStart = dayStart.addingTimeInterval(-sessionGapTolerance)
         var lo = 0, hi = samples.count
         while lo < hi {
             let mid = (lo + hi) / 2
             if samples[mid].startDate < searchStart { lo = mid + 1 } else { hi = mid }
         }
+        // Walk backward to pick up any sample that started before searchStart but
+        // whose endDate still overlaps this day (e.g. a session open since yesterday).
+        while lo > 0 && samples[lo - 1].endDate > dayStart { lo -= 1 }
 
         var categoryTotals: [ActivityCategory: TimeInterval] = [:]
         var appBuckets: [String: AggregateBucket] = [:]
