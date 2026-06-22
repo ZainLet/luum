@@ -16,6 +16,12 @@ No Mac de desenvolvimento:
 ./script/build_and_run.sh --package
 ```
 
+Para gerar uma nova alpha patch sem editar o script, informe a versao no comando:
+
+```bash
+LUUM_APP_VERSION=0.0.5 LUUM_APP_BUILD=1 ./script/build_and_run.sh --package
+```
+
 O script gera os artefatos em `dist/releases/`. Para teste em outro Mac, prefira o `.pkg`: ele instala `luum.app` em `/Applications` com duplo clique, sem terminal.
 
 - `Luum-...pkg`: instalador simples da alpha.
@@ -26,6 +32,14 @@ O script gera os artefatos em `dist/releases/`. Para teste em outro Mac, prefira
 - `Luum-...zip`: fallback técnico com o app bundle completo `luum.app`, não arquivos soltos.
 - `Luum-...zip.sha256`: checksum para conferir integridade.
 - `Luum-...zip.txt`: notas rápidas da build.
+
+Depois de gerar o pacote, valide os aliases estáveis do instalador:
+
+```bash
+./script/build_and_run.sh --verify-package
+```
+
+Esse comando confere checksum, payload `luum.app`, package id e instalação em `/Applications`, sem instalar o app novamente.
 
 ## Versoes alpha
 

@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export COPYFILE_DISABLE=1
 
 MODE="${1:-run}"
 APP_NAME="luum"
 APP_DISPLAY_NAME="Luum"
 BUNDLE_ID="com.luum.apple"
-APP_VERSION="0.0.4"
-APP_BUILD="1"
+APP_VERSION="${LUUM_APP_VERSION:-0.0.4}"
+APP_BUILD="${LUUM_APP_BUILD:-1}"
 APP_CATEGORY="public.app-category.productivity"
 MIN_SYSTEM_VERSION="26.0"
 PKG_ID="${BUNDLE_ID}.installer"
@@ -26,6 +27,13 @@ APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+
+clean_macos_metadata() {
+  local target="$1"
+  /usr/bin/xattr -cr "$target" >/dev/null 2>&1 || true
+  /usr/bin/xattr -dr com.apple.provenance "$target" >/dev/null 2>&1 || true
+  find "$target" \( -name '._*' -o -name '.DS_Store' -o -name '.__*' \) -delete
+}
 
 swift build --package-path "$PACKAGE_DIR" --build-path "$SWIFT_BUILD_DIR"
 BUILD_BINARY="$(swift build --package-path "$PACKAGE_DIR" --build-path "$SWIFT_BUILD_DIR" --show-bin-path)/$APP_NAME"
@@ -111,10 +119,24 @@ cat >"$INFO_PLIST" <<PLIST
 PLIST
 
 codesign --force --deep --sign "$CODESIGN_IDENTITY" --timestamp=none "$APP_BUNDLE"
-xattr -cr "$APP_BUNDLE" >/dev/null 2>&1 || true
+clean_macos_metadata "$APP_BUNDLE"
 
 verify_bundle() {
   plutil -lint "$INFO_PLIST" >/dev/null
+
+  local bundle_identifier
+  bundle_identifier="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO_PLIST")"
+  if [[ "$bundle_identifier" != "$BUNDLE_ID" ]]; then
+    echo "Info.plist usa bundle id inesperado: $bundle_identifier" >&2
+    exit 1
+  fi
+
+  local bundle_version
+  bundle_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO_PLIST")"
+  if [[ "$bundle_version" != "$APP_VERSION" ]]; then
+    echo "Info.plist usa versão inesperada: $bundle_version" >&2
+    exit 1
+  fi
 
   local registered_scheme
   registered_scheme="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes:0:CFBundleURLSchemes:0' "$INFO_PLIST")"
@@ -127,6 +149,51 @@ verify_bundle() {
   test -x "$APP_BINARY"
 }
 
+verify_package_file() {
+  local package_path="$1"
+  local expanded_dir
+
+  if [[ ! -f "$package_path" ]]; then
+    echo "Instalador ausente: $package_path" >&2
+    exit 1
+  fi
+
+  if ! /usr/sbin/pkgutil --payload-files "$package_path" | grep -Eqx "(\./)?luum.app/Contents/Info.plist"; then
+    echo "Instalador invalido: $package_path nao instala luum.app/Contents/Info.plist." >&2
+    exit 1
+  fi
+
+  if /usr/sbin/pkgutil --payload-files "$package_path" | grep -Eq '\.DS_Store$'; then
+    echo "Instalador invalido: $package_path contem .DS_Store." >&2
+    exit 1
+  fi
+
+  expanded_dir="$(mktemp -u "$DIST_DIR/pkg-verify.XXXXXX")"
+  /usr/sbin/pkgutil --expand "$package_path" "$expanded_dir" >/dev/null
+  if ! grep -Eq "identifier=\"$PKG_ID\"" "$expanded_dir/PackageInfo"; then
+    echo "Instalador invalido: package id nao confere em $package_path." >&2
+    rm -rf "$expanded_dir"
+    exit 1
+  fi
+  if ! grep -Eq "install-location=\"/Applications\"" "$expanded_dir/PackageInfo"; then
+    echo "Instalador invalido: install-location nao e /Applications em $package_path." >&2
+    rm -rf "$expanded_dir"
+    exit 1
+  fi
+  rm -rf "$expanded_dir"
+}
+
+verify_release_package() {
+  local release_dir="$DIST_DIR/releases"
+  local stable_pkg_path="$release_dir/Luum-${APP_VERSION}-${RELEASE_CHANNEL}.pkg"
+  local latest_pkg_path="$release_dir/Luum-${RELEASE_CHANNEL}-latest.pkg"
+
+  verify_package_file "$stable_pkg_path"
+  verify_package_file "$latest_pkg_path"
+  shasum -a 256 -c "$stable_pkg_path.sha256"
+  shasum -a 256 -c "$latest_pkg_path.sha256"
+}
+
 package_app() {
   verify_bundle
 
@@ -136,6 +203,9 @@ package_app() {
   timestamp="$(date -u +"%Y%m%dT%H%M%SZ")"
   if command -v git >/dev/null 2>&1; then
     git_sha="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    if [[ -n "$(git -C "$ROOT_DIR" status --porcelain 2>/dev/null)" ]]; then
+      git_sha="${git_sha}-dirty"
+    fi
   fi
 
   mkdir -p "$release_dir"
@@ -149,7 +219,7 @@ package_app() {
   rm -f "$archive_path" "$archive_path.sha256" "$archive_path.txt" "$pkg_path" "$pkg_path.sha256" "$pkg_path.txt"
   rm -f "$stable_pkg_path" "$stable_pkg_path.sha256" "$stable_pkg_path.txt" "$latest_pkg_path" "$latest_pkg_path.sha256" "$latest_pkg_path.txt"
 
-  COPYFILE_DISABLE=1 /usr/bin/ditto -c -k --norsrc --noextattr --noacl --noqtn --keepParent "$APP_BUNDLE" "$archive_path"
+  /usr/bin/ditto -c -k --norsrc --noextattr --noacl --noqtn --keepParent "$APP_BUNDLE" "$archive_path"
   if ! /usr/bin/zipinfo -1 "$archive_path" | grep -Eqx "(\./)?luum.app/Contents/Info.plist"; then
     echo "Pacote invalido: o zip precisa conter luum.app/Contents/Info.plist." >&2
     exit 1
@@ -157,20 +227,21 @@ package_app() {
   shasum -a 256 "$archive_path" >"$archive_path.sha256"
 
   pkg_stage="$(mktemp -d "$DIST_DIR/pkg-stage.XXXXXX")"
-  COPYFILE_DISABLE=1 /usr/bin/ditto --norsrc --noextattr --noacl --noqtn "$APP_BUNDLE" "$pkg_stage/$APP_NAME.app"
-  /usr/bin/xattr -cr "$pkg_stage" >/dev/null 2>&1 || true
-  find "$pkg_stage" -name '._*' -delete
-  COPYFILE_DISABLE=1 /usr/bin/pkgbuild \
+  /usr/bin/ditto --norsrc --noextattr --noacl --noqtn "$APP_BUNDLE" "$pkg_stage/$APP_NAME.app"
+  clean_macos_metadata "$pkg_stage"
+  if find "$pkg_stage" \( -name '._*' -o -name '.DS_Store' -o -name '.__*' \) | grep -q .; then
+    echo "Staging invalido: metadados do Finder ainda presentes antes do pkgbuild." >&2
+    rm -rf "$pkg_stage"
+    exit 1
+  fi
+  /usr/bin/pkgbuild \
     --identifier "$PKG_ID" \
     --version "${APP_VERSION}.${APP_BUILD}" \
     --install-location "/Applications" \
     --root "$pkg_stage" \
     "$pkg_path"
   rm -rf "$pkg_stage"
-  if ! /usr/sbin/pkgutil --payload-files "$pkg_path" | grep -Eqx "(\./)?luum.app/Contents/Info.plist"; then
-    echo "Instalador invalido: o pkg precisa instalar luum.app/Contents/Info.plist." >&2
-    exit 1
-  fi
+  verify_package_file "$pkg_path"
   shasum -a 256 "$pkg_path" >"$pkg_path.sha256"
   cp "$pkg_path" "$stable_pkg_path"
   shasum -a 256 "$stable_pkg_path" >"$stable_pkg_path.sha256"
@@ -255,6 +326,9 @@ case "$MODE" in
   --package|package)
     package_app
     ;;
+  --verify-package|verify-package)
+    verify_release_package
+    ;;
   --verify-bundle|verify-bundle)
     verify_bundle
     ;;
@@ -265,7 +339,7 @@ case "$MODE" in
     pgrep -x "$APP_NAME" >/dev/null
     ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--package|--verify-bundle|--verify]" >&2
+    echo "usage: $0 [run|--debug|--logs|--telemetry|--package|--verify-package|--verify-bundle|--verify]" >&2
     exit 2
     ;;
 esac

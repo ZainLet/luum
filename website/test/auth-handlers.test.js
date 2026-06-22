@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const firebaseAdminPath = require.resolve('../api/_firebaseAdmin');
 const statusPath = require.resolve('../api/auth/status');
 const upsertPath = require.resolve('../api/auth/upsert-user');
+const checkoutPath = require.resolve('../api/checkout');
 
 function response() {
     return {
@@ -29,7 +30,7 @@ function response() {
     };
 }
 
-function installFirebaseAdminMock({ decoded, userExists = true, userData = {}, onSet = () => {} }) {
+function installFirebaseAdminMock({ decoded, userExists = true, userData = {}, onSet = () => {}, onGetFirestore = () => {} }) {
     delete require.cache[firebaseAdminPath];
     delete require.cache[statusPath];
     delete require.cache[upsertPath];
@@ -73,6 +74,7 @@ function installFirebaseAdminMock({ decoded, userExists = true, userData = {}, o
         exports: {
             admin,
             getFirestore() {
+                onGetFirestore();
                 return {
                     collection(name) {
                         assert.equal(name, 'users');
@@ -88,6 +90,41 @@ function installFirebaseAdminMock({ decoded, userExists = true, userData = {}, o
         }
     };
 }
+
+test('auth status rejects missing Firebase credentials before opening Firestore', async () => {
+    let firestoreCalls = 0;
+    installFirebaseAdminMock({
+        decoded: { uid: 'unused-user' },
+        onGetFirestore: () => { firestoreCalls += 1; }
+    });
+
+    const handler = require('../api/auth/status');
+    const res = response();
+    await handler({
+        method: 'GET',
+        headers: { origin: 'https://luum-app.web.app' }
+    }, res);
+
+    assert.equal(res.code, 401);
+    assert.equal(res.body.error, 'Login Firebase obrigatório');
+    assert.equal(firestoreCalls, 0);
+});
+
+test('checkout rejects missing Firebase credentials before validating the request body', async () => {
+    installFirebaseAdminMock({ decoded: { uid: 'unused-user' } });
+    delete require.cache[checkoutPath];
+
+    const handler = require('../api/checkout');
+    const res = response();
+    await handler({
+        method: 'POST',
+        headers: { origin: 'https://luum-app.web.app' },
+        body: {}
+    }, res);
+
+    assert.equal(res.code, 401);
+    assert.equal(res.body.error, 'Login Firebase obrigatório');
+});
 
 test('upsert user creates a Firebase account document with trial entitlement', async () => {
     const writes = [];

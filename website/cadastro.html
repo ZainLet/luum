@@ -276,6 +276,12 @@
             return params.get('app') === 'mac';
         }
 
+        function authRequestState() {
+            if (!shouldOpenApp()) return '';
+            const value = new URLSearchParams(window.location.search).get('state') || '';
+            return /^[a-zA-Z0-9-]{20,128}$/.test(value) ? value : '';
+        }
+
         function postSignupTarget() {
             return getRedirectTarget() || 'account.html';
         }
@@ -314,7 +320,17 @@
                 }
 
                 const refreshToken = user.refreshToken || '';
-                const redirectUrl = `luum://auth?token=${encodeURIComponent(idToken)}&refreshToken=${encodeURIComponent(refreshToken)}&uid=${encodeURIComponent(user.uid)}`;
+                const callbackState = authRequestState();
+                if (!callbackState) {
+                    throw new Error('Solicitação de login inválida. Abra o cadastro novamente pelo aplicativo Luum.');
+                }
+                const callbackParams = new URLSearchParams({
+                    token: idToken,
+                    refreshToken,
+                    uid: user.uid,
+                    state: callbackState
+                });
+                const redirectUrl = `luum://auth?${callbackParams.toString()}`;
 
                 showSuccess('Conta criada! Redirecionando...');
 
@@ -343,8 +359,15 @@
                 return;
             }
 
+            const callbackState = authRequestState();
+            if (shouldOpenApp() && !callbackState) {
+                document.getElementById('loginLink').style.display = 'none';
+                disableSignup('Este cadastro não foi iniciado pelo aplicativo. Volte ao Luum e clique em Entrar novamente.');
+                return;
+            }
+
             document.getElementById('loginLink').href = shouldOpenApp()
-                ? 'login.html?app=mac'
+                ? `login.html?app=mac&state=${encodeURIComponent(callbackState)}`
                 : 'login.html?redirect=account.html';
 
             document.getElementById('signupForm').addEventListener('submit', async (e) => {
@@ -375,7 +398,7 @@
             firebase.auth().onAuthStateChanged(async user => {
                 if (user && !signingUp) {
                     if (shouldOpenApp()) {
-                        window.location.href = 'login.html?app=mac';
+                        window.location.href = `login.html?app=mac&state=${encodeURIComponent(callbackState)}`;
                         return;
                     }
                     await exchangeTokenAndRedirect(user);

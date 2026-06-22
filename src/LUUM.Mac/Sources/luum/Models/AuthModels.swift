@@ -1,5 +1,21 @@
 import Foundation
 
+struct LuumAuthRequest: Codable, Equatable, Sendable {
+    static let validityDuration: TimeInterval = 15 * 60
+
+    let state: String
+    let createdAt: Date
+
+    init(state: String = UUID().uuidString.lowercased(), createdAt: Date = Date()) {
+        self.state = state
+        self.createdAt = createdAt
+    }
+
+    func isValid(at date: Date = Date()) -> Bool {
+        !state.isEmpty && date.timeIntervalSince(createdAt) >= 0 && date.timeIntervalSince(createdAt) <= Self.validityDuration
+    }
+}
+
 enum LuumAccountPlan: String, Codable, CaseIterable, Sendable {
     case trial
     case essencial

@@ -173,6 +173,19 @@ struct ReportsView: View {
                 }
                 .buttonStyle(.bordered)
                 .disabled(store.isSendingWeeklyReportEmail || !store.canUse(.weeklyReportEmail))
+
+                Button(store.isCheckingWeeklyReportEmailHealth ? "Verificando..." : "Verificar email/PDF") {
+                    store.checkWeeklyReportEmailHealth()
+                }
+                .buttonStyle(.bordered)
+                .disabled(store.isCheckingWeeklyReportEmailHealth)
+            }
+
+            if let weeklyReportEmailHealthMessage = store.weeklyReportEmailHealthMessage {
+                Text(weeklyReportEmailHealthMessage)
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             if let exportStatusMessage = store.exportStatusMessage {

@@ -198,4 +198,5 @@ test('admin integrations action rejects malformed JSON as a client error', async
 
     assert.equal(res.code, 400);
     assert.equal(res.body.error, 'JSON do admin inválido');
+    assert.equal(writes.length, 0);
 });

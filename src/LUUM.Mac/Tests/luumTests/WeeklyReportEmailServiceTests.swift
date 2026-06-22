@@ -102,6 +102,63 @@ func weeklyReportEmailServiceExplainsMissingVercelRoute() async throws {
     }
 }
 
+@Test
+func weeklyReportEmailServiceLoadsHealthWithoutAuthorization() async throws {
+    let session = URLSession.weeklyReportMocking([
+        WeeklyReportMockResponse(
+            url: "https://luum-app.vercel.app/api/reports/weekly-email",
+            statusCode: 200,
+            body: """
+            {
+              "ok": true,
+              "route": "/api/reports/weekly-email",
+              "gemini": {
+                "configured": true,
+                "model": "gemini-2.5-flash"
+              },
+              "email": {
+                "provider": "resend",
+                "configured": true,
+                "apiKeyConfigured": true,
+                "fromConfigured": true
+              }
+            }
+            """
+        )
+    ])
+    let service = WeeklyReportEmailService(session: session)
+
+    let health = try await service.health()
+
+    #expect(health.ok)
+    #expect(health.gemini.model == "gemini-2.5-flash")
+    #expect(health.email.provider == "resend")
+    let request = try #require(WeeklyReportMockURLProtocol.observedRequests.first)
+    #expect(request.httpMethod == "GET")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+}
+
+@Test
+func weeklyReportEmailHealthMessageExplainsMissingVercelSettings() {
+    let health = WeeklyReportEmailHealth(
+        ok: false,
+        route: "/api/reports/weekly-email",
+        gemini: WeeklyReportGeminiHealth(configured: false, model: "gemini-2.5-flash"),
+        email: WeeklyReportProviderHealth(
+            provider: "resend",
+            configured: false,
+            apiKeyConfigured: true,
+            fromConfigured: false
+        )
+    )
+
+    let message = ActivityStore.weeklyReportEmailHealthMessage(for: health)
+
+    #expect(message.contains("Gemini"))
+    #expect(message.contains("email de envio"))
+    #expect(message.contains("Vercel"))
+}
+
 private func weeklyReportPayloadForTesting() -> WeeklyReportEmailPayload {
     WeeklyReportEmailPayload(
         startDate: "2026-06-08",

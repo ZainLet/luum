@@ -1,8 +1,19 @@
 # Manual inicial para distribuicao Windows e estudo Linux
 
-Atualizado em 2026-06-12.
+Atualizado em 2026-06-21.
 
 Este manual nao substitui o trabalho de portabilidade. Ele define o caminho tecnico para transformar o Luum, hoje macOS/SwiftUI, em um produto nativo para Windows e em uma possibilidade futura para Linux.
+
+## Estado atual verificado
+
+- `src/LUUM.API` e um backend ASP.NET `net8.0`; ele nao e um cliente desktop.
+- `src/LUUM.Client` e um cliente web Razor/Blazor Server `net9.0`; ele tambem nao substitui o app Windows nativo.
+- `src/LUUM.DesktopHelper` e um prototipo console `net8.0-windows` que monitora titulo de janela e ainda usa API local e usuario de teste fixo.
+- Ainda nao existe projeto WinUI 3, identidade MSIX, callback registrado no Windows, cofre Credential Manager/DPAPI ou instalador Windows.
+- Ainda nao existe cliente Linux, prototipo Wayland/X11 ou pacote Flatpak.
+- Este Mac nao possui `dotnet`, `msbuild`, `mono` nem `csc`; portanto nenhum build ou teste .NET foi executado nesta validacao. Inspecao de arquivos de projeto nao conta como compilacao.
+
+Proxima prova minima: em Windows 11 com SDKs .NET 8/9 e Windows App SDK instalados, restaurar e compilar os tres projetos existentes, classificar o helper como legado ou reutilizavel e somente entao criar o shell WinUI 3 com teste real do callback e do MSIX.
 
 ## Decisao principal
 

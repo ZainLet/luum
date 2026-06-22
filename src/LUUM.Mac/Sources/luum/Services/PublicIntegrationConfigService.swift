@@ -22,13 +22,19 @@ struct PublicManagedOAuthConfig: Decodable, Sendable {
 
 enum PublicIntegrationConfigError: LocalizedError {
     case invalidBaseURL
-    case invalidResponse
+    case routeMissing
+    case unavailable(Int)
+    case invalidPayload
 
     var errorDescription: String? {
         switch self {
         case .invalidBaseURL:
             "A API oficial de integracoes do Luum nao esta disponivel."
-        case .invalidResponse:
+        case .routeMissing:
+            "A rota /api/public/integrations nao foi encontrada na Vercel. Atualize o deploy do site para liberar conexoes em um clique."
+        case let .unavailable(statusCode):
+            "Nao foi possivel carregar integracoes gerenciadas do Luum agora. HTTP \(statusCode)."
+        case .invalidPayload:
             "Nao foi possivel carregar as integracoes gerenciadas do Luum."
         }
     }
@@ -47,16 +53,23 @@ struct PublicIntegrationConfigService: Sendable {
         }
 
         let url = base.appending(path: "/api/public/integrations")
-        let (data, response) = try await session.data(from: url)
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 8
+        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+
+        let (data, response) = try await session.data(for: request)
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
+        if statusCode == 404 {
+            throw PublicIntegrationConfigError.routeMissing
+        }
         guard (200 ..< 300).contains(statusCode) else {
-            throw PublicIntegrationConfigError.invalidResponse
+            throw PublicIntegrationConfigError.unavailable(statusCode)
         }
 
         do {
             return try JSONDecoder().decode(PublicIntegrationConfig.self, from: data)
         } catch {
-            throw PublicIntegrationConfigError.invalidResponse
+            throw PublicIntegrationConfigError.invalidPayload
         }
     }
 }

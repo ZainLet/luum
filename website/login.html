@@ -232,6 +232,12 @@
             return params.get('app') === 'mac';
         }
 
+        function authRequestState() {
+            if (!shouldOpenApp()) return '';
+            const value = new URLSearchParams(window.location.search).get('state') || '';
+            return /^[a-zA-Z0-9-]{20,128}$/.test(value) ? value : '';
+        }
+
         function postLoginTarget() {
             return getRedirectTarget() || 'account.html';
         }
@@ -265,7 +271,17 @@
                 }
 
                 const refreshToken = user.refreshToken || '';
-                const redirectUrl = `luum://auth?token=${encodeURIComponent(idToken)}&refreshToken=${encodeURIComponent(refreshToken)}&uid=${encodeURIComponent(user.uid)}`;
+                const callbackState = authRequestState();
+                if (!callbackState) {
+                    throw new Error('Solicitação de login inválida. Abra o login novamente pelo aplicativo Luum.');
+                }
+                const callbackParams = new URLSearchParams({
+                    token: idToken,
+                    refreshToken,
+                    uid: user.uid,
+                    state: callbackState
+                });
+                const redirectUrl = `luum://auth?${callbackParams.toString()}`;
 
                 showSuccess('Login bem-sucedido! Redirecionando...');
                 // Redireciona imediatamente (sem setTimeout) para manter o gesto do usuário
@@ -327,6 +343,14 @@
             }
 
             const appLogin = shouldOpenApp();
+            const callbackState = authRequestState();
+            if (appLogin && !callbackState) {
+                document.getElementById('loginSubtitle').textContent = 'Abra o login pelo aplicativo Luum';
+                document.getElementById('loginInfoText').textContent = 'Feche esta página, volte ao Luum e clique em Entrar novamente.';
+                document.getElementById('signupLink').style.display = 'none';
+                disableAuth('Este login não foi iniciado pelo aplicativo. Volte ao Luum e clique em Entrar novamente.');
+                return;
+            }
             document.getElementById('loginSubtitle').textContent = appLogin
                 ? 'Faça login para continuar no aplicativo'
                 : 'Faça login para acessar sua conta';
@@ -334,7 +358,7 @@
                 ? 'Ao fazer login, você será redirecionado de volta para o aplicativo Luum.'
                 : 'Ao fazer login, você será redirecionado para sua conta Luum.';
             document.getElementById('signupLink').href = appLogin
-                ? 'cadastro.html?app=mac'
+                ? `cadastro.html?app=mac&state=${encodeURIComponent(callbackState)}`
                 : 'cadastro.html?redirect=account.html';
 
             // Google

@@ -30,7 +30,6 @@ async function statusHandler(req, res) {
     if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
-        const db = getFirestore();
         const authHeader = req.headers.authorization || '';
         if (!authHeader.startsWith('Bearer ')) {
             return res.status(401).json({ error: 'Login Firebase obrigatório' });
@@ -45,6 +44,7 @@ async function statusHandler(req, res) {
         }
 
         // ─── Consulta Firestore ─────────────────────────
+        const db = getFirestore();
         const userRef = db.collection('users').doc(uid);
         const doc = await userRef.get();
 

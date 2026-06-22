@@ -81,7 +81,17 @@
 
         const token = await upsertAccount(currentUser);
         const refreshToken = currentUser.refreshToken || '';
-        const redirectURL = `luum://auth?token=${encodeURIComponent(token)}&refreshToken=${encodeURIComponent(refreshToken)}&uid=${encodeURIComponent(currentUser.uid)}`;
+        const callbackState = authRequestState();
+        if (!callbackState) {
+            throw new Error('Este login não foi iniciado pelo aplicativo Luum.');
+        }
+        const callbackParams = new URLSearchParams({
+            token,
+            refreshToken,
+            uid: currentUser.uid,
+            state: callbackState
+        });
+        const redirectURL = `luum://auth?${callbackParams.toString()}`;
 
         const fallback = window.setTimeout(() => {
             window.location.href = 'account.html';
@@ -106,6 +116,12 @@
 
     function shouldOpenApp() {
         return new URLSearchParams(window.location.search).get('app') === 'mac';
+    }
+
+    function authRequestState() {
+        if (!shouldOpenApp()) return '';
+        const value = new URLSearchParams(window.location.search).get('state') || '';
+        return /^[a-zA-Z0-9-]{20,128}$/.test(value) ? value : '';
     }
 
     async function finishAuth(user) {

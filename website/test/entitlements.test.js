@@ -67,6 +67,29 @@ test('enforces plan tiers for Firebase backup', () => {
     assert.equal(includesFeature(active('negocios'), 'rawActivityBackup'), true);
 });
 
+test('enforces the complete server-side feature matrix for every plan', () => {
+    const active = (plan) => entitlementForUser({
+        plan,
+        subscription: { status: 'active', currentPeriodEnd: timestamp(now + DAY_MS) }
+    }, now);
+    const trial = entitlementForUser({
+        createdAt: timestamp(now - DAY_MS),
+        subscription: { status: 'trial', trialEndsAt: timestamp(now + DAY_MS) }
+    }, now);
+    const features = ['classification', 'cloudBackup', 'weeklyReportEmail', 'teamWorkspace', 'rawActivityBackup'];
+    const matrix = [
+        [trial, [true, true, true, false, false]],
+        [active('essencial'), [true, false, false, false, false]],
+        [active('profissional'), [true, true, true, false, false]],
+        [active('equipes'), [true, true, true, true, false]],
+        [active('negocios'), [true, true, true, true, true]]
+    ];
+
+    for (const [entitlement, expected] of matrix) {
+        assert.deepEqual(features.map((feature) => includesFeature(entitlement, feature)), expected);
+    }
+});
+
 test('uses the strongest valid plan from legacy onboarding snapshots', () => {
     const entitlement = entitlementForUser({
         plan: 'profissional',

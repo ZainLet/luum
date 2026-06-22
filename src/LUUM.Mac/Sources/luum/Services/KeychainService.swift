@@ -3,7 +3,10 @@ import CryptoKit
 import Security
 
 struct KeychainService {
-    private let service = "com.zainlet.luum"
+    private static let systemKeychainService = "com.luum.apple"
+    private static let legacySystemKeychainServices = ["com.zainlet.luum"]
+    private let systemKeychainService = Self.systemKeychainService
+    private let vaultNamespace = "com.zainlet.luum"
     private let fallbackVersionPrefix = "v2:"
     private let legacyFallbackVersionPrefix = "v1:"
     private static let legacySystemKeychainAccounts = ["login"]
@@ -26,7 +29,7 @@ struct KeychainService {
 
     func installationID() -> String? {
         guard let secret = installationSecretForWriting() else { return nil }
-        var data = Data("\(service)\u{0}installation-id".utf8)
+        var data = Data("\(vaultNamespace)\u{0}installation-id".utf8)
         data.append(0)
         data.append(secret)
         return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
@@ -54,14 +57,16 @@ struct KeychainService {
         guard useSystemKeychain else {
             UserDefaults.standard.removeObject(forKey: fallbackKey(for: account))
             Self.deleteSystemKeychainValue(
-                service: service,
+                service: systemKeychainService,
                 account: account,
                 suppressAuthenticationUI: true
             )
+            Self.deleteLegacySystemKeychainValues(account: account, suppressAuthenticationUI: true)
             return
         }
 
-        Self.deleteSystemKeychainValue(service: service, account: account)
+        Self.deleteSystemKeychainValue(service: systemKeychainService, account: account)
+        Self.deleteLegacySystemKeychainValues(account: account)
         UserDefaults.standard.removeObject(forKey: fallbackKey(for: account))
     }
 
@@ -69,11 +74,7 @@ struct KeychainService {
         guard !useSystemKeychain else { return }
 
         for account in Self.legacySystemKeychainAccounts {
-            Self.deleteSystemKeychainValue(
-                service: service,
-                account: account,
-                suppressAuthenticationUI: true
-            )
+            Self.deleteLegacySystemKeychainValues(account: account, suppressAuthenticationUI: true)
         }
     }
 
@@ -85,7 +86,7 @@ struct KeychainService {
 
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
+            kSecAttrService as String: systemKeychainService,
             kSecAttrAccount as String: account,
         ]
 
@@ -123,7 +124,7 @@ struct KeychainService {
 
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
+            kSecAttrService as String: systemKeychainService,
             kSecAttrAccount as String: account,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
@@ -152,6 +153,20 @@ struct KeychainService {
         }
 
         return SecItemDelete(query as CFDictionary)
+    }
+
+    @discardableResult
+    private static func deleteLegacySystemKeychainValues(
+        account: String,
+        suppressAuthenticationUI: Bool = false
+    ) -> [OSStatus] {
+        legacySystemKeychainServices.map { service in
+            deleteSystemKeychainValue(
+                service: service,
+                account: account,
+                suppressAuthenticationUI: suppressAuthenticationUI
+            )
+        }
     }
 
     private func fallbackKey(for account: String) -> String {
@@ -237,7 +252,7 @@ struct KeychainService {
     private func fallbackEncryptionKey(secret: Data) -> SymmetricKey {
         // Builds ad-hoc trocam de assinatura e fazem o Keychain pedir senha.
         // Por padrão usamos fallback cifrado local para evitar esse prompt.
-        let material = "\(service)\u{0}\(NSUserName())\u{0}\(NSHomeDirectory())"
+        let material = "\(vaultNamespace)\u{0}\(NSUserName())\u{0}\(NSHomeDirectory())"
         var data = Data(material.utf8)
         data.append(0)
         data.append(secret)
@@ -245,7 +260,7 @@ struct KeychainService {
     }
 
     private var legacyFallbackEncryptionKey: SymmetricKey {
-        let material = "\(service)\u{0}\(NSUserName())\u{0}\(NSHomeDirectory())"
+        let material = "\(vaultNamespace)\u{0}\(NSUserName())\u{0}\(NSHomeDirectory())"
         return SymmetricKey(data: SHA256.hash(data: Data(material.utf8)))
     }
 
@@ -269,7 +284,7 @@ struct KeychainService {
         let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
         let secret = status == errSecSuccess
             ? Data(bytes)
-            : Data(SHA256.hash(data: Data("\(service)\u{0}\(UUID().uuidString)".utf8)))
+            : Data(SHA256.hash(data: Data("\(vaultNamespace)\u{0}\(UUID().uuidString)".utf8)))
 
         do {
             let directory = url.deletingLastPathComponent()
@@ -302,6 +317,14 @@ struct KeychainService {
 
 #if DEBUG
 extension KeychainService {
+    static var systemKeychainServiceForTesting: String {
+        systemKeychainService
+    }
+
+    static var legacySystemKeychainServicesForTesting: [String] {
+        legacySystemKeychainServices
+    }
+
     static var legacySystemKeychainAccountsForTesting: [String] {
         legacySystemKeychainAccounts
     }

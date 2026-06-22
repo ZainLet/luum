@@ -47,7 +47,7 @@ function clearModules(paths) {
     });
 }
 
-test('checkout responses are never cacheable', async () => {
+test('anonymous checkout responses are rejected before validation and never cacheable', async () => {
     const handler = require('../api/checkout');
     const res = response();
 
@@ -57,7 +57,8 @@ test('checkout responses are never cacheable', async () => {
         body: { plan: 'invalid-plan', uid: 'firebase-user' }
     }, res);
 
-    assert.equal(res.code, 400);
+    assert.equal(res.code, 401);
+    assert.equal(res.body.error, 'Login Firebase obrigatório');
     assertNoStore(res);
 });
 

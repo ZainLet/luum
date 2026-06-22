@@ -41,6 +41,9 @@ func publicIntegrationConfigServiceLoadsOnlyOfficialBootstrapConfig() async thro
     #expect(config.managedOAuth.googleCalendar)
     #expect(config.managedOAuth.notion)
     #expect(!config.managedOAuth.linear)
+    let request = try #require(PublicIntegrationConfigMockURLProtocol.observedRequests.first)
+    #expect(request.timeoutInterval == 8)
+    #expect(request.cachePolicy == .reloadIgnoringLocalAndRemoteCacheData)
 }
 
 @Test
@@ -53,6 +56,48 @@ func publicIntegrationConfigServiceRejectsNonOfficialBackendBeforeRequest() asyn
         Issue.record("Endpoint externo nao deveria ser consultado para bootstrap de integracoes.")
     } catch PublicIntegrationConfigError.invalidBaseURL {
         #expect(PublicIntegrationConfigMockURLProtocol.observedRequests.isEmpty)
+    } catch {
+        Issue.record("Erro inesperado: \(error)")
+    }
+}
+
+@Test
+func publicIntegrationConfigServiceExplainsMissingRoute() async throws {
+    let session = URLSession.publicIntegrationConfigMocking([
+        PublicIntegrationConfigMockResponse(
+            url: "https://luum-app.vercel.app/api/public/integrations",
+            statusCode: 404,
+            body: #"<!doctype html><title>404</title>"#
+        )
+    ])
+    let service = PublicIntegrationConfigService(session: session)
+
+    do {
+        _ = try await service.fetch()
+        Issue.record("404 deveria explicar deploy/rota ausente.")
+    } catch PublicIntegrationConfigError.routeMissing {
+        #expect(PublicIntegrationConfigError.routeMissing.localizedDescription.contains("/api/public/integrations"))
+    } catch {
+        Issue.record("Erro inesperado: \(error)")
+    }
+}
+
+@Test
+func publicIntegrationConfigServiceReportsTemporaryBackendStatus() async throws {
+    let session = URLSession.publicIntegrationConfigMocking([
+        PublicIntegrationConfigMockResponse(
+            url: "https://luum-app.vercel.app/api/public/integrations",
+            statusCode: 503,
+            body: #"{"error":"temporarily unavailable"}"#
+        )
+    ])
+    let service = PublicIntegrationConfigService(session: session)
+
+    do {
+        _ = try await service.fetch()
+        Issue.record("Status 503 deveria virar erro temporario claro.")
+    } catch PublicIntegrationConfigError.unavailable(503) {
+        #expect(PublicIntegrationConfigError.unavailable(503).localizedDescription.contains("HTTP 503"))
     } catch {
         Issue.record("Erro inesperado: \(error)")
     }
@@ -98,6 +143,9 @@ final class PublicIntegrationConfigServiceTests: XCTestCase {
         XCTAssertTrue(config.managedOAuth.googleCalendar)
         XCTAssertTrue(config.managedOAuth.notion)
         XCTAssertFalse(config.managedOAuth.linear)
+        let request = try XCTUnwrap(PublicIntegrationConfigMockURLProtocol.observedRequests.first)
+        XCTAssertEqual(request.timeoutInterval, 8)
+        XCTAssertEqual(request.cachePolicy, .reloadIgnoringLocalAndRemoteCacheData)
     }
 
     func testPublicIntegrationConfigServiceRejectsNonOfficialBackendBeforeRequest() async throws {
@@ -113,6 +161,46 @@ final class PublicIntegrationConfigServiceTests: XCTestCase {
             XCTFail("Erro inesperado: \(error)")
         }
     }
+
+    func testPublicIntegrationConfigServiceExplainsMissingRoute() async throws {
+        let session = URLSession.publicIntegrationConfigMocking([
+            PublicIntegrationConfigMockResponse(
+                url: "https://luum-app.vercel.app/api/public/integrations",
+                statusCode: 404,
+                body: #"<!doctype html><title>404</title>"#
+            )
+        ])
+        let service = PublicIntegrationConfigService(session: session)
+
+        do {
+            _ = try await service.fetch()
+            XCTFail("404 deveria explicar deploy/rota ausente.")
+        } catch PublicIntegrationConfigError.routeMissing {
+            XCTAssertTrue(PublicIntegrationConfigError.routeMissing.localizedDescription.contains("/api/public/integrations"))
+        } catch {
+            XCTFail("Erro inesperado: \(error)")
+        }
+    }
+
+    func testPublicIntegrationConfigServiceReportsTemporaryBackendStatus() async throws {
+        let session = URLSession.publicIntegrationConfigMocking([
+            PublicIntegrationConfigMockResponse(
+                url: "https://luum-app.vercel.app/api/public/integrations",
+                statusCode: 503,
+                body: #"{"error":"temporarily unavailable"}"#
+            )
+        ])
+        let service = PublicIntegrationConfigService(session: session)
+
+        do {
+            _ = try await service.fetch()
+            XCTFail("Status 503 deveria virar erro temporario claro.")
+        } catch PublicIntegrationConfigError.unavailable(503) {
+            XCTAssertTrue(PublicIntegrationConfigError.unavailable(503).localizedDescription.contains("HTTP 503"))
+        } catch {
+            XCTFail("Erro inesperado: \(error)")
+        }
+    }
 }
 #endif
 
@@ -123,12 +211,27 @@ private struct PublicIntegrationConfigMockResponse: Sendable {
 }
 
 private final class PublicIntegrationConfigMockURLProtocol: URLProtocol, @unchecked Sendable {
+    private nonisolated(unsafe) static let storageQueue = DispatchQueue(label: "luum.public-integrations-test-url-protocol")
     private nonisolated(unsafe) static var responses: [PublicIntegrationConfigMockResponse] = []
-    private(set) nonisolated(unsafe) static var observedRequests: [URLRequest] = []
+    private nonisolated(unsafe) static var storedObservedRequests: [URLRequest] = []
+
+    static var observedRequests: [URLRequest] {
+        storageQueue.sync { storedObservedRequests }
+    }
 
     static func configure(responses: [PublicIntegrationConfigMockResponse]) {
-        self.responses = responses
-        observedRequests = []
+        storageQueue.sync {
+            self.responses = responses
+            storedObservedRequests = []
+        }
+    }
+
+    private static func record(_ request: URLRequest) -> PublicIntegrationConfigMockResponse? {
+        storageQueue.sync {
+            storedObservedRequests.append(request)
+            guard let url = request.url?.absoluteString else { return nil }
+            return responses.first(where: { $0.url == url })
+        }
     }
 
     override class func canInit(with request: URLRequest) -> Bool {
@@ -140,9 +243,7 @@ private final class PublicIntegrationConfigMockURLProtocol: URLProtocol, @unchec
     }
 
     override func startLoading() {
-        Self.observedRequests.append(request)
-        guard let url = request.url?.absoluteString,
-              let response = Self.responses.first(where: { $0.url == url }),
+        guard let response = Self.record(request),
               let http = HTTPURLResponse(
                 url: request.url!,
                 statusCode: response.statusCode,

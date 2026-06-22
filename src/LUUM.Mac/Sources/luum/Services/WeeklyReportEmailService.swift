@@ -43,11 +43,61 @@ struct WeeklyReportEmailResponse: Decodable, Sendable {
     let fileName: String
 }
 
+struct WeeklyReportEmailHealth: Decodable, Sendable {
+    let ok: Bool
+    let route: String
+    let gemini: WeeklyReportGeminiHealth
+    let email: WeeklyReportProviderHealth
+}
+
+struct WeeklyReportGeminiHealth: Decodable, Sendable {
+    let configured: Bool
+    let model: String
+}
+
+struct WeeklyReportProviderHealth: Decodable, Sendable {
+    let provider: String
+    let configured: Bool
+    let apiKeyConfigured: Bool
+    let fromConfigured: Bool
+}
+
 struct WeeklyReportEmailService {
     private let session: URLSession
 
     init(session: URLSession = .shared) {
         self.session = session
+    }
+
+    func health(baseURL: String = FirebaseAuthService.defaultBaseURL) async throws -> WeeklyReportEmailHealth {
+        let trimmed = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let base = FirebaseAuthService.officialBackendURL(from: trimmed) else {
+            throw WeeklyReportEmailServiceError.invalidEndpoint
+        }
+
+        let url = base.appending(path: "/api/reports/weekly-email")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await session.data(for: request)
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
+        guard (200 ..< 300).contains(statusCode) else {
+            if statusCode == 404 {
+                throw WeeklyReportEmailServiceError.apiError(
+                    "A rota de PDF por email nao foi encontrada na Vercel. Atualize o deploy e confira /api/reports/weekly-email."
+                )
+            }
+            if let envelope = try? JSONDecoder().decode(WeeklyReportEmailAPIError.self, from: data) {
+                throw WeeklyReportEmailServiceError.apiError(envelope.error)
+            }
+            throw WeeklyReportEmailServiceError.apiError("A API de relatorio por email respondeu com status \(statusCode).")
+        }
+
+        do {
+            return try JSONDecoder().decode(WeeklyReportEmailHealth.self, from: data)
+        } catch {
+            throw WeeklyReportEmailServiceError.invalidResponse
+        }
     }
 
     func send(

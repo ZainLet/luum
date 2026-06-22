@@ -53,6 +53,8 @@ final class ActivityStore {
     private(set) var aiClassificationStatusMessage: String?
     private(set) var isClassifyingWithAI = false
     private(set) var isSendingWeeklyReportEmail = false
+    private(set) var weeklyReportEmailHealthMessage: String?
+    private(set) var isCheckingWeeklyReportEmailHealth = false
     private(set) var publicIntegrationConfig: PublicIntegrationConfig?
     private(set) var publicIntegrationStatusMessage: String?
     private(set) var isLoadingPublicIntegrationConfig = false
@@ -94,7 +96,11 @@ final class ActivityStore {
     @ObservationIgnored private var workspaceSyncTask: Task<Void, Never>?
     @ObservationIgnored private var aiClassificationTask: Task<Void, Never>?
     @ObservationIgnored private var weeklyReportEmailTask: Task<Void, Never>?
+    @ObservationIgnored private var weeklyReportEmailHealthTask: Task<Void, Never>?
     @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
+    @ObservationIgnored private var lastAuthCallbackSignature: String?
+    @ObservationIgnored private var lastCompletedAuthState: String?
+    @ObservationIgnored private var pendingAuthRequest: LuumAuthRequest?
     @ObservationIgnored private let calendarRefreshInterval: TimeInterval = 900
     @ObservationIgnored private let cloudSyncInterval: TimeInterval = 900
     @ObservationIgnored private let reminderEvaluationMinimumInterval: TimeInterval = 30
@@ -192,6 +198,12 @@ final class ActivityStore {
         self.aiClassificationStatusMessage = nil
         self.authSession = keychainService.codable(LuumAuthSession.self, for: Self.firebaseAuthSessionKey)
         self.authStatusMessage = self.authSession.map { "Conectado como \($0.accountLabel) • plano \($0.plan.title)" }
+        if let pendingRequest = keychainService.codable(LuumAuthRequest.self, for: Self.firebaseAuthRequestKey),
+           pendingRequest.isValid() {
+            self.pendingAuthRequest = pendingRequest
+        } else {
+            keychainService.removeValue(for: Self.firebaseAuthRequestKey)
+        }
 
         migrateCalendarSecretsIfNeeded(snapshot: calendarSnapshot)
 
@@ -355,13 +367,51 @@ final class ActivityStore {
     }
 
     func openLoginPage() {
-        guard let url = FirebaseAuthService.loginURL() else { return }
-        NSWorkspace.shared.open(url)
+        let request = LuumAuthRequest()
+        guard let url = FirebaseAuthService.loginURL(state: request.state) else {
+            authStatusMessage = "Nao foi possivel preparar o login do Luum."
+            return
+        }
+
+        do {
+            try keychainService.setCodable(request, for: Self.firebaseAuthRequestKey)
+            pendingAuthRequest = request
+        } catch {
+            authStatusMessage = "Nao foi possivel proteger esta solicitacao de login."
+            return
+        }
+
+        guard NSWorkspace.shared.open(url) else {
+            clearPendingAuthRequest()
+            authStatusMessage = "Nao foi possivel abrir o navegador para entrar no Luum."
+            return
+        }
+        authStatusMessage = "Conclua o login no navegador."
     }
 
     func handleAuthCallbackURL(_ url: URL) {
+        let callbackState = FirebaseAuthService.callbackState(from: url)
+        guard let pendingAuthRequest, pendingAuthRequest.isValid() else {
+            if Self.isDuplicateCompletedAuthCallback(callbackState: callbackState, completedState: lastCompletedAuthState) {
+                return
+            }
+            clearPendingAuthRequest()
+            authStatusMessage = "Esta solicitacao de login expirou. Clique em Entrar e tente novamente."
+            return
+        }
+
         do {
-            let session = try authService.session(from: url)
+            let session = try authService.session(from: url, expectedState: pendingAuthRequest.state)
+            let callbackSignature = Self.authCallbackSignature(for: session)
+            if callbackSignature == lastAuthCallbackSignature,
+               isCheckingAuth || authSession?.idToken == session.idToken {
+                authStatusMessage = "Login recebido. Validacao ja esta em andamento..."
+                return
+            }
+
+            lastAuthCallbackSignature = callbackSignature
+            lastCompletedAuthState = pendingAuthRequest.state
+            clearPendingAuthRequest()
             applyAuthSession(session, message: "Login recebido. Validando plano no Firebase...")
             refreshAccountStatus(restartInFlight: true)
         } catch {
@@ -395,11 +445,16 @@ final class ActivityStore {
                     sessionToValidate,
                     deviceID: keychainService.installationID()
                 )
-                await MainActor.run {
-                    guard self.isCurrentAuthRefresh(generation, for: sessionToValidate) else { return }
+                let shouldSyncWorkspace = await MainActor.run {
+                    guard self.isCurrentAuthRefresh(generation, for: sessionToValidate) else { return false }
                     self.applyAuthSession(verified, message: "Plano \(verified.plan.title) validado.")
                     self.isCheckingAuth = false
                     self.authRefreshTask = nil
+                    return self.teamSettings.automaticallySyncWorkspace &&
+                        self.teamWorkspaceConfigured
+                }
+                if shouldSyncWorkspace {
+                    self.syncWorkspaceRankingNow()
                 }
             } catch {
                 let wasCancelled = Task.isCancelled
@@ -437,6 +492,9 @@ final class ActivityStore {
         authRefreshTask?.cancel()
         authRefreshTask = nil
         authRefreshGeneration += 1
+        lastAuthCallbackSignature = nil
+        lastCompletedAuthState = nil
+        clearPendingAuthRequest()
         isCheckingAuth = false
         cloudSyncTask?.cancel()
         cloudSyncTask = nil
@@ -447,14 +505,26 @@ final class ActivityStore {
         aiClassificationTask = nil
         weeklyReportEmailTask?.cancel()
         weeklyReportEmailTask = nil
+        weeklyReportEmailHealthTask?.cancel()
+        weeklyReportEmailHealthTask = nil
         isSyncingCloud = false
         isSyncingWorkspace = false
         isClassifyingWithAI = false
         isSendingWeeklyReportEmail = false
+        isCheckingWeeklyReportEmailHealth = false
         stopMonitoring()
         authSession = nil
         authStatusMessage = "Conta desconectada deste Mac."
         keychainService.removeValue(for: Self.firebaseAuthSessionKey)
+        keychainService.removeValue(for: Self.teamWorkspaceSecretKey)
+        monitoringPreferences.teamSettings.sharesAnonymousMetrics = false
+        monitoringPreferences.teamSettings.automaticallySyncWorkspace = false
+        monitoringPreferences.teamSettings.workspaceID = ""
+        monitoringPreferences.teamSettings.workspaceEndpointURL = FirebaseAuthService.defaultBaseURL
+        workspaceRankingEntries = []
+        workspaceSyncLastSyncAt = nil
+        workspaceSyncStatusMessage = "Workspace desconectado deste Mac."
+        persistMonitoringPreferences()
     }
 
     private func applyAuthSession(_ session: LuumAuthSession, message: String) {
@@ -527,6 +597,20 @@ final class ActivityStore {
     private func isCurrentVerifiedSession(_ verified: LuumAuthSession) -> Bool {
         guard let current = authSession else { return false }
         return current.uid == verified.uid && current.idToken == verified.idToken
+    }
+
+    nonisolated static func authCallbackSignature(for session: LuumAuthSession) -> String {
+        "\(session.uid):\(session.idToken.suffix(16))"
+    }
+
+    nonisolated static func isDuplicateCompletedAuthCallback(callbackState: String?, completedState: String?) -> Bool {
+        guard let callbackState, !callbackState.isEmpty else { return false }
+        return callbackState == completedState
+    }
+
+    private func clearPendingAuthRequest() {
+        pendingAuthRequest = nil
+        keychainService.removeValue(for: Self.firebaseAuthRequestKey)
     }
 
     private func rejectAuthSession(_ session: LuumAuthSession) {
@@ -2710,6 +2794,49 @@ final class ActivityStore {
         }
     }
 
+    func checkWeeklyReportEmailHealth() {
+        guard !isCheckingWeeklyReportEmailHealth else { return }
+
+        isCheckingWeeklyReportEmailHealth = true
+        weeklyReportEmailHealthMessage = "Verificando Gemini e email na Vercel..."
+        weeklyReportEmailHealthTask?.cancel()
+        weeklyReportEmailHealthTask = Task { [weak self] in
+            await self?.runWeeklyReportEmailHealthCheck()
+        }
+    }
+
+    private func runWeeklyReportEmailHealthCheck() async {
+        defer { isCheckingWeeklyReportEmailHealth = false }
+
+        do {
+            let health = try await weeklyReportEmailService.health()
+            guard !Task.isCancelled else { return }
+            weeklyReportEmailHealthMessage = Self.weeklyReportEmailHealthMessage(for: health)
+        } catch is CancellationError {
+            return
+        } catch {
+            weeklyReportEmailHealthMessage = error.localizedDescription
+        }
+    }
+
+    static func weeklyReportEmailHealthMessage(for health: WeeklyReportEmailHealth) -> String {
+        if health.ok {
+            return "PDF por email pronto: Gemini \(health.gemini.model) e \(health.email.provider) configurados."
+        }
+        var missing: [String] = []
+        if !health.gemini.configured {
+            missing.append("Gemini")
+        }
+        if !health.email.apiKeyConfigured {
+            missing.append("Resend")
+        }
+        if !health.email.fromConfigured {
+            missing.append("email de envio")
+        }
+        let detail = missing.isEmpty ? "configuracao da Vercel" : missing.joined(separator: ", ")
+        return "PDF por email pendente: configure \(detail) na Vercel."
+    }
+
     private func runWeeklyReportEmail(containing day: Date) async {
         defer { isSendingWeeklyReportEmail = false }
 
@@ -2800,6 +2927,7 @@ final class ActivityStore {
             do {
                 googleCalendarStatusMessage = "Carregando configuracao gerenciada do Google Calendar..."
                 let config = try await publicIntegrationConfigService.fetch()
+                publicIntegrationConfig = config
                 clientID = config.googleCalendar.clientID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 if !clientID.isEmpty {
                     googleCalendarClientID = clientID
@@ -4381,6 +4509,7 @@ final class ActivityStore {
     }
 
     private static let firebaseAuthSessionKey = "firebase-auth-session"
+    private static let firebaseAuthRequestKey = "firebase-auth-request"
     private static let googleCalendarClientSecretKey = "google-calendar-client-secret"
     private static let notionCalendarTokenKey = "notion-calendar-token"
     private static let outlookCalendarTokenKey = "outlook-calendar-token"

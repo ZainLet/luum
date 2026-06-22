@@ -129,9 +129,9 @@ const firestoreReady = Boolean(db);
 //  COMO O APP DESKTOP LÊ A ASSINATURA
 //  ════════════════════════════════════════════════════════
 //  Fluxo oficial:
-//  1. O usuário entra em login.html?app=mac ou cadastro.html?app=mac.
+//  1. O app abre login.html?app=mac&state=... com state temporário.
 //  2. O site chama /api/auth/upsert-user com o Firebase ID token.
-//  3. O site abre luum://auth?token=...&refreshToken=...&uid=...
+//  3. O site abre luum://auth?token=...&refreshToken=...&uid=...&state=...
 //  4. O app macOS valida a sessão em https://luum-app.vercel.app/api/auth/status.
 //
 //  Exemplo do contrato usado pelo app:

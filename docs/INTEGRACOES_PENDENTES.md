@@ -84,14 +84,14 @@ Stripe configurado em produção:
 - Revogar qualquer chave `sk_live_` ou `rk_live_` exposta em chat, log ou captura antes de uso. Salvar a substituta diretamente no cofre admin, nunca em arquivos versionados.
 - Para uma chave restrita, liberar somente o necessário ao backend: criação de Checkout Sessions, leitura/escrita de assinaturas e acesso exigido pelo Stripe para clientes. A assinatura do webhook usa uma credencial separada `whsec_`.
 - Diagnóstico criado em `GET /api/admin/stripe-health`; `POST /api/admin/stripe-health` faz bootstrap admin sem criar função Vercel extra.
-- Checkout de Equipes e Negócios solicita quantidade de assentos e respeita os mínimos configurados.
+- Checkout de Equipes e Negócios solicita quantidade de assentos e respeita mínimos somente quando `STRIPE_MIN_SEATS_*` estiver configurado. Por padrão, todos os planos aceitam 1 assento.
 - Webhook configurado para `checkout.session.completed`, `invoice.payment_succeeded`, `customer.subscription.updated` e `customer.subscription.deleted`.
 - Validar em produção o cancelamento em `POST /api/cancel-subscription` após existir uma assinatura real, ou substituir pelo Stripe Customer Portal.
 - Testar checkout com cartões de teste antes de produção.
 
 ## App macOS
 
-- O app já recebe `luum://auth?token=...&refreshToken=...&uid=...`, exige que o UID do callback confira com o token, renova token Firebase expirado, consulta `/api/auth/status`, usa a validade de trial enviada pelo backend, aplica gates por plano e salva sessão local em cofre cifrado sem acionar o Keychain do macOS em builds ad-hoc.
+- O app abre `login.html?app=mac&state=...` com uma solicitação aleatória válida por 15 minutos. O site devolve `luum://auth?token=...&refreshToken=...&uid=...&state=...`; o app exige `state` correspondente, UID igual ao token e projeto Firebase oficial antes de consultar `/api/auth/status`. A sessão fica no cofre local cifrado sem acionar o Keychain do macOS em builds ad-hoc.
 - Sessões locais só mantêm acesso offline por até 24 horas após uma validação real do servidor. Falhas de rede não renovam essa tolerância; rejeições explícitas da API bloqueiam a sessão e exigem novo login.
 - Ao aplicar uma sessão Firebase, o app fixa backup e workspace no domínio oficial, troca o `backupID` para o UID Firebase e desliga backup bruto quando a conta está bloqueada ou não está no plano Negócios. Mesmo que uma preferência antiga esteja suja em disco, push/restore usam o domínio oficial e o UID da sessão.
 - O monitoramento local só inicia depois de uma sessão local ainda válida ou de uma validação real no backend. Logout, sessão bloqueada ou rejeição explícita da API param a captura local.
@@ -117,7 +117,7 @@ Stripe configurado em produção:
 3. Entrar no site com uma conta comum. O login deve chamar `/api/auth/upsert-user` e criar/atualizar `users/{uid}` no Firestore.
 4. No site, clicar em Entrar ou Começar Grátis sem `app=mac` deve terminar em `account.html`, sem tentar abrir o app.
 5. Em `login.html?app=mac`, clicar em `Criar conta` deve manter o fluxo em `cadastro.html?app=mac`; em `cadastro.html?app=mac`, clicar em `Faça login` deve voltar para `login.html?app=mac`.
-6. No app macOS, clicar em Entrar. O site deve abrir `login.html?app=mac` e retornar para o app com `luum://auth?token=...&refreshToken=...&uid=...`.
+6. No app macOS, clicar em Entrar. O site deve abrir `login.html?app=mac&state=...` e retornar para o app com o mesmo `state` em `luum://auth`.
 7. No app, confirmar que o status muda para `Plano {nome} validado.`. Sem token ou com UID divergente, o app deve rejeitar o callback.
 8. No `admin.html`, alterar o plano/status do usuário. No app, clicar em `Validar assinatura` e confirmar que telas premium liberam ou bloqueiam conforme o plano.
 9. Testar logout no app. A captura local deve parar e as telas voltam para o bloqueio de login.

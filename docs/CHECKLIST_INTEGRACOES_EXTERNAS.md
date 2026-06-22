@@ -1,6 +1,6 @@
 # Checklist de integracoes externas do Luum
 
-Atualizado em 2026-06-14.
+Atualizado em 2026-06-21.
 
 Este arquivo separa o que o repositorio ja implementa do que precisa ser feito fora do codigo: contas, chaves, OAuth apps, webhooks e validacoes manuais. Nao cole segredos neste arquivo.
 
@@ -14,6 +14,10 @@ Este arquivo separa o que o repositorio ja implementa do que precisa ser feito f
 - Backup: usa `/api/sync/{uid}` com Firebase ID token e payload sanitizado.
 - Google Calendar: o app ja tenta carregar `GOOGLE_CALENDAR_CLIENT_ID` em `/api/public/integrations`, para o usuario clicar em conectar sem colar chaves.
 - Alpha macOS atual: `0.0.4-alpha`, bundle id `com.luum.apple`, instalador principal `.pkg` que coloca `luum.app` em `/Applications`; use `Luum-alpha-latest.pkg` para o teste interno mais recente e deixe `.zip` apenas como fallback tecnico.
+- Validacao anonima de producao em 2026-06-21:
+  - `/api/auth/status`, `/api/admin/health`, `/api/admin/users`, `/api/admin/integrations` e `/api/admin/stripe-health` retornaram `401 Login Firebase obrigatório` com `Cache-Control: no-store, max-age=0`;
+  - `/api/public/integrations` retornou `200` com configuracao publica sanitizada e `no-store`;
+  - `managedOAuth` esta `false` para Google Calendar, Outlook, Notion, ClickUp, Linear e Zapier; conexoes em um clique ainda nao estao configuradas em producao.
 
 ## Politica de versao
 
@@ -81,8 +85,8 @@ O cofre de integracoes do `admin.html` pode armazenar parte desses valores cript
 Contrato esperado do app:
 
 - Login comum do site termina em `account.html`.
-- Login do app usa `login.html?app=mac`.
-- O site abre `luum://auth?token=...&refreshToken=...&uid=...`.
+- Login do app usa `login.html?app=mac&state=...`, iniciado somente pelo botão Entrar do app.
+- O site abre `luum://auth?token=...&refreshToken=...&uid=...&state=...`; o app rejeita state ausente, divergente ou expirado.
 - O app rejeita UID divergente, projeto Firebase errado e endpoint de backend nao oficial.
 
 ## Stripe
@@ -91,8 +95,10 @@ Planos oficiais:
 
 - Essencial: R$ 29,90/mes ou R$ 299,00/ano.
 - Profissional: R$ 49,90/mes ou R$ 499,00/ano.
-- Equipes: R$ 45,00/usuario/mes ou R$ 450,00/usuario/ano, minimo 2 usuarios.
-- Negocios: R$ 65,00/usuario/mes ou R$ 650,00/usuario/ano, minimo 5 usuarios.
+- Equipes: R$ 45,00/usuario/mes ou R$ 450,00/usuario/ano.
+- Negocios: R$ 65,00/usuario/mes ou R$ 650,00/usuario/ano.
+
+Por padrao, o checkout aceita 1 assento em todos os planos. Se quiser impor um minimo comercial para Equipes ou Negocios, configure `STRIPE_MIN_SEATS_EQUIPES` e/ou `STRIPE_MIN_SEATS_NEGOCIOS` na Vercel.
 
 Eventos do webhook:
 
@@ -143,6 +149,8 @@ Checklist manual:
 ## PDF semanal por email
 
 O app envia um resumo semanal sanitizado para `POST https://luum-app.vercel.app/api/reports/weekly-email`. O backend valida Firebase Auth, exige plano Profissional ou maior em assinaturas pagas, usa Gemini para gerar a narrativa e anexa um PDF simples ao email verificado da conta. O destino não deve ser aceito do corpo da requisição.
+
+Use `GET https://luum-app.vercel.app/api/reports/weekly-email` para diagnosticar se a rota esta publicada e se `GEMINI_API_KEY`, `RESEND_API_KEY` e `REPORT_EMAIL_FROM`/`RESEND_FROM_EMAIL` existem na Vercel. Essa resposta mostra apenas booleanos e modelo, nunca o valor das chaves.
 
 Checklist manual:
 
