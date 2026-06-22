@@ -75,7 +75,8 @@ Use este roteiro para validar a build de teste antes de chamar a alpha de pronta
 11. Ativar backup Firebase e executar um sync manual.
 12. Enviar um PDF semanal por email em conta com plano permitido.
 13. Sair da conta e confirmar que sync, IA, workspace e envio de PDF param sem erro visual.
-14. Fechar e abrir o app novamente, confirmando que não aparece prompt repetido das Chaves.
+14. Após logout, abrir Preferências > Workspace e confirmar que Workspace ID está vazio.
+15. Fechar e abrir o app novamente, confirmando que não aparece prompt repetido das Chaves.
 
 Resultado esperado: instalação simples pelo `.pkg`, login funcionando pelo callback `luum://auth`, permissões de plano vindas do Firebase e app responsivo durante monitoramento básico.
 

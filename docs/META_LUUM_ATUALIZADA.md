@@ -1,6 +1,6 @@
 # Meta atualizada do Luum — handoff
 
-Atualizada em 21 de junho de 2026.
+Atualizada em 21 de junho de 2026, 23:42.
 
 ## Objetivo
 
@@ -20,89 +20,68 @@ Continuar o desenvolvimento do Luum com contexto curto, mudanças pequenas e val
   - alias: `https://luum-app.vercel.app`;
   - estado: `Ready`.
 - Limites Stripe validados em produção sem cobrança:
-  - checkout anônimo: `401 Login Firebase obrigatório`;
+  - checkout anônimo: `401 Login Firebase obrigatório` (agora verificado antes do corpo);
   - cancelamento anônimo: `401 Login Firebase obrigatório`;
   - webhook sem assinatura: `400 Webhook signature verification failed`;
   - respostas com `Cache-Control: no-store, max-age=0`.
 - Fronteira anônima de administração validada em produção: auth status, health, usuários, integrações e Stripe health retornam `401` com `no-store`.
-- Configuração pública de integrações retorna `200` sanitizado, mas Google, Outlook, Notion, ClickUp, Linear e Zapier permanecem com `managedOAuth=false`; configuração e testes reais continuam pendentes.
-- 32 testes focados Stripe/auth/entitlements aprovados.
-- Suíte Node completa: 105 testes aprovados, zero falhas.
+- Configuração pública de integrações retorna `200` sanitizado; Google, Outlook, Notion, ClickUp, Linear e Zapier permanecem com `managedOAuth=false`.
+- Suíte Node: 105 testes aprovados, zero falhas.
 - `npm audit --omit=dev`: zero vulnerabilidades.
 - Build macOS aprovado; `./script/build_and_run.sh --verify` validou o bundle, a assinatura ad-hoc, o lançamento e o processo ativo.
-- QA visual somente leitura confirmou janela principal, sessão Equipes, captura ativa, resumo e busca local com resultados; Agenda, Equipe e Preferências ainda não foram comprovadas nessa rodada porque a automação perdeu acesso à janela, embora o processo tenha permanecido ativo.
-- PKG local `0.0.4-alpha` regenerado e verificado: payload em `/Applications`, package id e checksums dos aliases estáveis aprovados.
-- Artefatos gerados com worktree modificado agora recebem `-dirty` no nome e nas notas para não aparentarem corresponder exatamente ao commit.
-- Gatekeeper ainda rejeita app/PKG por falta de Developer ID e notarização; instalação e QA em outro Mac continuam pendentes.
-- XCTest ainda não foi executado; o teste focado de logout compilou, mas a instalação atual tem apenas Command Line Tools e não inclui o runner `xctest`.
-- Windows/Linux auditados documentalmente: os projetos existentes são backend, cliente web e helper console legado; ainda não há WinUI/MSIX nem cliente/Flatpak Linux, e este Mac não possui toolchain .NET para executar build ou testes.
-- Graphify atualizado: 1.659 nós, 3.851 relações e 53 comunidades.
+- PKG local `0.0.4-alpha` regenerado e verificado.
+- Artefatos com worktree modificado recebem `-dirty` no nome e nas notas.
+- Gatekeeper ainda rejeita app/PKG por falta de Developer ID e notarização; instalação em outro Mac pendente.
+- XCTest ainda não executado: teste `signOutClearsWorkspaceConfigurationAndParticipation()` compilado mas não rodado (sem Xcode completo).
+- Windows/Linux: auditados documentalmente; nenhum build ou teste .NET executado nesta máquina.
+- Graphify: 1.659 nós, 3.851 relações, 53 comunidades.
+- CLAUDE.md adicionado ao repositório com arquitetura, comandos e convenções.
+- CodeRabbit instalado no repo `ZainLet/luum`; review automático ativo em PRs.
 
-## Revisão de segurança mais recente
+## Correções de segurança — LUUM-DIFF-001 (resolvido em 2026-06-21)
 
-- Foi executada uma auditoria formal do diff local com cobertura 3/3 dos arquivos-fonte alterados.
-- Relatórios temporários:
-  - `/tmp/codex-security-scans/luum/c6b877a_20260620T212930Z/report.md`;
-  - `/tmp/codex-security-scans/luum/c6b877a_20260620T212930Z/report.html`.
-- Um achado sobreviveu à validação:
-  - `LUUM-DIFF-001` — baixo/P3, confiança 0,75;
-  - ao sair da conta, a chave e as preferências do workspace permanecem locais;
-  - a próxima conta Equipes/Negócios no mesmo usuário do macOS pode sincronizar automaticamente usando esse workspace antigo;
-  - impacto limitado a métricas agregadas e ranking; não há exposição comprovada de tokens, atividade bruta ou billing.
-- Correção local aplicada, ainda sem commit/push e pendente de execução com XCTest:
-  - remover `team-workspace-secret` no logout;
-  - desativar compartilhamento e sync automático;
-  - limpar ranking em memória;
-  - adicionar teste garantindo que o workspace deixa de estar configurado após logout.
+Achado original: ao sair da conta, chave e preferências do workspace permaneciam locais; próxima conta Equipes/Negócios poderia sincronizar usando workspace antigo.
 
-## Alterações locais ainda sem commit/push
+Correções aplicadas no commit `1919d4d` (PR #13):
 
-Branch: `codex/cloud-sync-coalesce`.
+- `ActivityStore.signOut()`: remove `team-workspace-secret` do Keychain, limpa `workspaceID`, reseta `workspaceEndpointURL` para o padrão, desativa flags de sync, limpa ranking em memória e persiste preferências.
+- `ActivityStore` auth refresh: condição `shouldSyncWorkspace` não exige mais `sharesAnonymousMetrics` (era incorreto — usuários com sync ativo mas métricas desativadas não sincronizavam).
+- `ActivityStoreSignOutTests`: asserção `workspaceID.isEmpty` adicionada.
+- `checkout.js`: token Firebase verificado antes de ler o corpo (proteção contra leitura de payload em requisição anônima).
 
-- `script/build_and_run.sh`
-  - marca builds produzidas por worktree modificado com `-dirty` no identificador do artefato e nas notas.
-- `src/LUUM.Mac/Sources/luum/Stores/ActivityStore.swift`
-  - sync imediato do workspace após revalidação Firebase;
-  - limpeza da chave, participação, sync e ranking do workspace no logout.
-- `src/LUUM.Mac/Tests/luumTests/ActivityStoreSignOutTests.swift`
-  - regressão focada garantindo que o workspace deixa de estar configurado após logout.
-- `src/LUUM.Mac/Sources/luum/Views/SettingsView.swift`
-  - logout com confirmação;
-  - campos de Workspace ID e chave compartilhada.
-- `website/api/checkout.js`
-  - autenticação Firebase ocorre antes da validação do corpo.
-- `website/test/auth-handlers.test.js`
-  - regressão para checkout anônimo retornar `401` primeiro.
-- `website/test/billing-cache.test.js`
-  - contrato `401` e `no-store` atualizado.
-- `website/test/entitlements.test.js`
-  - matriz completa dos planos.
-- `docs/META_LUUM_ATUALIZADA.md`
-  - este handoff.
+Status: commit feito, push feito, **PR #13 aberto** em `https://github.com/ZainLet/luum/pull/13`. CodeRabbit review pendente.
 
-Não fazer commit, push ou PR sem pedido explícito. O backend publicado contém a correção de autenticação do checkout, mas as alterações Swift continuam apenas locais.
+Validação ainda pendente: `signOutClearsWorkspaceConfigurationAndParticipation()` precisa de Xcode completo para rodar.
+
+## Última sessão de trabalho (2026-06-21, 23:42)
+
+- Revisão de diff com `code-review` (7 ângulos, verify 3-state): 2 bugs confirmados, 1 plausível, ambos corrigidos.
+- Commit `1919d4d` em `codex/cloud-sync-coalesce` com 13 arquivos, 1.118 inserções.
+- PR #13 aberto no GitHub para revisão pelo CodeRabbit.
 
 ## Próxima ação objetiva
 
-1. Executar `signOutClearsWorkspaceConfigurationAndParticipation()` com Xcode/XCTest completo.
-2. Se o teste passar, fazer a revisão final de `LUUM-DIFF-001`.
-3. Somente depois, pedir autorização para commit/push.
+1. Aguardar e endereçar comentários do CodeRabbit no PR #13.
+2. Executar `signOutClearsWorkspaceConfigurationAndParticipation()` com Xcode completo.
+3. Fazer QA manual de logout no app: confirmar que Workspace ID some das preferências após sair da conta.
 
 ## Pendências obrigatórias da meta
 
-1. Validar Stripe real e controlado:
+1. Endereçar comentários do CodeRabbit no PR #13.
+2. Validar Stripe real e controlado:
    - checkout autenticado;
    - webhook persistido no Firestore;
    - revalidação do plano no app;
    - cancelamento e acesso até o fim do período pago.
-2. Testar administração autenticada e revalidação manual de planos.
-3. Validar gates reais com contas de cada plano, além da matriz automatizada.
-4. Configurar e testar Google Calendar, Notion, Outlook, ClickUp, Linear, Zapier, Gemini e Resend.
-5. Executar XCTest com Xcode completo.
-6. Fazer QA prolongado de desempenho e revisão final de segurança.
-7. Instalar e testar o PKG em outro Mac.
-8. Finalizar documentação e validação para Windows e Linux.
-9. Posteriormente obter Apple Developer ID, assinar e notarizar.
+3. Testar administração autenticada e revalidação manual de planos.
+4. Validar gates reais com contas de cada plano, além da matriz automatizada.
+5. Configurar e testar Google Calendar, Notion, Outlook, ClickUp, Linear, Zapier, Gemini e Resend.
+6. Executar XCTest com Xcode completo (teste de logout já escrito, aguarda runner).
+7. QA manual de logout: confirmar que Workspace ID some das preferências.
+8. Fazer QA prolongado de desempenho e revisão final de segurança.
+9. Instalar e testar o PKG em outro Mac.
+10. Finalizar documentação e validação para Windows e Linux.
+11. Obter Apple Developer ID, assinar e notarizar.
 
 ## Regras operacionais
 

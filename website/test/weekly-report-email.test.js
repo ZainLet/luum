@@ -309,6 +309,39 @@ test('weekly report endpoint hides unexpected provider errors', async (t) => {
     assert.equal(JSON.stringify(res.body).includes('private provider diagnostic'), false);
 });
 
+test('weekly report endpoint surfaces structured provider errors with explicit statusCode', async (t) => {
+    installFirebaseAdminMock({ userData: activeUser('profissional') });
+    const originalFetch = global.fetch;
+    const originalKey = process.env.GEMINI_API_KEY;
+    process.env.GEMINI_API_KEY = 'test-gemini-key';
+    t.after(() => {
+        global.fetch = originalFetch;
+        process.env.GEMINI_API_KEY = originalKey;
+        delete require.cache[weeklyReportPath];
+        delete require.cache[helperPath];
+    });
+
+    global.fetch = async () => {
+        const err = new Error('Upstream temporarily unavailable');
+        err.statusCode = 502;
+        throw err;
+    };
+
+    const handler = require('../api/reports/weekly-email');
+    const res = response();
+    await handler({
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: { report: reportPayload(), sendEmail: false }
+    }, res);
+
+    assert.equal(res.code, 502);
+    assert.equal(res.body.error, 'Upstream temporarily unavailable');
+});
+
 test('weekly report endpoint sends email through Resend when configured', async (t) => {
     installFirebaseAdminMock({ userData: activeUser('negocios') });
     const originalFetch = global.fetch;
