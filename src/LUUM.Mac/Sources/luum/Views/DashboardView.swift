@@ -64,6 +64,11 @@ struct DashboardView: View {
                     .offset(y: appeared ? 0 : -14)
                     .animation(.spring(duration: 0.6, bounce: 0.25), value: appeared)
 
+                aiResponseCard
+                    .animation(.spring(duration: 0.4, bounce: 0.2), value: store.isQueryingAI)
+                    .animation(.spring(duration: 0.4, bounce: 0.2), value: store.aiQueryResponse != nil)
+                    .animation(.spring(duration: 0.4, bounce: 0.2), value: store.aiQueryError != nil)
+
                 if store.needsOnboarding {
                     onboardingCard
                         .opacity(appeared ? 1 : 0)
@@ -236,9 +241,15 @@ struct DashboardView: View {
 
     private var aiPromptField: some View {
         HStack(spacing: 12) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(LuumTheme.electricBlue)
+            if store.isQueryingAI {
+                ProgressView()
+                    .scaleEffect(0.65)
+                    .frame(width: 14, height: 14)
+            } else {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(LuumTheme.electricBlue)
+            }
 
             TextField(
                 "Pergunte ao Luum... \"O que fiz hoje?\" ou \"Qual projeto está em risco?\"",
@@ -247,39 +258,28 @@ struct DashboardView: View {
             .font(.subheadline)
             .foregroundStyle(.white)
             .textFieldStyle(.plain)
+            .disabled(store.isQueryingAI)
             .onSubmit {
                 if !aiQuery.isEmpty {
-                    openSearch(aiQuery)
+                    store.sendAIQuery(aiQuery)
                     aiQuery = ""
                 }
             }
 
-            Group {
-                if aiQuery.isEmpty {
-                    Text("Em breve")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(LuumTheme.textMuted)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(LuumTheme.panelFill)
-                        )
-                } else {
-                    Button {
-                        openSearch(aiQuery)
-                        aiQuery = ""
-                    } label: {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(LuumTheme.accent)
-                    }
-                    .buttonStyle(.plain)
-                    .transition(.scale(scale: 0.7).combined(with: .opacity))
+            if !aiQuery.isEmpty && !store.isQueryingAI {
+                Button {
+                    store.sendAIQuery(aiQuery)
+                    aiQuery = ""
+                } label: {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(LuumTheme.accent)
                 }
+                .buttonStyle(.plain)
+                .transition(.scale(scale: 0.7).combined(with: .opacity))
             }
-            .animation(.spring(duration: 0.25, bounce: 0.3), value: aiQuery.isEmpty)
         }
+        .animation(.spring(duration: 0.25, bounce: 0.3), value: aiQuery.isEmpty || store.isQueryingAI)
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
         .background(
@@ -288,7 +288,87 @@ struct DashboardView: View {
         )
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(LuumTheme.electricBlue.opacity(0.22), lineWidth: 1)
+                .stroke(
+                    store.isQueryingAI
+                        ? LuumTheme.accent.opacity(0.45)
+                        : LuumTheme.electricBlue.opacity(0.22),
+                    lineWidth: 1
+                )
+                .animation(.easeInOut(duration: 0.3), value: store.isQueryingAI)
+        }
+    }
+
+    @ViewBuilder
+    private var aiResponseCard: some View {
+        if store.isQueryingAI {
+            HStack(spacing: 10) {
+                ProgressView().scaleEffect(0.7)
+                Text("Consultando Luum...")
+                    .font(.subheadline)
+                    .foregroundStyle(LuumTheme.textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(18)
+            .luumGlassCard(tint: LuumTheme.accent.opacity(0.08), cornerRadius: 28, shadowOpacity: 0.08)
+            .transition(.opacity.combined(with: .offset(y: -6)))
+        } else if let response = store.aiQueryResponse {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkles")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LuumTheme.accent)
+                    Text(response.query)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LuumTheme.textMuted)
+                        .lineLimit(1)
+                    Spacer()
+                    Button {
+                        withAnimation(.spring(duration: 0.3)) {
+                            store.clearAIQuery()
+                        }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(LuumTheme.textMuted)
+                    }
+                    .buttonStyle(.plain)
+                    .contentShape(Circle())
+                }
+
+                Text(response.answer)
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.88))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(18)
+            .luumGlassCard(tint: LuumTheme.accent.opacity(0.12), cornerRadius: 28, shadowOpacity: 0.10)
+            .transition(.opacity.combined(with: .offset(y: -6)))
+        } else if let error = store.aiQueryError {
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(LuumTheme.hotPink)
+                Text(error)
+                    .font(.subheadline)
+                    .foregroundStyle(LuumTheme.textSecondary)
+                Spacer()
+                Button {
+                    withAnimation(.spring(duration: 0.3)) {
+                        store.clearAIQuery()
+                    }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(LuumTheme.textMuted)
+                }
+                .buttonStyle(.plain)
+                .contentShape(Circle())
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(18)
+            .luumGlassCard(tint: LuumTheme.hotPink.opacity(0.08), cornerRadius: 28, shadowOpacity: 0.06)
+            .transition(.opacity.combined(with: .offset(y: -6)))
         }
     }
 

@@ -52,6 +52,9 @@ final class ActivityStore {
     private(set) var isSyncingWorkspace = false
     private(set) var aiClassificationStatusMessage: String?
     private(set) var isClassifyingWithAI = false
+    private(set) var isQueryingAI = false
+    private(set) var aiQueryResponse: AIQueryResponse?
+    private(set) var aiQueryError: String?
     private(set) var isSendingWeeklyReportEmail = false
     private(set) var weeklyReportEmailHealthMessage: String?
     private(set) var isCheckingWeeklyReportEmailHealth = false
@@ -77,6 +80,7 @@ final class ActivityStore {
     @ObservationIgnored private let workspaceSyncService: WorkspaceSyncService
     @ObservationIgnored private let authService: FirebaseAuthService
     @ObservationIgnored private let aiClassificationService: AIClassificationService
+    @ObservationIgnored private let aiQueryService: AIQueryService
     @ObservationIgnored private let weeklyReportEmailService: WeeklyReportEmailService
     @ObservationIgnored private let publicIntegrationConfigService: PublicIntegrationConfigService
     @ObservationIgnored private let sessionGapTolerance: TimeInterval = 15
@@ -95,6 +99,7 @@ final class ActivityStore {
     @ObservationIgnored private var cloudSyncPendingAfterCurrent = false
     @ObservationIgnored private var workspaceSyncTask: Task<Void, Never>?
     @ObservationIgnored private var aiClassificationTask: Task<Void, Never>?
+    @ObservationIgnored private var aiQueryTask: Task<Void, Never>?
     @ObservationIgnored private var weeklyReportEmailTask: Task<Void, Never>?
     @ObservationIgnored private var weeklyReportEmailHealthTask: Task<Void, Never>?
     @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
@@ -137,6 +142,7 @@ final class ActivityStore {
         workspaceSyncService: WorkspaceSyncService = WorkspaceSyncService(),
         authService: FirebaseAuthService = FirebaseAuthService(),
         aiClassificationService: AIClassificationService = AIClassificationService(),
+        aiQueryService: AIQueryService = AIQueryService(),
         weeklyReportEmailService: WeeklyReportEmailService = WeeklyReportEmailService(),
         publicIntegrationConfigService: PublicIntegrationConfigService = PublicIntegrationConfigService(),
         activityPersistenceDebounce: Duration = .seconds(5)
@@ -157,6 +163,7 @@ final class ActivityStore {
         self.workspaceSyncService = workspaceSyncService
         self.authService = authService
         self.aiClassificationService = aiClassificationService
+        self.aiQueryService = aiQueryService
         self.weeklyReportEmailService = weeklyReportEmailService
         self.publicIntegrationConfigService = publicIntegrationConfigService
         self.activityPersistenceDebounce = activityPersistenceDebounce
@@ -1462,6 +1469,27 @@ final class ActivityStore {
         aiClassificationTask = Task { [weak self] in
             await self?.runAIClassification(kind: .domain, item: item)
         }
+    }
+
+    func sendAIQuery(_ question: String) {
+        let clean = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty, !isQueryingAI else { return }
+
+        aiQueryTask?.cancel()
+        isQueryingAI = true
+        aiQueryError = nil
+
+        aiQueryTask = Task { [weak self] in
+            await self?.runAIQuery(clean)
+        }
+    }
+
+    func clearAIQuery() {
+        aiQueryTask?.cancel()
+        aiQueryTask = nil
+        isQueryingAI = false
+        aiQueryResponse = nil
+        aiQueryError = nil
     }
 
     func updateTeamOrganizationName(_ value: String) {
@@ -3528,6 +3556,45 @@ final class ActivityStore {
             return
         } catch {
             aiClassificationStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func runAIQuery(_ question: String) async {
+        defer { isQueryingAI = false }
+
+        let todaySummary = summary(for: Date())
+        let context = AIQueryContext(
+            date: Date().formatted(.dateTime.year().month(.abbreviated).day()),
+            totalTrackedTime: todaySummary.totalTrackedTime,
+            categoryBreakdown: todaySummary.categoryBreakdown.prefix(8).map {
+                AIQueryBreakdownItem(label: $0.category.title, duration: $0.duration)
+            },
+            topApps: todaySummary.appBreakdown.prefix(6).map {
+                AIQueryBreakdownItem(label: $0.label, duration: $0.duration)
+            },
+            currentActivity: currentSnapshot != nil ? currentActivityTitle : nil
+        )
+
+        do {
+            let verified = try await verifiedAuthSessionForProtectedRequest()
+            guard !Task.isCancelled else { return }
+            guard verified.includes(.classification) else {
+                aiQueryError = lockMessage(for: .classification)
+                return
+            }
+
+            let answer = try await aiQueryService.query(
+                question,
+                context: context,
+                baseURL: FirebaseAuthService.defaultBaseURL,
+                firebaseToken: verified.idToken
+            )
+            guard !Task.isCancelled else { return }
+            aiQueryResponse = AIQueryResponse(query: question, answer: answer)
+        } catch is CancellationError {
+            return
+        } catch {
+            aiQueryError = error.localizedDescription
         }
     }
 
