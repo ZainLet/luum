@@ -132,11 +132,11 @@ test('successful checkout responses are never cacheable', async () => {
 });
 
 test('subscription cancellation responses are never cacheable', async () => {
-    const handler = require('../api/cancel-subscription');
+    const handler = require('../api/checkout');
     const res = response();
 
     await handler({
-        method: 'POST',
+        method: 'DELETE',
         headers: { origin: 'https://luum-app.web.app' },
         body: {}
     }, res);
@@ -149,7 +149,7 @@ test('successful subscription cancellation responses are never cacheable', async
     const touchedModules = [
         '../api/_firebaseAdmin',
         '../api/_stripe',
-        '../api/cancel-subscription'
+        '../api/checkout'
     ];
     clearModules(touchedModules);
     mockModule('../api/_firebaseAdmin', {
@@ -206,11 +206,11 @@ test('successful subscription cancellation responses are never cacheable', async
         })
     });
 
-    const handler = require('../api/cancel-subscription');
+    const handler = require('../api/checkout');
     const res = response();
 
     await handler({
-        method: 'POST',
+        method: 'DELETE',
         headers: {
             authorization: 'Bearer valid-token',
             origin: 'https://luum-app.web.app'

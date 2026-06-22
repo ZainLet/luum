@@ -76,6 +76,15 @@ async function webhookHandler(req, res) {
     try {
         const db = getFirestore();
         const stripe = await getStripe();
+
+        const eventId = event.id;
+        const processedRef = db.collection('_webhookEvents').doc(eventId);
+        const alreadyProcessed = await processedRef.get();
+        if (alreadyProcessed.exists) {
+            console.log(`[Webhook] Event ${eventId} already processed, skipping`);
+            return res.json({ received: true, deduplicated: true });
+        }
+
         switch (event.type) {
             case 'checkout.session.completed': {
                 const session = event.data.object;
@@ -147,6 +156,11 @@ async function webhookHandler(req, res) {
                 break;
             }
         }
+
+        await processedRef.set({
+            type: event.type,
+            processedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
 
         return res.json({ received: true });
     } catch (err) {

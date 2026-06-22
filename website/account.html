@@ -498,8 +498,8 @@
             setSubscriptionMessage('Agendando cancelamento...');
             try {
                 const token = await currentUser.getIdToken();
-                const response = await fetch(luumApiUrl('/api/cancel-subscription'), {
-                    method: 'POST',
+                const response = await fetch(luumApiUrl('/api/checkout'), {
+                    method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'

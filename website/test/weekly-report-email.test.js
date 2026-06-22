@@ -342,6 +342,71 @@ test('weekly report endpoint surfaces structured provider errors with explicit s
     assert.equal(res.body.error, 'Upstream temporarily unavailable');
 });
 
+test('weekly report endpoint returns 503 when GEMINI_API_KEY is missing', async (t) => {
+    installFirebaseAdminMock({ userData: activeUser('profissional') });
+    const originalKey = process.env.GEMINI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+    t.after(() => {
+        process.env.GEMINI_API_KEY = originalKey;
+        delete require.cache[weeklyReportPath];
+        delete require.cache[helperPath];
+    });
+
+    const handler = require('../api/reports/weekly-email');
+    const res = response();
+    await handler({
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: { report: reportPayload(), sendEmail: false }
+    }, res);
+
+    assert.equal(res.code, 503);
+    assert.match(res.body.error, /GEMINI_API_KEY/);
+});
+
+test('weekly report endpoint returns 503 when RESEND_API_KEY is missing', async (t) => {
+    installFirebaseAdminMock({ userData: activeUser('profissional') });
+    const originalFetch = global.fetch;
+    const originalGemini = process.env.GEMINI_API_KEY;
+    const originalResend = process.env.RESEND_API_KEY;
+    const originalFrom = process.env.REPORT_EMAIL_FROM;
+    process.env.GEMINI_API_KEY = 'test-gemini-key';
+    delete process.env.RESEND_API_KEY;
+    delete process.env.REPORT_EMAIL_FROM;
+    t.after(() => {
+        global.fetch = originalFetch;
+        process.env.GEMINI_API_KEY = originalGemini;
+        process.env.RESEND_API_KEY = originalResend;
+        process.env.REPORT_EMAIL_FROM = originalFrom;
+        delete require.cache[weeklyReportPath];
+        delete require.cache[helperPath];
+    });
+
+    global.fetch = async (url, options) => {
+        if (String(url).includes('generativelanguage.googleapis.com')) {
+            return { ok: true, async text() { return geminiResponse(); } };
+        }
+        return { ok: true, async json() { return { id: 'email_123' }; } };
+    };
+
+    const handler = require('../api/reports/weekly-email');
+    const res = response();
+    await handler({
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: { report: reportPayload() }
+    }, res);
+
+    assert.equal(res.code, 503);
+    assert.match(res.body.error, /RESEND_API_KEY/);
+});
+
 test('weekly report endpoint sends email through Resend when configured', async (t) => {
     installFirebaseAdminMock({ userData: activeUser('negocios') });
     const originalFetch = global.fetch;
