@@ -460,22 +460,7 @@ private struct SidebarHero: View {
 
                 Spacer()
 
-                TimelineView(.animation(minimumInterval: 0.02, paused: !store.isMonitoring)) { ctx in
-                    let phase = fmod(ctx.date.timeIntervalSinceReferenceDate, 1.8) / 1.8
-                    ZStack {
-                        if store.isMonitoring {
-                            Circle()
-                                .fill(LuumTheme.cyanGreen.opacity((1.0 - phase) * 0.38))
-                                .frame(width: 18, height: 18)
-                                .scaleEffect(1.0 + phase * 1.5)
-                        }
-                        Circle()
-                            .fill(store.isMonitoring ? LuumTheme.cyanGreen : LuumTheme.textMuted)
-                            .frame(width: 8, height: 8)
-                            .shadow(color: store.isMonitoring ? LuumTheme.cyanGreen.opacity(0.65) : .clear, radius: 4)
-                    }
-                    .frame(width: 20, height: 20)
-                }
+                LuumPulsingDot(isActive: store.isMonitoring, color: LuumTheme.cyanGreen, size: 8)
             }
 
             VStack(alignment: .leading, spacing: 5) {

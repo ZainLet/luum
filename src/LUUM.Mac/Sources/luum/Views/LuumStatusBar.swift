@@ -50,27 +50,7 @@ struct LuumStatusBar: View {
     }
 
     private var pulsingDot: some View {
-        TimelineView(.animation(minimumInterval: 0.02, paused: !store.isMonitoring)) { ctx in
-            let t = ctx.date.timeIntervalSinceReferenceDate
-            let phase = fmod(t, 1.8) / 1.8  // 0...1 over 1.8s cycle
-
-            ZStack {
-                if store.isMonitoring {
-                    Circle()
-                        .fill(LuumTheme.cyanGreen.opacity((1.0 - phase) * 0.4))
-                        .frame(width: 20, height: 20)
-                        .scaleEffect(1.0 + phase * 1.6)
-                }
-                Circle()
-                    .fill(store.isMonitoring ? LuumTheme.cyanGreen : LuumTheme.textMuted)
-                    .frame(width: 8, height: 8)
-                    .shadow(
-                        color: store.isMonitoring ? LuumTheme.cyanGreen.opacity(0.7) : .clear,
-                        radius: 5
-                    )
-            }
-            .frame(width: 22, height: 22)
-        }
+        LuumPulsingDot(isActive: store.isMonitoring, color: LuumTheme.cyanGreen, size: 8)
     }
 
     // MARK: - Center: mini horizontal activity timeline (today's category breakdown)
