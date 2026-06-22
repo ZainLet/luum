@@ -13,6 +13,10 @@ MIN_SYSTEM_VERSION="26.0"
 PKG_ID="${BUNDLE_ID}.installer"
 CODESIGN_IDENTITY="${APPLE_CODESIGN_IDENTITY:--}"
 RELEASE_CHANNEL="${LUUM_RELEASE_CHANNEL:-alpha}"
+SPARKLE_FEED_URL="${LUUM_SPARKLE_FEED_URL:-https://luum-app.vercel.app/appcast.xml}"
+# Chave pública EdDSA gerada com: $(xcrun --find sparkle)/generate_keys
+# Substitua pelo valor real antes de assinar builds de distribuição.
+SPARKLE_PUBLIC_ED_KEY="${LUUM_SPARKLE_PUBLIC_ED_KEY:-PLACEHOLDER_GERE_COM_generate_keys}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKAGE_DIR="$ROOT_DIR/src/LUUM.Mac"
@@ -119,9 +123,22 @@ cat >"$INFO_PLIST" <<PLIST
       </array>
     </dict>
   </array>
+  <key>SUFeedURL</key>
+  <string>$SPARKLE_FEED_URL</string>
+  <key>SUPublicEDKey</key>
+  <string>$SPARKLE_PUBLIC_ED_KEY</string>
+  <key>SUEnableAutomaticChecks</key>
+  <true/>
 </dict>
 </plist>
 PLIST
+
+# Copia GoogleService-Info.plist para o bundle se existir no pacote Swift.
+# O arquivo real deve ser baixado do Firebase Console e não é versionado no repo.
+GOOGLE_SERVICE_PLIST="$PACKAGE_DIR/GoogleService-Info.plist"
+if [[ -f "$GOOGLE_SERVICE_PLIST" ]]; then
+  cp "$GOOGLE_SERVICE_PLIST" "$APP_RESOURCES/GoogleService-Info.plist"
+fi
 
 codesign --force --deep --sign "$CODESIGN_IDENTITY" --timestamp=none "$APP_BUNDLE"
 clean_macos_metadata "$APP_BUNDLE"

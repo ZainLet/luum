@@ -446,6 +446,12 @@ struct SettingsView: View {
             ))
             .toggleStyle(.switch)
 
+            Toggle("Enviar relatorios de crash para o Luum", isOn: Binding(
+                get: { store.privacySettings.crashReportingEnabled },
+                set: { store.updatePrivacyCrashReportingEnabled($0) }
+            ))
+            .toggleStyle(.switch)
+
             Stepper(value: Binding(
                 get: { store.privacySettings.retentionDays },
                 set: { store.updatePrivacyRetentionDays($0) }
@@ -456,6 +462,11 @@ struct SettingsView: View {
 
             Text("Os titulos e URLs agora podem ser reduzidos automaticamente antes de irem para disco ou para o backup, o que melhora privacidade e desempenho.")
                 .foregroundStyle(LuumTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("Relatorios de crash enviam apenas: versao do app, versao do macOS e identificador anonimo da conta. Nenhuma atividade, URL ou titulo e incluido.")
+                .font(.caption)
+                .foregroundStyle(LuumTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(22)

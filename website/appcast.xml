@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>Luum</title>
+    <link>https://luum-app.vercel.app/appcast.xml</link>
+    <description>Atualizações do Luum</description>
+    <language>pt-BR</language>
+
+    <!-- Adicione um <item> aqui para cada release distribuída via Sparkle.   -->
+    <!-- Gere a assinatura EdDSA com:                                          -->
+    <!--   sign_update Luum-0.1.0-alpha.zip --ed-key-file sparkle_private_key  -->
+    <!--                                                                        -->
+    <!-- Exemplo de item (descomente e preencha para publicar uma atualização): -->
+    <!--
+    <item>
+      <title>Luum 0.1.0</title>
+      <pubDate>Mon, 23 Jun 2026 00:00:00 +0000</pubDate>
+      <sparkle:releaseNotesLink>https://luum-app.vercel.app/notas/0.1.0</sparkle:releaseNotesLink>
+      <sparkle:version>1</sparkle:version>
+      <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <enclosure
+        url="https://luum-app.vercel.app/releases/Luum-0.1.0-alpha.zip"
+        length="0"
+        type="application/octet-stream"
+        sparkle:edSignature="SIGNATURE_GERADA_COM_sign_update"
+      />
+    </item>
+    -->
+
+  </channel>
+</rss>

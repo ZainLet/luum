@@ -522,6 +522,7 @@ final class ActivityStore {
         stopMonitoring()
         authSession = nil
         authStatusMessage = "Conta desconectada deste Mac."
+        CrashReportingService.shared.updateUserID(nil)
         keychainService.removeValue(for: Self.firebaseAuthSessionKey)
         keychainService.removeValue(for: Self.teamWorkspaceSecretKey)
         monitoringPreferences.teamSettings.sharesAnonymousMetrics = false
@@ -547,6 +548,7 @@ final class ActivityStore {
         } catch {
             authStatusMessage = error.localizedDescription
         }
+        CrashReportingService.shared.updateUserID(session.uid)
 
         let currentCloudSyncSettings = monitoringPreferences.cloudSyncSettings
         monitoringPreferences.teamSettings.workspaceEndpointURL = FirebaseAuthService.defaultBaseURL
@@ -1653,6 +1655,15 @@ final class ActivityStore {
 
     func updatePrivacySyncOnlyDomains(_ value: Bool) {
         monitoringPreferences.privacySettings.syncOnlyDomains = value
+        persistMonitoringPreferences()
+    }
+
+    func updatePrivacyCrashReportingEnabled(_ value: Bool) {
+        monitoringPreferences.privacySettings.crashReportingEnabled = value
+        CrashReportingService.shared.configure(
+            enabled: value,
+            uid: authSession?.uid
+        )
         persistMonitoringPreferences()
     }
 
