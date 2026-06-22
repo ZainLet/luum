@@ -520,6 +520,7 @@ final class ActivityStore {
         monitoringPreferences.teamSettings.sharesAnonymousMetrics = false
         monitoringPreferences.teamSettings.automaticallySyncWorkspace = false
         monitoringPreferences.teamSettings.workspaceID = ""
+        monitoringPreferences.teamSettings.workspaceMemberID = ""
         monitoringPreferences.teamSettings.workspaceEndpointURL = FirebaseAuthService.defaultBaseURL
         workspaceRankingEntries = []
         workspaceSyncLastSyncAt = nil
@@ -3381,13 +3382,6 @@ final class ActivityStore {
     }
 
     private func runWorkspaceSync(for day: Date, force: Bool) async {
-        guard teamSettings.sharesAnonymousMetrics else {
-            if force {
-                workspaceSyncStatusMessage = "Ative o compartilhamento de metricas para usar o ranking corporativo."
-            }
-            return
-        }
-
         guard teamWorkspaceConfigured else {
             if force {
                 workspaceSyncStatusMessage = "Preencha endpoint, Workspace ID e chave para liberar o ranking corporativo."

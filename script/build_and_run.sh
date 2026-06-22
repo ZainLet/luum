@@ -35,6 +35,11 @@ clean_macos_metadata() {
   find "$target" \( -name '._*' -o -name '.DS_Store' -o -name '.__*' \) -delete
 }
 
+if [[ "$MODE" == "--verify-package" || "$MODE" == "verify-package" ]]; then
+  # skip build — verify-package only inspects existing release artifacts
+  :
+else
+
 swift build --package-path "$PACKAGE_DIR" --build-path "$SWIFT_BUILD_DIR"
 BUILD_BINARY="$(swift build --package-path "$PACKAGE_DIR" --build-path "$SWIFT_BUILD_DIR" --show-bin-path)/$APP_NAME"
 
@@ -120,6 +125,8 @@ PLIST
 
 codesign --force --deep --sign "$CODESIGN_IDENTITY" --timestamp=none "$APP_BUNDLE"
 clean_macos_metadata "$APP_BUNDLE"
+
+fi # end of build-required block
 
 verify_bundle() {
   plutil -lint "$INFO_PLIST" >/dev/null

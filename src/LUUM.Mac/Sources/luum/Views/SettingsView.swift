@@ -124,7 +124,7 @@ struct SettingsView: View {
             Text(store.authStatusMessage ?? "Sessao local ainda nao validada.")
                 .foregroundStyle(LuumTheme.textSecondary)
 
-            if !store.accountEmail.isEmpty {
+            if store.isSignedIn {
                 Button("Sair desta conta", role: .destructive) {
                     isShowingSignOutConfirmation = true
                 }

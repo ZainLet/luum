@@ -19,7 +19,7 @@ function configured(value) {
 function weeklyReportHealth() {
     const geminiConfigured = configured(process.env.GEMINI_API_KEY);
     const resendConfigured = configured(process.env.RESEND_API_KEY);
-    const fromConfigured = configured(process.env.REPORT_EMAIL_FROM || process.env.RESEND_FROM_EMAIL);
+    const fromConfigured = configured(process.env.REPORT_EMAIL_FROM) || configured(process.env.RESEND_FROM_EMAIL);
 
     return {
         ok: geminiConfigured && resendConfigured && fromConfigured,
