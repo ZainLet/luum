@@ -141,6 +141,11 @@ struct ContentView: View {
                     .padding(40)
             }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if store.isSignedIn {
+                LuumStatusBar(store: store)
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text("Luum")
@@ -276,11 +281,13 @@ struct ContentView: View {
                 SidebarHero(store: store, summary: summary, agenda: agenda)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    SidebarGroupLabel("Principal")
+                    SidebarGroupLabel("Visão geral")
 
                     ForEach(primarySections) { section in
                         Button {
-                            selection = section
+                            withAnimation(.spring(duration: 0.32, bounce: 0.18)) {
+                                selection = section
+                            }
                         } label: {
                             SidebarButtonRow(section: section, isSelected: selection == section, isLocked: !store.canUse(section.requiredFeature))
                         }
@@ -289,11 +296,13 @@ struct ContentView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    SidebarGroupLabel("Ajustes")
+                    SidebarGroupLabel("Controles")
 
                     ForEach(controlSections) { section in
                         Button {
-                            selection = section
+                            withAnimation(.spring(duration: 0.32, bounce: 0.18)) {
+                                selection = section
+                            }
                         } label: {
                             SidebarButtonRow(section: section, isSelected: selection == section, isLocked: !store.canUse(section.requiredFeature))
                         }
@@ -424,43 +433,59 @@ private struct SidebarHero: View {
     let agenda: AgendaSummary
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .center, spacing: 12) {
-                LuumAppMark(size: 32)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 10) {
+                LuumAppMark(size: 28)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text("Luum")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text(store.accountEmail.isEmpty
-                        ? "Plano \(store.accountPlan.title) • \(store.isMonitoring ? "monitorando" : "pausado")"
-                        : "\(store.accountEmail) • \(store.accountPlan.title)"
+                    Text(
+                        store.accountEmail.isEmpty
+                            ? "Plano \(store.accountPlan.title)"
+                            : store.accountPlan.title
                     )
-                        .font(.caption2)
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .lineLimit(2)
+                    .font(.caption2)
+                    .foregroundStyle(LuumTheme.textMuted)
+                    .lineLimit(1)
                 }
 
                 Spacer()
 
                 Circle()
-                    .fill(store.isMonitoring ? ActivityCategory.work.tint : LuumTheme.textMuted)
-                    .frame(width: 9, height: 9)
+                    .fill(store.isMonitoring ? LuumTheme.cyanGreen : LuumTheme.textMuted)
+                    .frame(width: 8, height: 8)
+                    .shadow(color: store.isMonitoring ? LuumTheme.cyanGreen.opacity(0.7) : .clear, radius: 4)
+                    .animation(.easeInOut(duration: 0.4), value: store.isMonitoring)
             }
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 5) {
                 Text(store.currentActivityTitle)
-                    .font(.callout.weight(.semibold))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white)
                     .lineLimit(2)
+                    .animation(.easeInOut(duration: 0.3), value: store.currentActivityTitle)
 
-                Text(store.currentActivityCategory?.title ?? "Aguardando classificacao")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(store.currentActivityCategory?.tint ?? LuumTheme.electricBlue)
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(store.currentActivityCategory?.tint ?? LuumTheme.electricBlue)
+                        .frame(width: 6, height: 6)
+                    Text(store.currentActivityCategory?.title ?? "Aguardando classificacao")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(store.currentActivityCategory?.tint ?? LuumTheme.electricBlue)
+                }
+                .animation(.easeInOut(duration: 0.3), value: store.currentActivityCategory?.title)
             }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill((store.currentActivityCategory?.tint ?? LuumTheme.accent).opacity(0.10))
+            )
 
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 SidebarMetricPill(title: "Hoje", value: LuumFormatters.duration(summary.totalTrackedTime))
                 SidebarMetricPill(title: "Agenda", value: LuumFormatters.duration(agenda.plannedTime))
                 SidebarMetricPill(
@@ -476,15 +501,10 @@ private struct SidebarHero: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(LuumTheme.hotPink)
                     .lineLimit(1)
-            } else if let focusShieldStatusMessage = store.focusShieldStatusMessage {
-                Text(focusShieldStatusMessage)
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textSecondary)
-                    .lineLimit(2)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
+        .padding(12)
         .fixedSize(horizontal: false, vertical: true)
         .luumGlassCard(tint: LuumTheme.accent.opacity(0.10), cornerRadius: 16, shadowOpacity: 0.08)
     }
