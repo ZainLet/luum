@@ -28,6 +28,7 @@ APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_BINARY="$APP_MACOS/$APP_NAME"
+APP_FRAMEWORKS="$APP_CONTENTS/Frameworks"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
@@ -50,8 +51,17 @@ BUILD_BINARY="$(swift build --package-path "$PACKAGE_DIR" --build-path "$SWIFT_B
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS"
 mkdir -p "$APP_RESOURCES"
+mkdir -p "$APP_FRAMEWORKS"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
+
+# Embute Sparkle.framework (dynamic — não é linkado estaticamente pelo SPM).
+# Sem isso o dyld falha em @rpath/Sparkle.framework ao iniciar o app.
+BUILD_LIB_DIR="$(dirname "$BUILD_BINARY")"
+if [[ -d "$BUILD_LIB_DIR/Sparkle.framework" ]]; then
+  cp -R "$BUILD_LIB_DIR/Sparkle.framework" "$APP_FRAMEWORKS/"
+  install_name_tool -add_rpath "@loader_path/../Frameworks" "$APP_BINARY" 2>/dev/null || true
+fi
 
 create_placeholder_icon() {
   if [[ ! -f "$ICON_SOURCE" ]] || ! command -v iconutil >/dev/null 2>&1; then
