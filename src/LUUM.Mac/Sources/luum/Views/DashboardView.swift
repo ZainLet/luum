@@ -61,19 +61,32 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 16) {
                 contextHeader
                     .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : -10)
+                    .offset(y: appeared ? 0 : -14)
+                    .animation(.spring(duration: 0.6, bounce: 0.25), value: appeared)
 
                 if store.needsOnboarding {
                     onboardingCard
                         .opacity(appeared ? 1 : 0)
-                        .offset(y: appeared ? 0 : -6)
+                        .offset(y: appeared ? 0 : -8)
+                        .animation(.spring(duration: 0.55, bounce: 0.2).delay(0.07), value: appeared)
                 }
 
                 HStack(alignment: .top, spacing: 16) {
                     VStack(alignment: .leading, spacing: 16) {
                         metricsStrip
+                            .opacity(appeared ? 1 : 0)
+                            .offset(y: appeared ? 0 : 14)
+                            .animation(.spring(duration: 0.58, bounce: 0.2).delay(0.10), value: appeared)
+
                         quickActionStrip
+                            .opacity(appeared ? 1 : 0)
+                            .offset(y: appeared ? 0 : 14)
+                            .animation(.spring(duration: 0.58, bounce: 0.2).delay(0.18), value: appeared)
+
                         timelineBoard
+                            .opacity(appeared ? 1 : 0)
+                            .offset(y: appeared ? 0 : 14)
+                            .animation(.spring(duration: 0.58, bounce: 0.2).delay(0.26), value: appeared)
                     }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
 
@@ -83,17 +96,16 @@ struct DashboardView: View {
                         topBreakdownsCard
                     }
                     .frame(width: 312)
+                    .opacity(appeared ? 1 : 0)
+                    .offset(x: appeared ? 0 : 20)
+                    .animation(.spring(duration: 0.65, bounce: 0.15).delay(0.13), value: appeared)
                 }
-                .opacity(appeared ? 1 : 0)
-                .offset(y: appeared ? 0 : 8)
             }
             .padding(20)
         }
         .scrollIndicators(.hidden)
         .task {
-            withAnimation(.spring(duration: 0.55, bounce: 0.2).delay(0.05)) {
-                appeared = true
-            }
+            appeared = true
         }
     }
 
@@ -163,8 +175,14 @@ struct DashboardView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(greetingTitle)
-                            .font(.system(size: 30, weight: .bold, design: .default))
-                            .foregroundStyle(.white)
+                            .font(.system(size: 34, weight: .bold, design: .default))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.white, LuumTheme.electricBlue.opacity(0.72)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
                             .animation(.easeInOut(duration: 0.4), value: greetingTitle)
 
                         Text("Aqui está o que importa hoje.")
@@ -1117,17 +1135,20 @@ private struct QuickActionCard: View {
     let tint: Color
     let action: () -> Void
 
+    @State private var isHovered = false
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(tint.opacity(0.18))
+                        .fill(tint.opacity(isHovered ? 0.28 : 0.18))
 
                     Image(systemName: symbol)
                         .foregroundStyle(tint)
                 }
                 .frame(width: 38, height: 38)
+                .animation(.easeInOut(duration: 0.18), value: isHovered)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
@@ -1140,10 +1161,19 @@ private struct QuickActionCard: View {
                 }
 
                 Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(LuumTheme.textMuted.opacity(isHovered ? 0.7 : 0))
+                    .animation(.easeInOut(duration: 0.18), value: isHovered)
             }
             .padding(16)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .scaleEffect(isHovered ? 1.015 : 1.0)
+        .animation(.spring(duration: 0.2, bounce: 0.2), value: isHovered)
+        .onHover { isHovered = $0 }
         .luumGlassCard(tint: tint.opacity(0.14), cornerRadius: 26, shadowOpacity: 0.1)
     }
 }
@@ -1155,6 +1185,8 @@ private struct OverviewMetricCard: View {
     let tint: Color
     let action: () -> Void
 
+    @State private var isHovered = false
+
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 8) {
@@ -1164,9 +1196,10 @@ private struct OverviewMetricCard: View {
                     .tracking(1.1)
 
                 Text(value)
-                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
                     .lineLimit(1)
+                    .contentTransition(.numericText())
 
                 Text(detail)
                     .font(.caption)
@@ -1175,8 +1208,13 @@ private struct OverviewMetricCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(18)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .scaleEffect(isHovered ? 1.018 : 1.0)
+        .brightness(isHovered ? 0.04 : 0)
+        .animation(.spring(duration: 0.22, bounce: 0.2), value: isHovered)
+        .onHover { isHovered = $0 }
         .luumGlassCard(tint: tint.opacity(0.16), cornerRadius: 26, shadowOpacity: 0.14)
     }
 }

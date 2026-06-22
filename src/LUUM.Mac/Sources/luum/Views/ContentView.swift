@@ -105,6 +105,11 @@ struct ContentView: View {
         return store.summary(for: selectedDay)
     }
 
+    private var todaySummary: DailySummary {
+        _ = store.summaryRevision
+        return store.summary(for: Date())
+    }
+
     private var agenda: AgendaSummary {
         store.agendaSummary(for: selectedDay)
     }
@@ -143,7 +148,7 @@ struct ContentView: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if store.isSignedIn {
-                LuumStatusBar(store: store)
+                LuumStatusBar(store: store, summary: todaySummary)
             }
         }
         .toolbar {
@@ -322,6 +327,7 @@ struct ContentView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 13)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .luumGlassCard(tint: LuumTheme.accent.opacity(0.14), cornerRadius: 20, shadowOpacity: 0.12)
@@ -454,11 +460,22 @@ private struct SidebarHero: View {
 
                 Spacer()
 
-                Circle()
-                    .fill(store.isMonitoring ? LuumTheme.cyanGreen : LuumTheme.textMuted)
-                    .frame(width: 8, height: 8)
-                    .shadow(color: store.isMonitoring ? LuumTheme.cyanGreen.opacity(0.7) : .clear, radius: 4)
-                    .animation(.easeInOut(duration: 0.4), value: store.isMonitoring)
+                TimelineView(.animation(minimumInterval: 0.02, paused: !store.isMonitoring)) { ctx in
+                    let phase = fmod(ctx.date.timeIntervalSinceReferenceDate, 1.8) / 1.8
+                    ZStack {
+                        if store.isMonitoring {
+                            Circle()
+                                .fill(LuumTheme.cyanGreen.opacity((1.0 - phase) * 0.38))
+                                .frame(width: 18, height: 18)
+                                .scaleEffect(1.0 + phase * 1.5)
+                        }
+                        Circle()
+                            .fill(store.isMonitoring ? LuumTheme.cyanGreen : LuumTheme.textMuted)
+                            .frame(width: 8, height: 8)
+                            .shadow(color: store.isMonitoring ? LuumTheme.cyanGreen.opacity(0.65) : .clear, radius: 4)
+                    }
+                    .frame(width: 20, height: 20)
+                }
             }
 
             VStack(alignment: .leading, spacing: 5) {
@@ -532,15 +549,17 @@ private struct SidebarButtonRow: View {
     let isSelected: Bool
     var isLocked = false
 
+    @State private var isHovered = false
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: section.systemImage)
                 .frame(width: 18)
-                .foregroundStyle(isSelected ? .white : LuumTheme.textSecondary)
+                .foregroundStyle(isSelected ? .white : (isHovered ? .white.opacity(0.85) : LuumTheme.textSecondary))
 
             Text(section.title)
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(isSelected ? .white : LuumTheme.textSecondary)
+                .foregroundStyle(isSelected ? .white : (isHovered ? .white.opacity(0.85) : LuumTheme.textSecondary))
 
             Spacer()
 
@@ -553,9 +572,14 @@ private struct SidebarButtonRow: View {
         .frame(minHeight: 36)
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
+        .contentShape(Rectangle())
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(isSelected ? .white.opacity(0.085) : .clear)
+                .fill(
+                    isSelected
+                        ? .white.opacity(0.085)
+                        : (isHovered ? .white.opacity(0.04) : .clear)
+                )
         )
         .overlay {
             HStack {
@@ -565,6 +589,8 @@ private struct SidebarButtonRow: View {
                 Spacer()
             }
         }
+        .animation(.easeInOut(duration: 0.14), value: isHovered)
+        .onHover { isHovered = $0 }
     }
 }
 
