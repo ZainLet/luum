@@ -223,3 +223,184 @@ test('successful subscription cancellation responses are never cacheable', async
     assertNoStore(res);
     clearModules(touchedModules);
 });
+
+test('DELETE cancel returns 400 when user has no active subscription', async () => {
+    const touchedModules = [
+        '../api/_firebaseAdmin',
+        '../api/checkout'
+    ];
+    clearModules(touchedModules);
+    mockModule('../api/_firebaseAdmin', {
+        admin: {
+            auth() {
+                return {
+                    async verifyIdToken() {
+                        return { uid: 'firebase-user' };
+                    }
+                };
+            }
+        },
+        getFirestore() {
+            return {
+                collection() {
+                    return {
+                        doc() {
+                            return {
+                                async get() {
+                                    return {
+                                        exists: true,
+                                        data: () => ({
+                                            subscription: {
+                                                status: 'canceled',
+                                                stripeSubscriptionId: null
+                                            }
+                                        })
+                                    };
+                                }
+                            };
+                        }
+                    };
+                }
+            };
+        }
+    });
+
+    const handler = require('../api/checkout');
+    const res = response();
+
+    await handler({
+        method: 'DELETE',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: {}
+    }, res);
+
+    assert.equal(res.code, 400);
+    assert.equal(res.body.error, 'Assinatura Stripe ativa não encontrada para esta conta');
+    clearModules(touchedModules);
+});
+
+test('POST checkout rejects invalid plan with 400', async () => {
+    const touchedModules = [
+        '../api/_firebaseAdmin',
+        '../api/_stripe',
+        '../api/checkout'
+    ];
+    clearModules(touchedModules);
+    mockModule('../api/_firebaseAdmin', {
+        admin: {
+            auth() {
+                return {
+                    async verifyIdToken() {
+                        return { uid: 'firebase-user' };
+                    }
+                };
+            }
+        },
+        getAdminApp() { return {}; }
+    });
+    mockModule('../api/_stripe', {
+        isStripePlan: () => false,
+        minimumQuantity: () => 1
+    });
+
+    const handler = require('../api/checkout');
+    const res = response();
+
+    await handler({
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: { plan: 'hacker', uid: 'firebase-user' }
+    }, res);
+
+    assert.equal(res.code, 400);
+    assert.equal(res.body.error, 'Plano inválido');
+    clearModules(touchedModules);
+});
+
+test('POST checkout rejects invalid billing cycle with 400', async () => {
+    const touchedModules = [
+        '../api/_firebaseAdmin',
+        '../api/_stripe',
+        '../api/checkout'
+    ];
+    clearModules(touchedModules);
+    mockModule('../api/_firebaseAdmin', {
+        admin: {
+            auth() {
+                return {
+                    async verifyIdToken() {
+                        return { uid: 'firebase-user' };
+                    }
+                };
+            }
+        },
+        getAdminApp() { return {}; }
+    });
+    mockModule('../api/_stripe', {
+        isStripePlan: () => true,
+        minimumQuantity: () => 1
+    });
+
+    const handler = require('../api/checkout');
+    const res = response();
+
+    await handler({
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: { plan: 'essencial', uid: 'firebase-user', billing: 'weekly' }
+    }, res);
+
+    assert.equal(res.code, 400);
+    assert.equal(res.body.error, 'Ciclo de cobrança inválido');
+    clearModules(touchedModules);
+});
+
+test('POST checkout rejects quantity below minimum with 400', async () => {
+    const touchedModules = [
+        '../api/_firebaseAdmin',
+        '../api/_stripe',
+        '../api/checkout'
+    ];
+    clearModules(touchedModules);
+    mockModule('../api/_firebaseAdmin', {
+        admin: {
+            auth() {
+                return {
+                    async verifyIdToken() {
+                        return { uid: 'firebase-user' };
+                    }
+                };
+            }
+        },
+        getAdminApp() { return {}; }
+    });
+    mockModule('../api/_stripe', {
+        isStripePlan: () => true,
+        minimumQuantity: () => 2
+    });
+
+    const handler = require('../api/checkout');
+    const res = response();
+
+    await handler({
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer valid-token',
+            origin: 'https://luum-app.web.app'
+        },
+        body: { plan: 'equipes', uid: 'firebase-user', quantity: 1 }
+    }, res);
+
+    assert.equal(res.code, 400);
+    assert.match(res.body.error, /Quantidade inválida/);
+    clearModules(touchedModules);
+});
