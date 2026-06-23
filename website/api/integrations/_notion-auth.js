@@ -1,34 +1,29 @@
 'use strict';
 
-const { admin, getFirestore } = require('../_firebaseAdmin');
+const { admin } = require('../_firebaseAdmin');
 
 module.exports = async (req, res) => {
+    if (req.method !== 'GET') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
     const authHeader = req.headers.authorization || '';
     if (!authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'Login Firebase obrigatório' });
     }
-    let uid;
     try {
-        const decoded = await admin.auth().verifyIdToken(authHeader.slice(7));
-        uid = decoded.uid;
+        await admin.auth().verifyIdToken(authHeader.slice(7));
     } catch {
-        return res.status(401).json({ error: 'Token inválido' });
+        return res.status(401).json({ error: 'Token Firebase inválido ou expirado' });
     }
 
-    if (req.method === 'POST') {
-        const body = req.body || {};
-        if (!body.code) {
-            return res.status(400).json({ error: 'Código de autorização obrigatório' });
-        }
-        return res.status(200).json({ ok: true });
-    }
-
-    const clientID = process.env.NOTION_INTEGRATION_TOKEN;
+    const clientID = process.env.NOTION_CLIENT_ID;
     if (!clientID) {
-        return res.status(503).json({ error: 'Notion não configurado' });
+        return res.status(503).json({ error: 'Notion não configurado no servidor. Configure NOTION_CLIENT_ID.' });
     }
 
-    const redirectURI = `https://${req.headers.host}/api/integrations?action=notion-auth`;
-    const url = `https://api.notion.com/v1/oauth/authorize?client_id=${clientID}&redirect_uri=${encodeURIComponent(redirectURI)}&response_type=code`;
-    return res.status(200).json({ url });
+    const host = req.headers.host || 'luum-app.vercel.app';
+    const redirectURI = `https://${host}/api/integrations?action=notion-callback`;
+    const url = `https://api.notion.com/v1/oauth/authorize?client_id=${encodeURIComponent(clientID)}&redirect_uri=${encodeURIComponent(redirectURI)}&response_type=code&owner=user`;
+    return res.json({ url });
 };

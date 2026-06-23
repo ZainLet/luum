@@ -11,6 +11,7 @@ async function publicIntegrationsHandler(req, res) {
 
     const googleCalendarClientID = await getSetting('GOOGLE_CALENDAR_CLIENT_ID');
     const outlookClientID = await getSetting('OUTLOOK_CLIENT_ID');
+    const notionClientID = await getSetting('NOTION_CLIENT_ID');
 
     return res.json({
         googleCalendar: {
@@ -24,7 +25,7 @@ async function publicIntegrationsHandler(req, res) {
         managedOAuth: {
             googleCalendar: Boolean(googleCalendarClientID),
             outlookCalendar: false,
-            notion: true,
+            notion: Boolean(notionClientID),
             clickUp: true,
             linear: true,
             zapier: true

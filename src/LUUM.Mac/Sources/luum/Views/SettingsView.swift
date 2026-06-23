@@ -160,6 +160,11 @@ struct SettingsView: View {
 
         Divider().opacity(0.08)
 
+        // Notion Calendar
+        notionCalendarSection
+
+        Divider().opacity(0.08)
+
         // Pending (coming soon)
         pendingIntegrationsSection
 
@@ -244,6 +249,95 @@ struct SettingsView: View {
         }
     }
 
+    private var notionCalendarSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label("Notion Calendar", systemImage: "doc.text.image")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                Spacer()
+                if store.hasNotionToken {
+                    Text("Conectado")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LuumTheme.secondaryAccent)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(LuumTheme.secondaryAccent.opacity(0.12)))
+                } else if store.notionManagedOAuthAvailable {
+                    Text("Pronto para conectar")
+                        .font(.caption)
+                        .foregroundStyle(LuumTheme.textMuted)
+                }
+            }
+
+            if let message = store.notionCalendarStatusMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textSecondary)
+            }
+
+            Toggle("Ativar Notion Calendar", isOn: Binding(
+                get: { store.notionCalendarSettings.isEnabled },
+                set: { store.updateNotionCalendarEnabled($0) }
+            ))
+            .toggleStyle(.switch)
+            .disabled(!store.hasNotionToken)
+
+            HStack(spacing: 10) {
+                if store.notionManagedOAuthAvailable {
+                    Button(store.hasNotionToken ? "Reconectar" : "Conectar Notion") {
+                        store.connectNotionCalendar()
+                    }
+                    .buttonStyle(.glassProminent)
+                }
+
+                Button("Sincronizar") { store.refreshNotionCalendar() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!store.hasNotionToken || store.isSyncingNotionCalendar)
+
+                if store.hasNotionToken {
+                    Button("Desconectar") { store.disconnectNotionCalendar() }
+                        .buttonStyle(.bordered)
+                }
+            }
+
+            if store.hasNotionToken && store.notionCalendarSettings.isEnabled {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Fontes de data (Database IDs)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.6))
+
+                    ForEach(store.notionCalendarSettings.databaseIDs, id: \.self) { dbID in
+                        HStack {
+                            Text(dbID)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(LuumTheme.textSecondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer()
+                            Button(action: { store.removeNotionDataSourceID(dbID) }) {
+                                Image(systemName: "minus.circle")
+                                    .foregroundStyle(LuumTheme.hotPink)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    NotionDatabaseIDField(store: store)
+                }
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 14).fill(.white.opacity(0.03)))
+                .overlay { RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.05)) }
+            }
+
+            if !store.notionManagedOAuthAvailable {
+                Text("Notion OAuth não configurado no servidor. O administrador do Luum precisa configurar NOTION_CLIENT_ID e NOTION_CLIENT_SECRET.")
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textMuted)
+            }
+        }
+    }
+
     private var pendingIntegrationsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -257,12 +351,6 @@ struct SettingsView: View {
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 10)], spacing: 10) {
-                pendingIntegrationRow(
-                    name: "Notion",
-                    systemImage: "doc.text.image",
-                    isConnected: store.hasNotionToken,
-                    isAvailable: store.notionManagedOAuthAvailable
-                )
                 pendingIntegrationRow(
                     name: "Outlook",
                     systemImage: "calendar",
@@ -860,5 +948,37 @@ private struct GoogleConnectionCard: View {
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 18).fill(.white.opacity(0.02)))
         .overlay { RoundedRectangle(cornerRadius: 18).stroke(.white.opacity(0.05)) }
+    }
+}
+
+// MARK: - NotionDatabaseIDField
+
+private struct NotionDatabaseIDField: View {
+    @Bindable var store: ActivityStore
+    @State private var draft = ""
+
+    var body: some View {
+        HStack(spacing: 8) {
+            TextField("Database ID ou URL do Notion", text: $draft)
+                .textFieldStyle(.plain)
+                .font(.caption.monospaced())
+                .foregroundStyle(.white)
+                .onSubmit { addDraft() }
+
+            Button(action: addDraft) {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundStyle(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? LuumTheme.textMuted : LuumTheme.accent)
+            }
+            .buttonStyle(.plain)
+            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+    }
+
+    private func addDraft() {
+        let value = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return }
+        store.addNotionDataSourceID(value)
+        draft = ""
     }
 }

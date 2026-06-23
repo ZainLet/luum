@@ -3,6 +3,7 @@ import SwiftUI
 struct TeamRankingView: View {
     @Bindable var store: ActivityStore
     let selectedDay: Date
+    @State private var showAdminPanel = false
 
     private var entries: [TeamRankingEntry] {
         store.teamRanking(for: selectedDay)
@@ -15,11 +16,32 @@ struct TeamRankingView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                LuumSectionHeader(
-                    eyebrow: "Equipe",
-                    title: "Ranking e comparativos",
-                    subtitle: "Uma visão inspirada em vendas B2B: acompanhe ranking, foco, cobertura e trocas de contexto entre pessoas da mesma empresa."
-                )
+                HStack(alignment: .top) {
+                    LuumSectionHeader(
+                        eyebrow: "Equipe",
+                        title: "Ranking e comparativos",
+                        subtitle: "Uma visão inspirada em vendas B2B: acompanhe ranking, foco, cobertura e trocas de contexto entre pessoas da mesma empresa."
+                    )
+                    Spacer()
+                    if store.isCurrentUserWorkspaceAdmin {
+                        Button {
+                            showAdminPanel = true
+                        } label: {
+                            Label("Admin", systemImage: "person.badge.key.fill")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(LuumTheme.accent)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(Capsule().fill(LuumTheme.accent.opacity(0.12)))
+                                .overlay(Capsule().stroke(LuumTheme.accent.opacity(0.30), lineWidth: 1))
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .sheet(isPresented: $showAdminPanel) {
+                            WorkspaceAdminView(store: store)
+                        }
+                    }
+                }
 
                 overviewStrip
                 rankingTable

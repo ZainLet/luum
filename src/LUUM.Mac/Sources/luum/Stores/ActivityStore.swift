@@ -48,7 +48,10 @@ final class ActivityStore {
     private(set) var workspaceSyncStatusMessage: String?
     private(set) var workspaceSyncLastSyncAt: Date?
     private(set) var workspaceRankingEntries: [TeamRankingEntry] = []
+    private(set) var isCurrentUserWorkspaceAdmin = false
+    private(set) var workspaceAdminEntries: [WorkspaceAdminEntry] = []
     private(set) var isSyncingWorkspace = false
+    private(set) var isLoadingAdminList = false
     private(set) var aiClassificationStatusMessage: String?
     private(set) var isClassifyingWithAI = false
     private(set) var isQueryingAI = false
@@ -393,6 +396,10 @@ final class ActivityStore {
     }
 
     func handleAuthCallbackURL(_ url: URL) {
+        if url.scheme == "luum", url.host == "notion" {
+            handleNotionOAuthCallback(url)
+            return
+        }
         authCoordinator.handleAuthCallbackURL(url)
     }
 
@@ -905,6 +912,19 @@ final class ActivityStore {
         } catch {
             notionCalendarStatusMessage = error.localizedDescription
         }
+    }
+
+    func connectNotionCalendar() {
+        Task { await runNotionConnect() }
+    }
+
+    func disconnectNotionCalendar() {
+        keychainService.removeValue(for: Self.notionCalendarTokenKey)
+        monitoringPreferences.notionCalendarSettings.isEnabled = false
+        notionAgendaItems = []
+        notionAgendaDay = nil
+        notionCalendarStatusMessage = "Notion desconectado."
+        persistMonitoringPreferences()
     }
 
     func refreshNotionCalendar(for day: Date = Date()) {
@@ -2792,6 +2812,78 @@ final class ActivityStore {
         }
     }
 
+    private func runNotionConnect() async {
+        guard canUse(.advancedIntegrations) else {
+            notionCalendarStatusMessage = lockMessage(for: .advancedIntegrations)
+            return
+        }
+        guard let verified = try? await authCoordinator.verifiedAuthSessionForProtectedRequest() else {
+            notionCalendarStatusMessage = "Entre na sua conta Luum antes de conectar o Notion."
+            return
+        }
+        notionCalendarStatusMessage = "Carregando autorização do Notion..."
+
+        let backendURL = FirebaseAuthService.defaultBaseURL
+        guard let url = URL(string: "\(backendURL)/api/integrations?action=notion-auth") else {
+            notionCalendarStatusMessage = "Erro ao montar URL de autenticação do Notion."
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(verified.idToken)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
+            guard (200 ..< 300).contains(statusCode) else {
+                struct ErrorBody: Decodable { let error: String }
+                let msg = (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error ?? "Noção não configurada no servidor."
+                notionCalendarStatusMessage = msg
+                return
+            }
+            struct AuthResponse: Decodable { let url: String }
+            let authResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
+            guard let authURL = URL(string: authResponse.url) else {
+                notionCalendarStatusMessage = "URL OAuth do Notion inválida."
+                return
+            }
+            NSWorkspace.shared.open(authURL)
+            notionCalendarStatusMessage = "Autorizando no Notion... Conclua no navegador e volte ao Luum."
+        } catch {
+            notionCalendarStatusMessage = "Erro ao iniciar conexão com Notion."
+        }
+    }
+
+    private func handleNotionOAuthCallback(_ url: URL) {
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+
+        if let error = items.first(where: { $0.name == "error" })?.value {
+            notionCalendarStatusMessage = "Conexão com Notion cancelada: \(error)"
+            return
+        }
+
+        guard let accessToken = items.first(where: { $0.name == "access_token" })?.value,
+              !accessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            notionCalendarStatusMessage = "Token do Notion não recebido. Tente reconectar."
+            return
+        }
+
+        let rawName = items.first(where: { $0.name == "workspace_name" })?.value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let workspaceName = rawName.isEmpty ? "Notion" : rawName
+
+        do {
+            try keychainService.setString(accessToken, for: Self.notionCalendarTokenKey)
+            monitoringPreferences.notionCalendarSettings.isEnabled = true
+            if monitoringPreferences.notionCalendarSettings.workspaceLabel == NotionCalendarSettings.default.workspaceLabel {
+                monitoringPreferences.notionCalendarSettings.workspaceLabel = workspaceName
+            }
+            notionCalendarStatusMessage = "Notion conectado: \(workspaceName). Configure as fontes de data abaixo."
+            persistMonitoringPreferences()
+        } catch {
+            notionCalendarStatusMessage = "Erro ao salvar token do Notion no Keychain."
+        }
+    }
+
     private func runNotionCalendarSync(for day: Date, force: Bool) async {
         guard canUse(.advancedIntegrations) else {
             if force {
@@ -3083,6 +3175,7 @@ final class ActivityStore {
             )
             guard isCurrentVerifiedSession(verified) else { return }
             workspaceRankingEntries = ranking.entries
+            isCurrentUserWorkspaceAdmin = ranking.isCurrentUserAdmin
             workspaceSyncLastSyncAt = ranking.updatedAt ?? updatedAt
             workspaceSyncStatusMessage = workspaceRankingEntries.isEmpty
                 ? "Workspace sincronizado sem membros suficientes para ranking."
@@ -3090,6 +3183,64 @@ final class ActivityStore {
             await sendZapierWorkspaceEventIfNeeded(memberCount: workspaceRankingEntries.count)
         } catch is CancellationError {
             return
+        } catch {
+            workspaceSyncStatusMessage = error.localizedDescription
+        }
+    }
+
+    func fetchWorkspaceAdminList() {
+        Task { await runFetchAdminList() }
+    }
+
+    func promoteWorkspaceMember(uid: String) {
+        Task { await runAdminAction("promote", targetUID: uid) }
+    }
+
+    func demoteWorkspaceMember(uid: String) {
+        Task { await runAdminAction("demote", targetUID: uid) }
+    }
+
+    func removeWorkspaceMember(uid: String) {
+        Task { await runAdminAction("remove", targetUID: uid) }
+    }
+
+    private func runFetchAdminList() async {
+        guard isCurrentUserWorkspaceAdmin else { return }
+        guard let secret = keychainService.string(for: Self.teamWorkspaceSecretKey),
+              let verified = try? await authCoordinator.verifiedAuthSessionForProtectedRequest()
+        else { return }
+
+        isLoadingAdminList = true
+        defer { isLoadingAdminList = false }
+        do {
+            let response = try await WorkspaceSyncService().fetchAdminList(
+                baseURL: teamSettings.workspaceEndpointURL,
+                workspaceID: teamSettings.workspaceID,
+                secret: secret,
+                firebaseToken: verified.idToken
+            )
+            workspaceAdminEntries = response.members
+        } catch {
+            workspaceSyncStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func runAdminAction(_ action: String, targetUID: String) async {
+        guard isCurrentUserWorkspaceAdmin else { return }
+        guard let secret = keychainService.string(for: Self.teamWorkspaceSecretKey),
+              let verified = try? await authCoordinator.verifiedAuthSessionForProtectedRequest()
+        else { return }
+
+        do {
+            try await WorkspaceSyncService().patchAdminAction(
+                baseURL: teamSettings.workspaceEndpointURL,
+                workspaceID: teamSettings.workspaceID,
+                action: action,
+                targetUID: targetUID,
+                secret: secret,
+                firebaseToken: verified.idToken
+            )
+            await runFetchAdminList()
         } catch {
             workspaceSyncStatusMessage = error.localizedDescription
         }

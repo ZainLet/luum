@@ -3,8 +3,9 @@
 const clickupWebhook = require('./_clickup-webhook');
 const linearAuth    = require('./_linear-auth');
 const linearIssues  = require('./_linear-issues');
-const notionAuth    = require('./_notion-auth');
-const notionPages   = require('./_notion-pages');
+const notionAuth     = require('./_notion-auth');
+const notionCallback = require('./_notion-callback');
+const notionPages    = require('./_notion-pages');
 const zapierAction  = require('./_zapier-action');
 const zapierTrigger = require('./_zapier-trigger');
 
@@ -13,6 +14,7 @@ const ROUTES = {
     'linear-auth':     linearAuth,
     'linear-issues':   linearIssues,
     'notion-auth':     notionAuth,
+    'notion-callback': notionCallback,
     'notion-pages':    notionPages,
     'zapier-action':   zapierAction,
     'zapier-trigger':  zapierTrigger,

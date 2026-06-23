@@ -79,6 +79,7 @@ async function ensureWorkspace({ db, uid, workspaceID, workspaceSecret, organiza
                 organizationName: String(organizationName || 'Minha empresa').trim() || 'Minha empresa',
                 secretHash: providedHash,
                 createdBy: uid,
+                admins: [uid],
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 updatedAt: admin.firestore.FieldValue.serverTimestamp()
             });
@@ -99,12 +100,32 @@ async function ensureWorkspace({ db, uid, workspaceID, workspaceSecret, organiza
     return workspaceRef;
 }
 
+async function requireWorkspaceAdmin(db, workspaceID, uid) {
+    const snap = await db.collection('workspaces').doc(workspaceID).get();
+    if (!snap.exists) {
+        const err = new Error('Workspace não encontrado');
+        err.statusCode = 404;
+        throw err;
+    }
+    const data = snap.data() || {};
+    const admins = data.admins || [];
+    // Migração: workspaces criados antes do campo admins usam createdBy como admin
+    const isAdmin = admins.includes(uid) || (!admins.length && data.createdBy === uid);
+    if (!isAdmin) {
+        const err = new Error('Acesso de administrador necessário');
+        err.statusCode = 403;
+        throw err;
+    }
+    return snap;
+}
+
 module.exports = {
     addCors,
     ensureWorkspace,
     firestoreDate,
     handleOptions,
     jsonBody,
+    requireWorkspaceAdmin,
     requireWorkspaceUser,
     routeValue,
     sameHash,

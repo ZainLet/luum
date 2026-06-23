@@ -402,11 +402,26 @@ struct TeamRankingEntry: Identifiable, Codable, Hashable, Sendable {
     let contextSwitches: Int
     let score: Int
     let isCurrentUser: Bool
+    var isAdmin: Bool = false
 
     var utilization: Double {
         guard plannedTime > 0 else { return trackedTime > 0 ? 1 : 0 }
         return min(trackedTime / plannedTime, 1.5)
     }
+}
+
+struct WorkspaceAdminEntry: Identifiable, Codable, Hashable, Sendable {
+    let id: String
+    let displayName: String
+    let roleLabel: String
+    let trackedTime: TimeInterval
+    let score: Int
+    let isAdmin: Bool
+    let isCurrentUser: Bool
+}
+
+struct WorkspaceAdminListResponse: Codable, Sendable {
+    let members: [WorkspaceAdminEntry]
 }
 
 extension String {

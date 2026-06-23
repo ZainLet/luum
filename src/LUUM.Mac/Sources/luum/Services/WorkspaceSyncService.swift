@@ -17,7 +17,16 @@ struct WorkspaceMemberSnapshotPayload: Codable, Sendable {
 struct WorkspaceRankingResponse: Codable, Sendable {
     let organizationName: String?
     let updatedAt: Date?
+    let isCurrentUserAdmin: Bool
     let entries: [TeamRankingEntry]
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        organizationName = try c.decodeIfPresent(String.self, forKey: .organizationName)
+        updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt)
+        isCurrentUserAdmin = (try? c.decode(Bool.self, forKey: .isCurrentUserAdmin)) ?? false
+        entries = (try? c.decode([TeamRankingEntry].self, forKey: .entries)) ?? []
+    }
 }
 
 private struct WorkspaceSyncSaveResponse: Codable, Sendable {
@@ -37,6 +46,12 @@ private struct WorkspaceSyncRankingRequest: Codable, Sendable {
         case workspaceSecret
         case requestingMemberID = "requestingMemberId"
     }
+}
+
+private struct WorkspaceAdminActionRequest: Codable, Sendable {
+    let workspaceSecret: String
+    let action: String
+    let targetUID: String?
 }
 
 enum WorkspaceSyncError: LocalizedError {
@@ -105,6 +120,42 @@ struct WorkspaceSyncService: Sendable {
         }
         request.httpBody = try JSONEncoder().encode(WorkspaceSyncRankingRequest(workspaceSecret: secret, requestingMemberID: memberID))
         return try await perform(request)
+    }
+
+    func fetchAdminList(
+        baseURL: String,
+        workspaceID: String,
+        secret: String,
+        firebaseToken: String?
+    ) async throws -> WorkspaceAdminListResponse {
+        let url = try makeRankingURL(baseURL: baseURL, workspaceID: workspaceID)
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = Self.nonBlank(firebaseToken) {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = try JSONEncoder().encode(WorkspaceAdminActionRequest(workspaceSecret: secret, action: "list", targetUID: nil))
+        return try await perform(request)
+    }
+
+    func patchAdminAction(
+        baseURL: String,
+        workspaceID: String,
+        action: String,
+        targetUID: String,
+        secret: String,
+        firebaseToken: String?
+    ) async throws {
+        let url = try makeRankingURL(baseURL: baseURL, workspaceID: workspaceID)
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = Self.nonBlank(firebaseToken) {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = try JSONEncoder().encode(WorkspaceAdminActionRequest(workspaceSecret: secret, action: action, targetUID: targetUID))
+        let _: WorkspaceSyncSaveResponse = try await perform(request)
     }
 
     private func makeMemberURL(baseURL: String, workspaceID: String, memberID: String) throws -> URL {
