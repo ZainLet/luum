@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  TEMPLATE — NÃO VERSIONAR O ARQUIVO REAL.
+
+  Para usar Crashlytics:
+  1. Acesse o Firebase Console → projeto do Luum → Configurações do projeto.
+  2. Adicione um app macOS com Bundle ID: com.luum.apple
+  3. Baixe o GoogleService-Info.plist gerado.
+  4. Copie para: src/LUUM.Mac/GoogleService-Info.plist  (sem o .template)
+  5. Adicione GoogleService-Info.plist ao .gitignore.
+
+  O build_and_run.sh copia automaticamente o plist para o bundle durante o build.
+-->
+<plist version="1.0">
+<dict>
+  <key>API_KEY</key>
+  <string>PREENCHER_DO_FIREBASE_CONSOLE</string>
+  <key>GCM_SENDER_ID</key>
+  <string>PREENCHER_DO_FIREBASE_CONSOLE</string>
+  <key>PLIST_VERSION</key>
+  <string>1</string>
+  <key>BUNDLE_ID</key>
+  <string>com.luum.apple</string>
+  <key>PROJECT_ID</key>
+  <string>PREENCHER_DO_FIREBASE_CONSOLE</string>
+  <key>STORAGE_BUCKET</key>
+  <string>PREENCHER_DO_FIREBASE_CONSOLE</string>
+  <key>IS_ANALYTICS_ENABLED</key>
+  <false/>
+  <key>IS_CRASHLYTICS_ENABLED</key>
+  <true/>
+  <key>GOOGLE_APP_ID</key>
+  <string>PREENCHER_DO_FIREBASE_CONSOLE</string>
+</dict>
+</plist>

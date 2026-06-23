@@ -1,8 +1,13 @@
 import AppKit
+import Sparkle
 import SwiftUI
 import UserNotifications
 
 final class LUUMAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+    // Mantido como propriedade para preservar o ciclo de vida do controller.
+    // nonisolated(unsafe): sempre acessado na main thread via applicationDidFinishLaunching.
+    nonisolated(unsafe) private var updaterController: SPUStandardUpdaterController?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
@@ -24,6 +29,17 @@ final class LUUMAppDelegate: NSObject, NSApplicationDelegate, UNUserNotification
                 NSApp.windows.forEach { Self.configureWindow($0) }
             }
         }
+
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
+    }
+
+    @MainActor
+    func checkForUpdates() {
+        updaterController?.checkForUpdates(nil)
     }
 
     func userNotificationCenter(
@@ -80,6 +96,10 @@ struct LUUMApp: App {
                 .tint(LuumTheme.accent)
                 .task {
                     store.bootstrap()
+                    CrashReportingService.shared.configure(
+                        enabled: store.privacySettings.crashReportingEnabled,
+                        uid: store.authSession?.uid
+                    )
                 }
                 .onOpenURL { url in
                     store.handleAuthCallbackURL(url)
@@ -96,6 +116,11 @@ struct LUUMApp: App {
                     store.toggleMonitoring()
                 }
                 .keyboardShortcut("m", modifiers: [.command, .shift])
+            }
+            CommandGroup(after: .appInfo) {
+                Button("Verificar atualizações") {
+                    appDelegate.checkForUpdates()
+                }
             }
         }
 

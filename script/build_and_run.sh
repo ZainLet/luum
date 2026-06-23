@@ -13,6 +13,10 @@ MIN_SYSTEM_VERSION="26.0"
 PKG_ID="${BUNDLE_ID}.installer"
 CODESIGN_IDENTITY="${APPLE_CODESIGN_IDENTITY:--}"
 RELEASE_CHANNEL="${LUUM_RELEASE_CHANNEL:-alpha}"
+SPARKLE_FEED_URL="${LUUM_SPARKLE_FEED_URL:-https://luum-app.vercel.app/appcast.xml}"
+# Chave pública EdDSA gerada com: $(xcrun --find sparkle)/generate_keys
+# Substitua pelo valor real antes de assinar builds de distribuição.
+SPARKLE_PUBLIC_ED_KEY="${LUUM_SPARKLE_PUBLIC_ED_KEY:-PLACEHOLDER_GERE_COM_generate_keys}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKAGE_DIR="$ROOT_DIR/src/LUUM.Mac"
@@ -24,6 +28,7 @@ APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_BINARY="$APP_MACOS/$APP_NAME"
+APP_FRAMEWORKS="$APP_CONTENTS/Frameworks"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
@@ -46,8 +51,17 @@ BUILD_BINARY="$(swift build --package-path "$PACKAGE_DIR" --build-path "$SWIFT_B
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS"
 mkdir -p "$APP_RESOURCES"
+mkdir -p "$APP_FRAMEWORKS"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
+
+# Embute Sparkle.framework (dynamic — não é linkado estaticamente pelo SPM).
+# Sem isso o dyld falha em @rpath/Sparkle.framework ao iniciar o app.
+BUILD_LIB_DIR="$(dirname "$BUILD_BINARY")"
+if [[ -d "$BUILD_LIB_DIR/Sparkle.framework" ]]; then
+  cp -R "$BUILD_LIB_DIR/Sparkle.framework" "$APP_FRAMEWORKS/"
+  install_name_tool -add_rpath "@loader_path/../Frameworks" "$APP_BINARY" 2>/dev/null || true
+fi
 
 create_placeholder_icon() {
   if [[ ! -f "$ICON_SOURCE" ]] || ! command -v iconutil >/dev/null 2>&1; then
@@ -119,9 +133,22 @@ cat >"$INFO_PLIST" <<PLIST
       </array>
     </dict>
   </array>
+  <key>SUFeedURL</key>
+  <string>$SPARKLE_FEED_URL</string>
+  <key>SUPublicEDKey</key>
+  <string>$SPARKLE_PUBLIC_ED_KEY</string>
+  <key>SUEnableAutomaticChecks</key>
+  <true/>
 </dict>
 </plist>
 PLIST
+
+# Copia GoogleService-Info.plist para o bundle se existir no pacote Swift.
+# O arquivo real deve ser baixado do Firebase Console e não é versionado no repo.
+GOOGLE_SERVICE_PLIST="$PACKAGE_DIR/GoogleService-Info.plist"
+if [[ -f "$GOOGLE_SERVICE_PLIST" ]]; then
+  cp "$GOOGLE_SERVICE_PLIST" "$APP_RESOURCES/GoogleService-Info.plist"
+fi
 
 codesign --force --deep --sign "$CODESIGN_IDENTITY" --timestamp=none "$APP_BUNDLE"
 clean_macos_metadata "$APP_BUNDLE"

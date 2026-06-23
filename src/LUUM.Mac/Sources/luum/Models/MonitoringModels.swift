@@ -90,13 +90,46 @@ struct PrivacySettings: Codable, Hashable, Sendable {
     var storesFullURLs: Bool
     var retentionDays: Int
     var syncOnlyDomains: Bool
+    var crashReportingEnabled: Bool
 
     static let `default` = PrivacySettings(
         storesPageTitles: true,
         storesFullURLs: true,
         retentionDays: 30,
-        syncOnlyDomains: true
+        syncOnlyDomains: true,
+        crashReportingEnabled: true
     )
+
+    private enum CodingKeys: String, CodingKey {
+        case storesPageTitles
+        case storesFullURLs
+        case retentionDays
+        case syncOnlyDomains
+        case crashReportingEnabled
+    }
+
+    init(
+        storesPageTitles: Bool,
+        storesFullURLs: Bool,
+        retentionDays: Int,
+        syncOnlyDomains: Bool,
+        crashReportingEnabled: Bool = true
+    ) {
+        self.storesPageTitles = storesPageTitles
+        self.storesFullURLs = storesFullURLs
+        self.retentionDays = retentionDays
+        self.syncOnlyDomains = syncOnlyDomains
+        self.crashReportingEnabled = crashReportingEnabled
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        storesPageTitles = try c.decodeIfPresent(Bool.self, forKey: .storesPageTitles) ?? true
+        storesFullURLs = try c.decodeIfPresent(Bool.self, forKey: .storesFullURLs) ?? true
+        retentionDays = try c.decodeIfPresent(Int.self, forKey: .retentionDays) ?? 30
+        syncOnlyDomains = try c.decodeIfPresent(Bool.self, forKey: .syncOnlyDomains) ?? true
+        crashReportingEnabled = try c.decodeIfPresent(Bool.self, forKey: .crashReportingEnabled) ?? true
+    }
 }
 
 struct CloudSyncSettings: Codable, Hashable, Sendable {
