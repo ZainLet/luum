@@ -60,11 +60,11 @@ struct DashboardView: View {
         }
     }
 
-    // "Boa noite, " branco + "Luum" em #5a5a62 — sem usar operador + depreciado
+    // "Boa noite, " branco + "Luum" em #5a5a62
     private var greetingAttributed: AttributedString {
         let greeting = AttributedString("\(greetingTitle), ")
         var luum = AttributedString("Luum")
-        luum.foregroundColor = Color(red: 0.353, green: 0.353, blue: 0.384) // #5a5a62
+        luum[AttributeScopes.SwiftUIAttributes.ForegroundColorAttribute.self] = Color(red: 0.353, green: 0.353, blue: 0.384)
         return greeting + luum
     }
 
@@ -139,7 +139,7 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Onboarding rapido")
+                    Text("Onboarding rápido")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
@@ -653,7 +653,7 @@ struct DashboardView: View {
             HStack(spacing: 10) {
                 HomeActionChip(
                     title: "Relatório semanal",
-                    detail: "tendencias e export",
+                    detail: "tendências e export",
                     tint: LuumTheme.accent,
                     symbol: "chart.xyaxis.line",
                     action: openReports
@@ -1148,175 +1148,6 @@ private struct AgendaTimelineRow: View {
     }
 }
 
-private struct BreakdownHighlight: View {
-    let title: String
-    let item: UsageBreakdownItem?
-    let emptyState: String
-    let tint: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title.uppercased())
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.54))
-
-            if let item {
-                Text(item.label)
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-
-                Text(item.secondaryLabel ?? LuumFormatters.duration(item.duration))
-                    .foregroundStyle(LuumTheme.textSecondary)
-                    .font(.subheadline)
-
-                Text(LuumFormatters.duration(item.duration))
-                    .foregroundStyle(tint)
-                    .font(.caption.weight(.semibold))
-            } else {
-                Text(emptyState)
-                    .foregroundStyle(LuumTheme.textSecondary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(LuumTheme.panelFill)
-        )
-    }
-}
-
-private struct StatusPill: View {
-    let title: String
-    let detail: String
-    let tint: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white)
-
-            Text(detail)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.68))
-                .lineLimit(1)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(
-            Capsule(style: .continuous)
-                .fill(tint.opacity(0.16))
-        )
-        .overlay {
-            Capsule(style: .continuous)
-                .stroke(.white.opacity(0.07))
-        }
-    }
-}
-
-private struct LegendChip: View {
-    let title: String
-    let tint: Color
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(tint)
-                .frame(width: 9, height: 9)
-
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.74))
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            Capsule(style: .continuous)
-                .fill(LuumTheme.panelFill)
-        )
-    }
-}
-
-private struct MetricLine: View {
-    let title: String
-    let value: String
-    let detail: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title.uppercased())
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.48))
-
-            Text(value)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
-
-            Text(detail)
-                .font(.caption)
-                .foregroundStyle(LuumTheme.textSecondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(LuumTheme.panelFill)
-        )
-    }
-}
-
-private struct QuickActionCard: View {
-    let title: String
-    let detail: String
-    let symbol: String
-    let tint: Color
-    let action: () -> Void
-
-    @State private var isHovered = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(tint.opacity(isHovered ? 0.28 : 0.18))
-
-                    Image(systemName: symbol)
-                        .foregroundStyle(tint)
-                }
-                .frame(width: 38, height: 38)
-                .animation(.easeInOut(duration: 0.18), value: isHovered)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .foregroundStyle(.white)
-                        .font(.subheadline.weight(.semibold))
-
-                    Text(detail)
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .font(.caption)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(LuumTheme.textMuted.opacity(isHovered ? 0.7 : 0))
-                    .animation(.easeInOut(duration: 0.18), value: isHovered)
-            }
-            .padding(16)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .scaleEffect(isHovered ? 1.015 : 1.0)
-        .animation(.spring(duration: 0.2, bounce: 0.2), value: isHovered)
-        .onHover { isHovered = $0 }
-        .luumGlassCard(tint: tint.opacity(0.14), cornerRadius: 26, shadowOpacity: 0.1)
-    }
-}
-
 // MARK: - OverviewMetricCard
 // label 12px uppercase tracking:.05em color:#6e6e76
 // valor 30px weight:680 tracking:-.02em (tabular-nums)
@@ -1456,38 +1287,6 @@ private struct DashboardDatePanel: View {
 
     private func shiftDay(by value: Int) {
         selectedDay = Calendar.autoupdatingCurrent.date(byAdding: .day, value: value, to: selectedDay) ?? selectedDay
-    }
-}
-
-private struct SnapshotLine: View {
-    let eyebrow: String
-    let title: String
-    let detail: String
-    let tint: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(tint)
-                    .frame(width: 8, height: 8)
-
-                Text(eyebrow.uppercased())
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(LuumTheme.textMuted)
-                    .tracking(1.1)
-            }
-
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(.white)
-                .lineLimit(2)
-
-            Text(detail)
-                .font(.caption)
-                .foregroundStyle(LuumTheme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
     }
 }
 

@@ -47,7 +47,7 @@ private enum LUUMSection: String, CaseIterable, Identifiable {
 
     var systemImage: String {
         switch self {
-        case .overview:   "rectangle.grid.2x2"           // grid dashboard como no HTML
+        case .overview:   "rectangle.3.group"               // grid dashboard como no HTML
         case .search:     "magnifyingglass"
         case .agenda:     "calendar"
         case .clients:    "briefcase"
@@ -173,7 +173,7 @@ struct ContentView: View {
                     ToolbarIcon(symbol: "slider.horizontal.3")
                 }
                 .buttonStyle(.plain)
-                .help("Preferencias")
+                .help("Preferências")
             }
         }
         .task(id: selectedDayAnchor) {
@@ -227,7 +227,7 @@ struct ContentView: View {
                     store: store,
                     kind: .applications,
                     title: "Tempo por aplicativo",
-                    subtitle: "Revise os apps do dia com busca, troca de categoria e bloqueio rapido, sem depender de uma lista enorme de regras.",
+                    subtitle: "Revise os apps do dia com busca, troca de categoria e bloqueio rápido, sem depender de uma lista enorme de regras.",
                     emptyState: "Nenhum aplicativo rastreado neste dia.",
                     selectedDay: selectedDay
                 )
@@ -325,8 +325,8 @@ struct ContentView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
         }
-        .background(.ultraThinMaterial)
         .background(LuumTheme.sidebarBlack.opacity(0.88))
+        .background(.ultraThinMaterial)
         .frame(maxHeight: .infinity)
     }
 }
@@ -356,7 +356,7 @@ private struct LoginRequiredView: View {
                 Button("Entrar pelo site") { store.openLoginPage() }
                     .buttonStyle(.glassProminent)
 
-                Button("Ja entrei, validar") { store.refreshAccountStatus() }
+                Button("Já entrei, validar") { store.refreshAccountStatus() }
                     .buttonStyle(.borderedProminent)
             }
 
