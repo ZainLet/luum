@@ -2,6 +2,7 @@ const { admin, getFirestore } = require('../_firebaseAdmin');
 const { addCors, handleOptions } = require('../_cors');
 const { entitlementForUser, includesFeature } = require('../_entitlements');
 const { jsonBody } = require('../_jsonBody');
+const { checkRateLimit } = require('../_rateLimit');
 
 const DEFAULT_GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
@@ -115,6 +116,12 @@ async function classifyHandler(req, res) {
     addCors(req, res, { methods: 'POST, OPTIONS' });
     if (req.method === 'OPTIONS') return handleOptions(req, res, { methods: 'POST, OPTIONS' });
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+    const rateCheck = checkRateLimit(req, { windowMs: 60_000, max: 30, key: 'ai-classify' });
+    if (rateCheck.limited) {
+        res.setHeader('Retry-After', String(rateCheck.retryAfter));
+        return res.status(429).json({ error: 'Muitas requisições. Tente em breve.' });
+    }
 
     try {
         const auth = await verifyFirebaseAndEntitlement(req, res);

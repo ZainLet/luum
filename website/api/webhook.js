@@ -10,10 +10,21 @@ const {
     planPatch
 } = require('./_stripeWebhookShape');
 
+const MAX_WEBHOOK_BODY = 1024 * 64;
+
 function readRawBody(req) {
     return new Promise((resolve, reject) => {
         const chunks = [];
-        req.on('data', chunk => chunks.push(Buffer.from(chunk)));
+        let total = 0;
+        req.on('data', chunk => {
+            const buf = Buffer.from(chunk);
+            total += buf.length;
+            if (total > MAX_WEBHOOK_BODY) {
+                req.destroy(new Error('Payload muito grande'));
+                return;
+            }
+            chunks.push(buf);
+        });
         req.on('end', () => resolve(Buffer.concat(chunks)));
         req.on('error', reject);
     });

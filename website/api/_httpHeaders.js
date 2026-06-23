@@ -4,4 +4,8 @@ function addNoStoreHeaders(res) {
     res.setHeader('Expires', '0');
 }
 
-module.exports = { addNoStoreHeaders };
+function applySecurityHeaders(res) {
+    addNoStoreHeaders(res);
+}
+
+module.exports = { addNoStoreHeaders, applySecurityHeaders };

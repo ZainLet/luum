@@ -40,10 +40,20 @@ function handleOptions(req, res, options = {}) {
     return res.status(200).end();
 }
 
+function applyCorsHeaders(req, res, options = {}) {
+    addCors(req, res, options);
+    if (req.method === 'OPTIONS') {
+        handleOptions(req, res, options);
+        return true;
+    }
+    return false;
+}
+
 module.exports = {
     OFFICIAL_ORIGINS,
     addCors,
     allowedOrigin,
     handleOptions,
-    normalizedOrigin
+    normalizedOrigin,
+    applyCorsHeaders
 };

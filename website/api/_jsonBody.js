@@ -16,6 +16,11 @@ function jsonBody(req, message = 'JSON inválido') {
     return req.body;
 }
 
+async function parseJsonBody(req, message) {
+    return jsonBody(req, message);
+}
+
 module.exports = {
-    jsonBody
+    jsonBody,
+    parseJsonBody
 };

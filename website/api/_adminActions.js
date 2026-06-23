@@ -430,5 +430,6 @@ module.exports = {
     adminUsersHandler,
     integrationsHandler,
     stripeHealthHandler,
+    crashReportsHandler,
     userResponse
 };

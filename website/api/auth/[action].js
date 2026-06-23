@@ -4,6 +4,7 @@ const { entitlementForUser } = require('../_entitlements');
 const { deviceSecurityPatch, evaluateDeviceAccess, normalizedDeviceID } = require('../_deviceSecurity');
 const { jsonBody: sharedJSONBody } = require('../_jsonBody');
 const { profileEmail, profileOnboarding, profileText } = require('../_profileSecurity');
+const { checkRateLimit } = require('../_rateLimit');
 
 // ── GET /api/auth/status ────────────────────────────────────
 
@@ -11,6 +12,12 @@ async function statusHandler(req, res) {
     addCors(req, res, { methods: 'GET, OPTIONS' });
     if (req.method === 'OPTIONS') return handleOptions(req, res, { methods: 'GET, OPTIONS' });
     if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+    const rateCheck = checkRateLimit(req, { windowMs: 60_000, max: 20, key: 'auth-status' });
+    if (rateCheck.limited) {
+        res.setHeader('Retry-After', String(rateCheck.retryAfter));
+        return res.status(429).json({ error: 'Muitas requisições. Tente em breve.' });
+    }
 
     try {
         const authHeader = req.headers.authorization || '';

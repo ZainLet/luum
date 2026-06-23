@@ -4,6 +4,9 @@ const { admin, getFirestore } = require('./_firebaseAdmin');
 const { applyCorsHeaders } = require('./_cors');
 const { parseJsonBody } = require('./_jsonBody');
 const { applySecurityHeaders } = require('./_httpHeaders');
+const { checkRateLimit } = require('./_rateLimit');
+
+const crypto = require('crypto');
 
 const MAX_STACK_LENGTH = 4000;
 const MAX_MESSAGE_LENGTH = 500;
@@ -18,6 +21,12 @@ module.exports = async (req, res) => {
     applySecurityHeaders(res);
     if (applyCorsHeaders(req, res)) return;
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+    const rateCheck = checkRateLimit(req, { windowMs: 300_000, max: 10, key: 'crash-report' });
+    if (rateCheck.limited) {
+        res.setHeader('Retry-After', String(rateCheck.retryAfter));
+        return res.status(429).json({ error: 'Muitas requisições. Tente em breve.' });
+    }
 
     const authHeader = req.headers.authorization || '';
     const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -40,12 +49,13 @@ module.exports = async (req, res) => {
 
     const db = getFirestore();
     const timestamp = Date.now();
+    const reportId = `${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
 
     await db
         .collection('crashReports')
         .doc(uid)
         .collection('reports')
-        .doc(String(timestamp))
+        .doc(reportId)
         .set({
             uid,
             appVersion: String(appVersion).substring(0, 20),
@@ -61,5 +71,5 @@ module.exports = async (req, res) => {
             timestamp,
         });
 
-    return res.status(200).json({ ok: true, reportId: String(timestamp) });
+    return res.status(200).json({ ok: true, reportId });
 };
