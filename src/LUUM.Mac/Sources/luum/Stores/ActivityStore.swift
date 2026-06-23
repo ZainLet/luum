@@ -384,7 +384,7 @@ final class ActivityStore {
             try keychainService.setCodable(request, for: Self.firebaseAuthRequestKey)
             pendingAuthRequest = request
         } catch {
-            authStatusMessage = "Nao foi possivel proteger esta solicitacao de login."
+            authStatusMessage = "Não foi possível proteger esta solicitação de login."
             return
         }
 
@@ -412,7 +412,7 @@ final class ActivityStore {
             let callbackSignature = Self.authCallbackSignature(for: session)
             if callbackSignature == lastAuthCallbackSignature,
                isCheckingAuth || authSession?.idToken == session.idToken {
-                authStatusMessage = "Login recebido. Validacao ja esta em andamento..."
+                authStatusMessage = "Login recebido. Validação já está em andamento..."
                 return
             }
 
@@ -627,7 +627,7 @@ final class ActivityStore {
         rejected.lastVerifiedAt = nil
         persistAuthSession(
             rejected,
-            message: "A sessao nao foi aceita pela API. Entre novamente para liberar o app.",
+            message: "A sessão não foi aceita pela API. Entre novamente para liberar o app.",
             scheduleCloudSync: false
         )
     }
@@ -663,37 +663,37 @@ final class ActivityStore {
             OnboardingChecklistItem(
                 id: "monitoring",
                 title: "Captura ativa",
-                detail: isMonitoring ? "O luum esta capturando apps e sites em background." : "Ative a captura para o luum começar a acompanhar o seu dia.",
+                detail: isMonitoring ? "O luum está capturando apps e sites em background." : "Ative a captura para o luum começar a acompanhar o seu dia.",
                 isDone: isMonitoring,
                 actionTitle: isMonitoring ? nil : "Iniciar captura"
             ),
             OnboardingChecklistItem(
                 id: "google-client",
                 title: "Google Calendar pronto",
-                detail: isGoogleCalendarConnected ? "Pelo menos uma conta Google ja esta conectada." : "Clique para conectar a agenda com OAuth. O Luum busca a configuracao publica no backend.",
+                detail: isGoogleCalendarConnected ? "Pelo menos uma conta Google já está conectada." : "Clique para conectar a agenda com OAuth. O Luum busca a configuração pública no backend.",
                 isDone: isGoogleCalendarConnected,
                 actionTitle: isGoogleCalendarConnected ? nil : "Conectar agenda"
             ),
             OnboardingChecklistItem(
                 id: "google-account",
                 title: "Conta conectada",
-                detail: isGoogleCalendarConnected ? "Pelo menos uma conta Google ja esta conectada." : "Conecte uma conta para comparar o planejado com o tempo real.",
+                detail: isGoogleCalendarConnected ? "Pelo menos uma conta Google já está conectada." : "Conecte uma conta para comparar o planejado com o tempo real.",
                 isDone: isGoogleCalendarConnected,
                 actionTitle: isGoogleCalendarConnected ? nil : "Conectar conta"
             ),
             OnboardingChecklistItem(
                 id: "notifications",
-                title: "Notificacoes",
-                detail: notificationsAuthorized ? "As notificacoes do luum estao liberadas." : "Permita notificacoes para receber alertas de pausa, foco e distracao.",
+                title: "Notificações",
+                detail: notificationsAuthorized ? "As notificações do luum estão liberadas." : "Permita notificações para receber alertas de pausa, foco e distração.",
                 isDone: notificationsAuthorized,
-                actionTitle: notificationsAuthorized ? nil : "Permitir notificacoes"
+                actionTitle: notificationsAuthorized ? nil : "Permitir notificações"
             ),
             OnboardingChecklistItem(
                 id: "browser-data",
                 title: "Dados do navegador",
-                detail: trackedSitesCount > 0 ? "O luum ja conseguiu ler URLs e enriquecer o historico do navegador." : "Abra um navegador suportado e permita Automacao para ler a URL da aba ativa.",
+                detail: trackedSitesCount > 0 ? "O luum já conseguiu ler URLs e enriquecer o histórico do navegador." : "Abra um navegador suportado e permita Automação para ler a URL da aba ativa.",
                 isDone: trackedSitesCount > 0,
-                actionTitle: trackedSitesCount > 0 ? nil : "Abrir automacao"
+                actionTitle: trackedSitesCount > 0 ? nil : "Abrir automação"
             ),
         ]
     }
@@ -1423,8 +1423,8 @@ final class ActivityStore {
     func updateAIClassificationEnabled(_ value: Bool) {
         monitoringPreferences.aiClassificationSettings.isEnabled = value
         aiClassificationStatusMessage = value
-            ? "IA de classificacao ativada. O Luum usa a configuracao segura da sua conta."
-            : "IA de classificacao desativada."
+            ? "IA de classificação ativada. O Luum usa a configuração segura da sua conta."
+            : "IA de classificação desativada."
         persistMonitoringPreferences()
     }
 
@@ -2591,7 +2591,7 @@ final class ActivityStore {
             highlights.append("Os perfis de foco acumularam \(LuumFormatters.duration(focusTime)) nesta semana.")
         }
         if distractionTime > 0 {
-            highlights.append("Os perfis de distracao somaram \(LuumFormatters.duration(distractionTime)) nesta semana.")
+            highlights.append("Os perfis de distração somaram \(LuumFormatters.duration(distractionTime)) nesta semana.")
         }
         highlights.append("O luum registrou \(contextSwitches) trocas de contexto ao longo da semana.")
 
@@ -2874,7 +2874,7 @@ final class ActivityStore {
         if !health.email.fromConfigured {
             missing.append("email de envio")
         }
-        let detail = missing.isEmpty ? "configuracao da Vercel" : missing.joined(separator: ", ")
+        let detail = missing.isEmpty ? "configuração da Vercel" : missing.joined(separator: ", ")
         return "PDF por email pendente: configure \(detail) na Vercel."
     }
 
@@ -2966,7 +2966,7 @@ final class ActivityStore {
 
         if clientID.isEmpty {
             do {
-                googleCalendarStatusMessage = "Carregando configuracao gerenciada do Google Calendar..."
+                googleCalendarStatusMessage = "Carregando configuração gerenciada do Google Calendar..."
                 let config = try await publicIntegrationConfigService.fetch()
                 publicIntegrationConfig = config
                 clientID = config.googleCalendar.clientID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -2981,7 +2981,7 @@ final class ActivityStore {
         }
 
         guard !clientID.isEmpty else {
-            googleCalendarStatusMessage = "Google Calendar ainda nao foi configurado no admin do Luum. Configure GOOGLE_CALENDAR_CLIENT_ID uma vez para liberar conexao com um clique."
+            googleCalendarStatusMessage = "Google Calendar ainda não foi configurado no admin do Luum. Configure GOOGLE_CALENDAR_CLIENT_ID uma vez para liberar conexão com um clique."
             return
         }
 
@@ -3030,7 +3030,7 @@ final class ActivityStore {
 
     private func runPublicIntegrationConfigRefresh() async {
         isLoadingPublicIntegrationConfig = true
-        publicIntegrationStatusMessage = "Verificando conexoes disponiveis no Luum..."
+        publicIntegrationStatusMessage = "Verificando conexões disponíveis no Luum..."
         defer { isLoadingPublicIntegrationConfig = false }
 
         do {
@@ -3057,11 +3057,11 @@ final class ActivityStore {
 
             publicIntegrationStatusMessage = switch availableCount {
             case 0:
-                "As proximas conexoes guiadas ainda estao sendo preparadas."
+                "As próximas conexões guiadas ainda estão sendo preparadas."
             case 1:
-                "1 conexao guiada disponivel pela conta Luum."
+                "1 conexão guiada disponível pela conta Luum."
             default:
-                "\(availableCount) conexoes guiadas disponiveis pela conta Luum."
+                "\(availableCount) conexões guiadas disponíveis pela conta Luum."
             }
         } catch {
             publicIntegrationStatusMessage = error.localizedDescription
@@ -3185,7 +3185,7 @@ final class ActivityStore {
 
         guard settings.isEnabled else {
             if force {
-                notionCalendarStatusMessage = "Ative a integracao do Notion para sincronizar esta fonte."
+                notionCalendarStatusMessage = "Ative a integração do Notion para sincronizar esta fonte."
             }
             return
         }
@@ -3248,7 +3248,7 @@ final class ActivityStore {
 
         guard settings.isEnabled else {
             if force {
-                outlookCalendarStatusMessage = "Ative a integracao do Outlook para sincronizar esta fonte."
+                outlookCalendarStatusMessage = "Ative a integração do Outlook para sincronizar esta fonte."
             }
             return
         }
@@ -3311,7 +3311,7 @@ final class ActivityStore {
 
         guard settings.isEnabled else {
             if force {
-                clickUpStatusMessage = "Ative a integracao do ClickUp para sincronizar esta fonte."
+                clickUpStatusMessage = "Ative a integração do ClickUp para sincronizar esta fonte."
             }
             return
         }
@@ -3372,7 +3372,7 @@ final class ActivityStore {
 
         guard settings.isEnabled else {
             if force {
-                linearStatusMessage = "Ative a integracao do Linear para sincronizar esta fonte."
+                linearStatusMessage = "Ative a integração do Linear para sincronizar esta fonte."
             }
             return
         }
@@ -3486,7 +3486,7 @@ final class ActivityStore {
 
         let settings = aiClassificationSettings
         guard settings.isEnabled else {
-            aiClassificationStatusMessage = "Ative a IA de classificacao nas preferencias."
+            aiClassificationStatusMessage = "Ative a IA de classificação nas preferências."
             return
         }
 
@@ -3681,7 +3681,7 @@ final class ActivityStore {
             }
 
             if !googleCalendarConnections.isEmpty {
-                googleCalendarStatusMessage = "Estrutura da agenda restaurada. Se este Mac ainda nao tiver os tokens locais, reconecte as contas Google."
+                googleCalendarStatusMessage = "Estrutura da agenda restaurada. Se este Mac ainda não tiver os tokens locais, reconecte as contas Google."
             }
 
             persistMonitoringPreferences()
@@ -3784,7 +3784,7 @@ final class ActivityStore {
                 )
             )
         } catch {
-            googleCalendarStatusMessage = "Nao foi possivel salvar a configuracao local da Google Agenda."
+            googleCalendarStatusMessage = "Não foi possível salvar a configuração local da Google Agenda."
         }
     }
 
@@ -3811,7 +3811,7 @@ final class ActivityStore {
             } catch {
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
-                    self?.automationStatusMessage = "Nao foi possivel salvar as preferencias de monitoramento."
+                    self?.automationStatusMessage = "Não foi possível salvar as preferências de monitoramento."
                 }
             }
         }
@@ -3938,7 +3938,7 @@ final class ActivityStore {
                 try persistence.save(samples: cleanedSamples, retentionDays: retentionDays)
             } catch {
                 await MainActor.run {
-                    self?.automationStatusMessage = "Nao foi possivel salvar o historico local do luum."
+                    self?.automationStatusMessage = "Não foi possível salvar o histórico local do luum."
                 }
             }
         }
@@ -4125,7 +4125,7 @@ final class ActivityStore {
         }
 
         currentFocusBlockMatch = match
-        focusShieldStatusMessage = "\(match.title) esta bloqueado por \(match.profile.title)."
+        focusShieldStatusMessage = "\(match.title) está bloqueado por \(match.profile.title)."
 
         if let lastDeliveredAt = focusBlockDeliveries[match.id],
            Date().timeIntervalSince(lastDeliveredAt) < 300 {

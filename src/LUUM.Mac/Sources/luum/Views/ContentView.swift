@@ -17,78 +17,47 @@ private enum LUUMSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .overview:
-            "Resumo"
-        case .search:
-            "Busca"
-        case .agenda:
-            "Agenda"
-        case .clients:
-            "Clientes"
-        case .apps:
-            "Apps"
-        case .websites:
-            "Sites"
-        case .team:
-            "Equipe"
-        case .categories:
-            "Categorias"
-        case .focus:
-            "Foco"
-        case .reminders:
-            "Lembretes"
-        case .reports:
-            "Relatorios"
+        case .overview:   "Resumo"
+        case .search:     "Busca"
+        case .agenda:     "Agenda"
+        case .clients:    "Clientes"
+        case .apps:       "Apps"
+        case .websites:   "Sites"
+        case .team:       "Equipe"
+        case .categories: "Categorias"
+        case .focus:      "Foco"
+        case .reminders:  "Lembretes"
+        case .reports:    "Relatórios"
         }
     }
 
     var requiredFeature: LuumFeature {
         switch self {
-        case .overview:
-            .coreTracking
-        case .search:
-            .search
-        case .agenda:
-            .agendaIntegrations
-        case .clients:
-            .reports
-        case .apps, .websites, .categories:
-            .classification
-        case .team:
-            .teamWorkspace
-        case .focus:
-            .focusModes
-        case .reminders:
-            .reminders
-        case .reports:
-            .reports
+        case .overview:               .coreTracking
+        case .search:                 .search
+        case .agenda:                 .agendaIntegrations
+        case .clients:                .reports
+        case .apps, .websites, .categories: .classification
+        case .team:                   .teamWorkspace
+        case .focus:                  .focusModes
+        case .reminders:              .reminders
+        case .reports:                .reports
         }
     }
 
     var systemImage: String {
         switch self {
-        case .overview:
-            "rectangle.stack.fill"
-        case .search:
-            "magnifyingglass"
-        case .agenda:
-            "calendar.badge.clock"
-        case .clients:
-            "briefcase.fill"
-        case .apps:
-            "app.connected.to.app.below.fill"
-        case .websites:
-            "globe"
-        case .team:
-            "person.3.fill"
-        case .categories:
-            "square.grid.2x2.fill"
-        case .focus:
-            "target"
-        case .reminders:
-            "bell.badge.fill"
-        case .reports:
-            "chart.xyaxis.line"
+        case .overview:   "rectangle.3.group"               // grid dashboard como no HTML
+        case .search:     "magnifyingglass"
+        case .agenda:     "calendar"
+        case .clients:    "briefcase"
+        case .apps:       "square.grid.2x2"              // 4 squares como no HTML
+        case .websites:   "globe"
+        case .team:       "person.2"
+        case .categories: "tag"                           // tag/label como no HTML (diamond)
+        case .focus:      "scope"                         // concentric circles como no HTML
+        case .reminders:  "bell"
+        case .reports:    "chart.line.uptrend.xyaxis"    // line chart como no HTML
         }
     }
 }
@@ -131,16 +100,18 @@ struct ContentView: View {
             LuumBackdrop()
 
             if store.isSignedIn {
-                HStack(alignment: .top, spacing: 22) {
+                HStack(spacing: 0) {
                     sidebar
-                        .frame(width: 244, alignment: .topLeading)
+                        .frame(width: 280)
+
+                    // Divisor lateral: 1px solid rgba(255,255,255,.06)
+                    Rectangle()
+                        .fill(Color.white.opacity(0.06))
+                        .frame(width: 1)
 
                     detailContent
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
-                .padding(.horizontal, 14)
-                .padding(.top, 42)
-                .padding(.bottom, 14)
             } else {
                 LoginRequiredView(store: store)
                     .padding(40)
@@ -154,8 +125,9 @@ struct ContentView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text("Luum")
-                    .font(.headline.weight(.semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
+                    .tracking(0.3)
             }
 
             ToolbarItemGroup(placement: .primaryAction) {
@@ -201,13 +173,15 @@ struct ContentView: View {
                     ToolbarIcon(symbol: "slider.horizontal.3")
                 }
                 .buttonStyle(.plain)
-                .help("Preferencias")
+                .help("Preferências")
             }
         }
         .task(id: selectedDayAnchor) {
             await store.ensureAgenda(for: selectedDay)
         }
     }
+
+    // MARK: - Detail Content
 
     @ViewBuilder
     private var detailContent: some View {
@@ -223,121 +197,141 @@ struct ContentView: View {
             )
         } else {
             switch selection {
-        case .overview:
-            DashboardView(
-                store: store,
-                selectedDay: $selectedDay,
-                summary: summary,
-                agenda: agenda,
-                openAgenda: { selection = .agenda },
-                openApps: { selection = .apps },
-                openWebsites: { selection = .websites },
-                openTeam: { selection = .team },
-                openCategories: { selection = .categories },
-                openFocus: { selection = .focus },
-                openReports: { selection = .reports },
-                openSearch: { _ in selection = .search },
-                openSettings: { openSettings() }
-            )
-        case .search:
-            SearchView(store: store) { result in
-                selectedDay = result.date
-                selection = result.kind == .agenda ? .agenda : .overview
-            }
-        case .agenda:
-            AgendaView(store: store, selectedDay: selectedDay, agenda: agenda)
-        case .clients:
-            BusinessWorkspaceView(store: store)
-        case .apps:
-            QuickClassificationView(
-                store: store,
-                kind: .applications,
-                title: "Tempo por aplicativo",
-                subtitle: "Revise os apps do dia com busca, troca de categoria e bloqueio rapido, sem depender de uma lista enorme de regras.",
-                emptyState: "Nenhum aplicativo rastreado neste dia.",
-                selectedDay: selectedDay
-            )
-        case .websites:
-            QuickClassificationView(
-                store: store,
-                kind: .websites,
-                title: "Tempo por site",
-                subtitle: "Os dominios ficam organizados de forma compacta para voce classificar ou ignorar cada site sem bagunca.",
-                emptyState: "Nenhum site rastreado neste dia. Abra um navegador suportado e permita Automacao.",
-                selectedDay: selectedDay
-            )
-        case .team:
-            TeamRankingView(store: store, selectedDay: selectedDay)
-        case .categories:
-            CategoryCustomizationView(store: store, selectedDay: selectedDay)
-        case .focus:
-            FocusModesView(store: store, selectedDay: selectedDay)
-        case .reminders:
-            RemindersView(store: store)
-        case .reports:
-            ReportsView(store: store, selectedDay: selectedDay)
+            case .overview:
+                DashboardView(
+                    store: store,
+                    selectedDay: $selectedDay,
+                    summary: summary,
+                    agenda: agenda,
+                    openAgenda: { selection = .agenda },
+                    openApps: { selection = .apps },
+                    openWebsites: { selection = .websites },
+                    openTeam: { selection = .team },
+                    openCategories: { selection = .categories },
+                    openFocus: { selection = .focus },
+                    openReports: { selection = .reports },
+                    openSearch: { _ in selection = .search },
+                    openSettings: { openSettings() }
+                )
+            case .search:
+                SearchView(store: store) { result in
+                    selectedDay = result.date
+                    selection = result.kind == .agenda ? .agenda : .overview
+                }
+            case .agenda:
+                AgendaView(store: store, selectedDay: selectedDay, agenda: agenda)
+            case .clients:
+                BusinessWorkspaceView(store: store)
+            case .apps:
+                QuickClassificationView(
+                    store: store,
+                    kind: .applications,
+                    title: "Tempo por aplicativo",
+                    subtitle: "Revise os apps do dia com busca, troca de categoria e bloqueio rápido, sem depender de uma lista enorme de regras.",
+                    emptyState: "Nenhum aplicativo rastreado neste dia.",
+                    selectedDay: selectedDay
+                )
+            case .websites:
+                QuickClassificationView(
+                    store: store,
+                    kind: .websites,
+                    title: "Tempo por site",
+                    subtitle: "Os domínios ficam organizados de forma compacta para você classificar ou ignorar cada site sem bagunça.",
+                    emptyState: "Nenhum site rastreado neste dia. Abra um navegador suportado e permita Automação.",
+                    selectedDay: selectedDay
+                )
+            case .team:
+                TeamRankingView(store: store, selectedDay: selectedDay)
+            case .categories:
+                CategoryCustomizationView(store: store, selectedDay: selectedDay)
+            case .focus:
+                FocusModesView(store: store, selectedDay: selectedDay)
+            case .reminders:
+                RemindersView(store: store)
+            case .reports:
+                ReportsView(store: store, selectedDay: selectedDay)
             }
         }
     }
+
+    // MARK: - Sidebar
 
     private var sidebar: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                SidebarHero(store: store, summary: summary, agenda: agenda)
+        VStack(alignment: .leading, spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    // Brand + status card
+                    SidebarHero(store: store, summary: summary, agenda: agenda)
+                        .padding(.horizontal, 14)
+                        .padding(.top, 16)
+                        .padding(.bottom, 6)
 
-                VStack(alignment: .leading, spacing: 6) {
+                    // VISAO GERAL
                     SidebarGroupLabel("Visão geral")
-
                     ForEach(primarySections) { section in
                         Button {
-                            withAnimation(.spring(duration: 0.32, bounce: 0.18)) {
+                            withAnimation(.spring(duration: 0.28, bounce: 0.14)) {
                                 selection = section
                             }
                         } label: {
                             SidebarButtonRow(section: section, isSelected: selection == section, isLocked: !store.canUse(section.requiredFeature))
                         }
                         .buttonStyle(.plain)
+                        .padding(.horizontal, 10)
                     }
-                }
 
-                VStack(alignment: .leading, spacing: 6) {
+                    // CONTROLES
                     SidebarGroupLabel("Controles")
-
                     ForEach(controlSections) { section in
                         Button {
-                            withAnimation(.spring(duration: 0.32, bounce: 0.18)) {
+                            withAnimation(.spring(duration: 0.28, bounce: 0.14)) {
                                 selection = section
                             }
                         } label: {
                             SidebarButtonRow(section: section, isSelected: selection == section, isLocked: !store.canUse(section.requiredFeature))
                         }
                         .buttonStyle(.plain)
+                        .padding(.horizontal, 10)
                     }
-                }
 
-                Button {
-                    openSettings()
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "gearshape.fill")
-                        Text("Abrir Preferencias")
-                            .font(.subheadline.weight(.semibold))
-                        Spacer()
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 13)
-                    .contentShape(Rectangle())
+                    Spacer(minLength: 16)
                 }
-                .buttonStyle(.plain)
-                .luumGlassCard(tint: LuumTheme.accent.opacity(0.14), cornerRadius: 20, shadowOpacity: 0.12)
             }
-            .padding(.bottom, 8)
+            .scrollIndicators(.hidden)
+
+            // Preferencias — fixado ao fundo
+            Divider()
+                .overlay(Color.white.opacity(0.06))
+
+            // Settings button: border rgba(255,255,255,.07) sem fill
+            Button {
+                openSettings()
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 16, weight: .light))
+                        .frame(width: 19)
+                        .foregroundStyle(LuumTheme.textSecondary)
+                    Text("Abrir Preferências")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(LuumTheme.textSecondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
         }
-        .scrollIndicators(.hidden)
-        .frame(maxHeight: .infinity, alignment: .top)
+        .background(LuumTheme.sidebarBlack.opacity(0.88))
+        .background(.ultraThinMaterial)
+        .frame(maxHeight: .infinity)
     }
 }
+
+// MARK: - Login Required
 
 private struct LoginRequiredView: View {
     let store: ActivityStore
@@ -351,23 +345,19 @@ private struct LoginRequiredView: View {
                     .font(.largeTitle.weight(.bold))
                     .foregroundStyle(.white)
 
-                Text("Use a mesma conta Firebase do site para liberar seu plano, backup e integracoes neste Mac. O app salva a sessao em um cofre local cifrado para evitar prompts das Chaves do macOS em builds ad-hoc.")
+                Text("Use a mesma conta Firebase do site para liberar seu plano, backup e integrações neste Mac.")
                     .font(.body)
                     .foregroundStyle(LuumTheme.textSecondary)
                     .multilineTextAlignment(.center)
-                    .frame(maxWidth: 620)
+                    .frame(maxWidth: 520)
             }
 
             HStack(spacing: 12) {
-                Button("Entrar pelo site") {
-                    store.openLoginPage()
-                }
-                .buttonStyle(.glassProminent)
+                Button("Entrar pelo site") { store.openLoginPage() }
+                    .buttonStyle(.glassProminent)
 
-                Button("Ja entrei, validar") {
-                    store.refreshAccountStatus()
-                }
-                .buttonStyle(.borderedProminent)
+                Button("Já entrei, validar") { store.refreshAccountStatus() }
+                    .buttonStyle(.borderedProminent)
             }
 
             if let message = store.authStatusMessage {
@@ -375,14 +365,16 @@ private struct LoginRequiredView: View {
                     .font(.caption)
                     .foregroundStyle(LuumTheme.textSecondary)
                     .multilineTextAlignment(.center)
-                    .frame(maxWidth: 620)
+                    .frame(maxWidth: 520)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(32)
-        .luumGlassCard(tint: LuumTheme.accent.opacity(0.16), cornerRadius: 34)
+        .luumGlassCard(tint: LuumTheme.accent.opacity(0.14), cornerRadius: 28)
     }
 }
+
+// MARK: - Locked Feature
 
 private struct LockedFeatureView: View {
     let title: String
@@ -429,9 +421,11 @@ private struct LockedFeatureView: View {
         }
         .frame(maxWidth: 720, alignment: .leading)
         .padding(28)
-        .luumGlassCard(tint: LuumTheme.hotPink.opacity(0.12), cornerRadius: 30)
+        .luumGlassCard(tint: LuumTheme.hotPink.opacity(0.12), cornerRadius: 20)
     }
 }
+
+// MARK: - Sidebar Hero (status card)
 
 private struct SidebarHero: View {
     let store: ActivityStore
@@ -440,77 +434,91 @@ private struct SidebarHero: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 10) {
-                LuumAppMark(size: 28)
+            // Brand row: logo L + nome/plano + pulsing dot
+            HStack(alignment: .center, spacing: 11) {
+                // Logo real do Luum 34x34 com sombra accent
+                LuumAppMark(size: 34)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .shadow(color: LuumTheme.accent.opacity(0.5), radius: 7, x: 0, y: 4)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Luum")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.system(size: 15, weight: .semibold))  // weight:650
                         .foregroundStyle(.white)
 
+                    // "Equipes" — plano atual
                     Text(
                         store.accountEmail.isEmpty
                             ? "Plano \(store.accountPlan.title)"
                             : store.accountPlan.title
                     )
-                    .font(.caption2)
-                    .foregroundStyle(LuumTheme.textMuted)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.463)) // #6e6e76
                     .lineLimit(1)
                 }
 
                 Spacer()
 
-                LuumPulsingDot(isActive: store.isMonitoring, color: LuumTheme.cyanGreen, size: 8)
+                // Pulsing dot ciano 9x9
+                LuumPulsingDot(isActive: store.isMonitoring, color: LuumTheme.electricBlue, size: 9)
             }
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text(store.currentActivityTitle)
-                    .font(.subheadline.weight(.semibold))
+            // Status card: background rgba(255,255,255,.04), border .07, radius 13, padding 13 14
+            VStack(alignment: .leading, spacing: 7) {
+                // Titulo da atividade atual
+                Text(store.isMonitoring ? store.currentActivityTitle : "Nenhuma atividade ativa agora")
+                    .font(.system(size: 13.5, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(2)
-                    .animation(.easeInOut(duration: 0.3), value: store.currentActivityTitle)
+                    .animation(.easeInOut(duration: 0.25), value: store.currentActivityTitle)
 
-                HStack(spacing: 6) {
+                // Dot + categoria
+                HStack(spacing: 7) {
                     Circle()
-                        .fill(store.currentActivityCategory?.tint ?? LuumTheme.electricBlue)
-                        .frame(width: 6, height: 6)
+                        .fill(store.currentActivityCategory?.tint ?? LuumTheme.accentLight)
+                        .frame(width: 7, height: 7)
                     Text(store.currentActivityCategory?.title ?? "Aguardando classificação")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(store.currentActivityCategory?.tint ?? LuumTheme.electricBlue)
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(store.currentActivityCategory?.tint ?? LuumTheme.accentLight)
                 }
-                .animation(.easeInOut(duration: 0.3), value: store.currentActivityCategory?.title)
+                .animation(.easeInOut(duration: 0.2), value: store.currentActivityCategory?.title)
+
+                // 3 metric pills: HOJE / AGENDA / FOCO
+                HStack(spacing: 8) {
+                    SidebarMetricPill(title: "Hoje", value: LuumFormatters.duration(summary.totalTrackedTime))
+                    SidebarMetricPill(title: "Agenda", value: LuumFormatters.duration(agenda.plannedTime))
+                    SidebarMetricPill(
+                        title: "Foco",
+                        value: store.currentFocusBlockMatch == nil
+                            ? (store.focusShieldProfilesCount == 0 ? "Livre" : "\(store.focusShieldProfilesCount)")
+                            : "Ativo"
+                    )
+                }
+
+                if let block = store.currentFocusBlockMatch {
+                    Label(block.title, systemImage: "hand.raised.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LuumTheme.hotPink)
+                        .lineLimit(1)
+                }
             }
-            .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill((store.currentActivityCategory?.tint ?? LuumTheme.accent).opacity(0.10))
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .fill(Color.white.opacity(0.04))
             )
-
-            HStack(spacing: 8) {
-                SidebarMetricPill(title: "Hoje", value: LuumFormatters.duration(summary.totalTrackedTime))
-                SidebarMetricPill(title: "Agenda", value: LuumFormatters.duration(agenda.plannedTime))
-                SidebarMetricPill(
-                    title: "Foco",
-                    value: store.currentFocusBlockMatch == nil
-                        ? (store.focusShieldProfilesCount == 0 ? "Livre" : "\(store.focusShieldProfilesCount)")
-                        : "Ativo"
-                )
-            }
-
-            if let currentFocusBlockMatch = store.currentFocusBlockMatch {
-                Label(currentFocusBlockMatch.title, systemImage: "hand.raised.fill")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(LuumTheme.hotPink)
-                    .lineLimit(1)
+            .overlay {
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .stroke(Color.white.opacity(0.07), lineWidth: 1)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .fixedSize(horizontal: false, vertical: true)
-        .luumGlassCard(tint: LuumTheme.accent.opacity(0.10), cornerRadius: 16, shadowOpacity: 0.08)
     }
 }
+
+// MARK: - Sidebar Nav Components
 
 private struct SidebarGroupLabel: View {
     let title: String
@@ -521,11 +529,13 @@ private struct SidebarGroupLabel: View {
 
     var body: some View {
         Text(title.uppercased())
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(LuumTheme.textMuted)
-            .tracking(0.8)
-            .padding(.horizontal, 12)
-            .padding(.top, 2)
+            .font(.system(size: 11, weight: .semibold))
+            // color:#5a5a62
+            .foregroundStyle(Color(red: 0.353, green: 0.353, blue: 0.384))
+            .tracking(0.77) // ~.07em at 11px
+            .padding(.horizontal, 22)
+            .padding(.top, 18)
+            .padding(.bottom, 8)
     }
 }
 
@@ -539,12 +549,21 @@ private struct SidebarButtonRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: section.systemImage)
-                .frame(width: 18)
-                .foregroundStyle(isSelected ? .white : (isHovered ? .white.opacity(0.85) : LuumTheme.textSecondary))
+                .font(.system(size: 17, weight: .light))
+                .frame(width: 19)
+                .foregroundStyle(
+                    isSelected
+                        ? LuumTheme.accentLight
+                        : (isHovered ? Color.white.opacity(0.9) : Color(red: 0.604, green: 0.604, blue: 0.635)) // #9a9aa2
+                )
 
             Text(section.title)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(isSelected ? .white : (isHovered ? .white.opacity(0.85) : LuumTheme.textSecondary))
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(
+                    isSelected
+                        ? LuumTheme.accentLight          // color:#b9a6ff
+                        : (isHovered ? Color(red: 0.961, green: 0.961, blue: 0.969) : Color(red: 0.604, green: 0.604, blue: 0.635)) // #f5f5f7 / #9a9aa2
+                )
 
             Spacer()
 
@@ -556,25 +575,18 @@ private struct SidebarButtonRow: View {
         }
         .frame(minHeight: 36)
         .padding(.horizontal, 12)
-        .padding(.vertical, 7)
+        .padding(.vertical, 9)
         .contentShape(Rectangle())
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(
                     isSelected
-                        ? .white.opacity(0.085)
-                        : (isHovered ? .white.opacity(0.04) : .clear)
+                        ? LuumTheme.accent.opacity(0.16)    // rgba(124,92,255,.16)
+                        : (isHovered ? Color.white.opacity(0.06) : .clear) // rgba(255,255,255,.06)
                 )
         )
-        .overlay {
-            HStack {
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(isSelected ? LuumTheme.accent : .clear)
-                    .frame(width: 3)
-                Spacer()
-            }
-        }
         .animation(.easeInOut(duration: 0.14), value: isHovered)
+        .animation(.easeInOut(duration: 0.14), value: isSelected)
         .onHover { isHovered = $0 }
     }
 }
@@ -584,33 +596,31 @@ private struct SidebarMetricPill: View {
     let value: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(title.uppercased())
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(LuumTheme.textMuted)
-                .tracking(0.6)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.463)) // #6e6e76
+                .tracking(0.7)
                 .lineLimit(1)
-                .minimumScaleFactor(0.72)
 
             Text(value)
-                .font(.subheadline.weight(.semibold))
+                .font(.system(size: 14, weight: .semibold))
+                .monospacedDigit()
                 .foregroundStyle(.white)
                 .lineLimit(1)
-                .minimumScaleFactor(0.78)
+                .minimumScaleFactor(0.75)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 10)
-        .padding(.vertical, 10)
+        .padding(.vertical, 9)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(LuumTheme.panelFill)
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(Color.white.opacity(0.04))
         )
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(.white.opacity(0.03))
-        }
     }
 }
+
+// MARK: - Toolbar Icon
 
 private struct ToolbarIcon: View {
     let symbol: String
@@ -618,16 +628,16 @@ private struct ToolbarIcon: View {
 
     var body: some View {
         Image(systemName: symbol)
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(.white.opacity(isAccent ? 0.96 : 0.82))
-            .frame(width: 32, height: 32)
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(.white.opacity(isAccent ? 0.96 : 0.80))
+            .frame(width: 34, height: 34)
             .background(
-                Circle()
-                    .fill(isAccent ? LuumTheme.accent.opacity(0.34) : LuumTheme.panelFillStrong)
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(isAccent ? LuumTheme.accent.opacity(0.30) : Color.white.opacity(0.05))
             )
             .overlay {
-                Circle()
-                    .stroke(isAccent ? LuumTheme.accent.opacity(0.34) : LuumTheme.surfaceOutline)
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(isAccent ? LuumTheme.accent.opacity(0.40) : Color.white.opacity(0.07), lineWidth: 1)
             }
     }
 }

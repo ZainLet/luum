@@ -3,47 +3,8 @@ import SwiftUI
 
 struct LuumBackdrop: View {
     var body: some View {
-        ZStack {
-            LuumTheme.pageGradient
-                .ignoresSafeArea()
-
-            LinearGradient(
-                colors: [
-                    .white.opacity(0.035),
-                    .clear,
-                    .black.opacity(0.18),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+        LuumTheme.baseBlack
             .ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                Rectangle()
-                    .fill(.white.opacity(0.035))
-                    .frame(height: 1)
-                Spacer()
-                Rectangle()
-                    .fill(.white.opacity(0.04))
-                    .frame(height: 1)
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 18)
-            .ignoresSafeArea()
-
-            HStack(spacing: 0) {
-                Rectangle()
-                    .fill(.white.opacity(0.035))
-                    .frame(width: 1)
-                Spacer()
-                Rectangle()
-                    .fill(.white.opacity(0.035))
-                    .frame(width: 1)
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 18)
-            .ignoresSafeArea()
-        }
     }
 }
 
@@ -76,16 +37,17 @@ struct LuumSectionHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(eyebrow.uppercased())
-                .font(.caption2.weight(.semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(LuumTheme.textMuted)
-                .tracking(1.2)
+                .tracking(1.4)
 
             Text(title)
-                .font(.system(size: 27, weight: .semibold, design: .rounded))
+                .font(.system(size: 33, weight: .bold))
                 .foregroundStyle(.white)
+                .tracking(-0.5)
 
             Text(subtitle)
-                .font(.callout)
+                .font(.system(size: 15))
                 .foregroundStyle(LuumTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -93,56 +55,43 @@ struct LuumSectionHeader: View {
 }
 
 extension View {
+    /// Card padrão Luum — fill sutil + borda translúcida + raio 16 pt.
+    func luumCard(
+        tint: Color = .clear,
+        cornerRadius: CGFloat = 16
+    ) -> some View {
+        self
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(LuumTheme.panelFill)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(LuumTheme.surfaceOutline, lineWidth: 1)
+            }
+    }
+
+    /// Card glass com glassEffect (macOS 26+), mantido para elementos premium.
     func luumGlassCard(
         tint: Color,
-        cornerRadius: CGFloat = 30,
-        shadowOpacity: Double = 0.24
+        cornerRadius: CGFloat = 16,
+        shadowOpacity: Double = 0.16
     ) -> some View {
-        let radius = min(cornerRadius, 18)
+        let radius = min(cornerRadius, 20)
         return self
             .background {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(LuumTheme.elevatedBlack.opacity(0.88))
-                    .shadow(color: Color.black.opacity(0.20), radius: 8, x: 0, y: 6)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: radius, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        LuumTheme.panelFill,
-                                        .white.opacity(0.012),
-                                        .clear,
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    }
-                    .overlay(alignment: .top) {
-                        RoundedRectangle(cornerRadius: radius, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        .white.opacity(0.055),
-                                        .clear,
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .center
-                                )
-                            )
-                            .mask {
-                                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                            }
-                    }
+                    .fill(LuumTheme.elevatedBlack.opacity(0.85))
+                    .shadow(color: Color.black.opacity(shadowOpacity), radius: 10, x: 0, y: 6)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .stroke(
                         LinearGradient(
                             colors: [
-                                .white.opacity(0.105),
+                                .white.opacity(0.10),
                                 .white.opacity(0.03),
-                                tint.opacity(0.12),
+                                tint.opacity(0.10),
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -151,7 +100,7 @@ extension View {
                     )
             }
             .glassEffect(
-                .regular.tint(tint.opacity(0.08)).interactive(),
+                .regular.tint(tint.opacity(0.07)).interactive(),
                 in: RoundedRectangle(cornerRadius: radius, style: .continuous)
             )
     }

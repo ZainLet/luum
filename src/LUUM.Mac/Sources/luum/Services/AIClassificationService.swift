@@ -32,21 +32,21 @@ enum AIClassificationServiceError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .disabled:
-            "Ative a IA de classificacao nas preferencias."
+            "Ative a IA de classificação nas preferências."
         case .missingAPIKey:
             "Use a IA segura do Luum para classificar sem configurar chave no app."
         case .missingFirebaseAuth:
-            "Entre no Luum para usar classificacao por IA pelo backend seguro."
+            "Entre no Luum para usar classificação por IA pelo backend seguro."
         case .invalidEndpoint:
-            "Endpoint da IA invalido."
+            "Endpoint da IA inválido."
         case let .rejected(reason):
-            "A IA recusou a classificacao: \(reason)."
+            "A IA recusou a classificação: \(reason)."
         case .invalidResponse:
             "A IA retornou uma resposta em formato inesperado."
         case let .unknownCategory(categoryID):
             "A IA sugeriu uma categoria inexistente: \(categoryID)."
         case let .lowConfidence(confidence):
-            "A confianca da IA foi baixa demais (\(Int(confidence * 100))%)."
+            "A confiança da IA foi baixa demais (\(Int(confidence * 100))%)."
         }
     }
 }

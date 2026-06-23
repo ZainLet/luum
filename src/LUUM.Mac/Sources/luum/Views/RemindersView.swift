@@ -19,7 +19,7 @@ struct RemindersView: View {
                 LuumSectionHeader(
                     eyebrow: "Lembretes",
                     title: "Pausas e alertas de distracao",
-                    subtitle: "Configure quanto tempo voce pode ficar em uma mesma categoria antes do luum avisar. Isso funciona tanto para trabalho intenso quanto para entretenimento."
+                    subtitle: "Configure quanto tempo você pode ficar em uma mesma categoria antes do luum avisar. Isso funciona tanto para trabalho intenso quanto para entretenimento."
                 )
 
                 notificationsCard
@@ -37,13 +37,13 @@ struct RemindersView: View {
 
     private var notificationsCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Notificacoes")
+            Text("Notificações")
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.white)
 
             Text(store.notificationsAuthorized
-                 ? "As notificacoes do luum estao liberadas para lembretes locais."
-                 : (store.notificationPermissionMessage ?? "Ative as notificacoes para receber alertas locais do luum."))
+                 ? "As notificações do luum estão liberadas para lembretes locais."
+                 : (store.notificationPermissionMessage ?? "Ative as notificações para receber alertas locais do luum."))
                 .foregroundStyle(LuumTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -53,7 +53,7 @@ struct RemindersView: View {
                     .foregroundStyle(.white.opacity(0.72))
             }
 
-            Button(store.notificationsAuthorized ? "Atualizar permissao" : "Permitir notificacoes") {
+            Button(store.notificationsAuthorized ? "Atualizar permissão" : "Permitir notificações") {
                 store.requestNotificationAuthorization()
             }
             .buttonStyle(.glassProminent)

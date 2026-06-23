@@ -73,7 +73,7 @@ struct CategoryCustomizationView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("O ajuste rapido agora mora nas abas Apps e Sites. Nesta tela voce mantem o sistema organizado sem abrir um painel gigante de itens.")
+                    Text("O ajuste rápido agora mora nas abas Apps e Sites. Nesta tela você mantém o sistema organizado sem abrir um painel gigante de itens.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -87,7 +87,7 @@ struct CategoryCustomizationView: View {
             }
 
             if summary.categoryBreakdown.isEmpty {
-                Text("Ainda nao existem categorias consolidadas para este dia.")
+                Text("Ainda não existem categorias consolidadas para este dia.")
                     .foregroundStyle(LuumTheme.textSecondary)
             } else {
                 VStack(spacing: 10) {
@@ -181,11 +181,11 @@ struct CategoryCustomizationView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Sugestoes inteligentes")
+                    Text("Sugestões inteligentes")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Quando voce corrige a mesma classificacao mais de uma vez, o luum sugere transformar isso em regra permanente.")
+                    Text("Quando você corrige a mesma classificação mais de uma vez, o luum sugere transformar isso em regra permanente.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -194,12 +194,12 @@ struct CategoryCustomizationView: View {
 
                 CompactStatPill(
                     title: "\(store.classificationSuggestions.count)",
-                    detail: "sugestoes"
+                    detail: "sugestões"
                 )
             }
 
             if store.classificationSuggestions.isEmpty {
-                Text("Ainda nao ha sugestoes. Assim que voce fizer algumas correcoes manuais repetidas, o luum vai sugerir as regras por voce.")
+                Text("Ainda não há sugestões. Assim que você fizer algumas correções manuais repetidas, o luum vai sugerir as regras por você.")
                     .foregroundStyle(LuumTheme.textSecondary)
             } else {
                 VStack(spacing: 10) {
@@ -248,7 +248,7 @@ struct CategoryCustomizationView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Se voce quiser um mapeamento mais permanente, pode criar regras por app, bundle ou dominio. Novas regras entram no topo para sobrescrever classificacoes anteriores.")
+                    Text("Se você quiser um mapeamento mais permanente, pode criar regras por app, bundle ou domínio. Novas regras entram no topo para sobrescrever classificações anteriores.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -332,7 +332,7 @@ struct CategoryCustomizationView: View {
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.white)
 
-            Text("Use bloqueios para tirar da leitura qualquer app ou site que esteja poluindo seu historico.")
+            Text("Use bloqueios para tirar da leitura qualquer app ou site que esteja poluindo seu histórico.")
                 .foregroundStyle(LuumTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 

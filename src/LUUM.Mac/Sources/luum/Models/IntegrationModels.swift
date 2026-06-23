@@ -36,13 +36,13 @@ enum IntegrationKind: String, CaseIterable, Identifiable, Sendable {
     var subtitle: String {
         switch self {
         case .aiClassification:
-            "Sugestoes automaticas para apps e sites"
+            "Sugestões automáticas para apps e sites"
         case .googleCalendar:
-            "Multiplas contas e calendarios"
+            "Múltiplas contas e calendários"
         case .notionCalendar:
             "Bancos do Notion com propriedade de data"
         case .outlookCalendar:
-            "Calendarios do Microsoft Graph"
+            "Calendários do Microsoft Graph"
         case .clickUp:
             "Tarefas e projetos com prazo"
         case .linear:

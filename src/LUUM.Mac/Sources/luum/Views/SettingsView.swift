@@ -1,140 +1,123 @@
 import SwiftUI
 
+// MARK: - SettingsView
+
 struct SettingsView: View {
     @Bindable var store: ActivityStore
     @State private var isShowingSignOutConfirmation = false
     @State private var workspaceSecretDraft = ""
+    @State private var tab: SettingsTab = .conta
+
+    private enum SettingsTab: String, CaseIterable {
+        case conta = "Conta"
+        case integracoes = "Integrações"
+        case captura = "Captura"
+        case backup = "Backup"
+
+        var symbol: String {
+            switch self {
+            case .conta:       "person.crop.circle"
+            case .integracoes: "network"
+            case .captura:     "record.circle"
+            case .backup:      "icloud"
+            }
+        }
+    }
 
     var body: some View {
+        VStack(spacing: 0) {
+            header
+            Divider().opacity(0.08)
+            tabContent
+        }
+        .task { store.refreshPublicIntegrationConfig() }
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            LuumSectionHeader(
+                eyebrow: "Preferências",
+                title: "Configurações",
+                subtitle: "Conta, integrações, captura e backup — tudo em um lugar."
+            )
+
+            Picker("", selection: $tab) {
+                ForEach(SettingsTab.allCases, id: \.self) { t in
+                    Label(t.rawValue, systemImage: t.symbol).tag(t)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+        }
+        .padding(.horizontal, 28)
+        .padding(.top, 28)
+        .padding(.bottom, 20)
+    }
+
+    // MARK: - Tab content
+
+    @ViewBuilder
+    private var tabContent: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                LuumSectionHeader(
-                    eyebrow: "Preferencias",
-                    title: "Conexoes do Luum",
-                    subtitle: "Conecte calendario, tarefas, automacoes, backup e IA sem lidar com chaves tecnicas no app."
-                )
-
-                appVersionCard
-                localVaultCard
-                integrationHubCard
-                aiClassificationCard
-                googleCalendarCard
-                pendingConnectionsCard
-                teamCard
-                privacyCard
-                cloudSyncCard
-
-                settingsCard(
-                    title: "Permissoes de navegador",
-                    lines: [
-                        "Permite classificar sites pela aba ativa dos navegadores suportados.",
-                        store.automationStatusMessage ?? "Tudo certo com a Automacao do macOS.",
-                    ],
-                    tint: ActivityCategory.communication.glassTint
-                )
-
-                settingsCard(
-                    title: "Monitoramento de entrada",
-                    lines: [
-                        store.inputMonitoringMessage ?? "Permissao ativa para detectar inatividade.",
-                        "Opcional: o Luum continua funcionando sem ela.",
-                    ],
-                    tint: ActivityCategory.utilities.glassTint
-                )
-
-                settingsCard(
-                    title: "Estado da captura",
-                    lines: [
-                        store.isMonitoring ? "Captura ativa em background." : "Captura pausada.",
-                        "\(store.trackedAppsCount) apps e \(store.trackedSitesCount) sites no historico.",
-                    ],
-                    tint: ActivityCategory.work.glassTint
-                )
-
-                actionRow
-                classificationCard
+            LazyVStack(alignment: .leading, spacing: 14) {
+                switch tab {
+                case .conta:       contaSection
+                case .integracoes: integracoesSection
+                case .captura:     capturaSection
+                case .backup:      backupSection
+                }
             }
             .padding(28)
         }
-        .background(LuumTheme.pageGradient.opacity(0.46))
-        .task {
-            store.refreshPublicIntegrationConfig()
-        }
+        .scrollIndicators(.hidden)
+        .animation(.easeInOut(duration: 0.2), value: tab)
     }
 
-    private var appVersionCard: some View {
-        settingsCard(
-            title: "Versao do app",
-            lines: [
-                "Luum \(AppVersionInfo.current.displayVersion)",
-                "Build \(AppVersionInfo.current.build) • \(AppVersionInfo.current.channel)",
-            ],
-            tint: LuumTheme.accent.opacity(0.12)
-        )
-    }
+    // MARK: - Conta
 
-    private var integrationHubCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Mapa de integracoes")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.white)
-
-                    Text("Veja rapidamente quais conexoes estao prontas neste Mac.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer()
-
-                CompactStatPill(
-                    title: "\(activeIntegrationCount)",
-                    detail: "ativas"
-                )
-            }
-
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 176), spacing: 12)], spacing: 12) {
-                ForEach(IntegrationKind.allCases) { kind in
-                    IntegrationStatusTile(snapshot: integrationSnapshot(for: kind))
-                }
-            }
-
-            if let message = store.publicIntegrationStatusMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.accent.opacity(0.12), cornerRadius: 30)
-    }
-
-    private var localVaultCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Conta e cofre local")
-                .font(.title3.weight(.semibold))
+    @ViewBuilder
+    private var contaSection: some View {
+        // App version + channel
+        SettingsRow(
+            symbol: "info.circle",
+            title: "Versão do app",
+            tint: LuumTheme.accent
+        ) {
+            Text("Luum \(AppVersionInfo.current.displayVersion)")
                 .foregroundStyle(.white)
+            Text("Build \(AppVersionInfo.current.build) · \(AppVersionInfo.current.channel)")
+                .foregroundStyle(LuumTheme.textSecondary)
+        }
 
-            Text("Conta: \(store.accountEmail.isEmpty ? "Entre com sua conta Luum" : store.accountEmail)")
-                .foregroundStyle(LuumTheme.textSecondary)
-            Text("Armazenamento: \(store.secretStorageDescription)")
-                .foregroundStyle(LuumTheme.textSecondary)
-            Text(store.authStatusMessage ?? "Sessao local ainda nao validada.")
-                .foregroundStyle(LuumTheme.textSecondary)
+        // Account
+        SettingsRow(
+            symbol: "person.crop.circle",
+            title: "Conta",
+            tint: LuumTheme.secondaryAccent
+        ) {
+            if store.accountEmail.isEmpty {
+                Text("Não conectado").foregroundStyle(LuumTheme.textSecondary)
+            } else {
+                Text(store.accountEmail).foregroundStyle(.white)
+                Text("Plano \(store.accountPlan.title)")
+                    .foregroundStyle(LuumTheme.textSecondary)
+            }
+            if let status = store.authStatusMessage {
+                Text(status)
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textMuted)
+            }
 
             if store.isSignedIn {
                 Button("Sair desta conta", role: .destructive) {
                     isShowingSignOutConfirmation = true
                 }
                 .buttonStyle(.bordered)
-                .padding(.top, 6)
+                .padding(.top, 4)
             }
         }
-        .fixedSize(horizontal: false, vertical: true)
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.16), cornerRadius: 30)
         .confirmationDialog(
             "Sair desta conta neste Mac?",
             isPresented: $isShowingSignOutConfirmation,
@@ -146,178 +129,195 @@ struct SettingsView: View {
             }
             Button("Cancelar", role: .cancel) {}
         } message: {
-            Text("A sessao local sera removida. Seus dados da conta no Firebase nao serao apagados.")
+            Text("A sessão local será removida. Seus dados no Firebase não serão apagados.")
+        }
+
+        // Storage
+        SettingsRow(
+            symbol: "lock.shield",
+            title: "Cofre local",
+            tint: LuumTheme.electricBlue
+        ) {
+            Text(store.secretStorageDescription)
+                .foregroundStyle(LuumTheme.textSecondary)
+            Text("\(store.trackedAppsCount) apps · \(store.trackedSitesCount) sites no histórico")
+                .foregroundStyle(LuumTheme.textMuted)
+                .font(.caption)
         }
     }
 
-    private var googleCalendarCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Google Agenda")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.white)
+    // MARK: - Integrações
 
-                    Text("Conecte sua conta Google e compare sua agenda com o tempo real.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+    @ViewBuilder
+    private var integracoesSection: some View {
+        // Status grid
+        integrationStatusGrid
 
+        Divider().opacity(0.08)
+
+        // Google Calendar
+        googleCalendarSection
+
+        Divider().opacity(0.08)
+
+        // Pending (coming soon)
+        pendingIntegrationsSection
+
+        Divider().opacity(0.08)
+
+        // AI
+        aiClassificationSection
+    }
+
+    private var integrationStatusGrid: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Status das integrações")
+                    .font(.headline)
+                    .foregroundStyle(.white)
                 Spacer()
+                Text("\(activeIntegrationCount) ativas")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(LuumTheme.textMuted)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(.white.opacity(0.06)))
+            }
 
-                CompactStatPill(
-                    title: "\(store.googleCalendarConnections.count)",
-                    detail: "contas"
-                )
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 10)], spacing: 10) {
+                ForEach(IntegrationKind.allCases) { kind in
+                    IntegrationStatusTile(snapshot: integrationSnapshot(for: kind))
+                }
+            }
+
+            if let message = store.publicIntegrationStatusMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textSecondary)
+            }
+        }
+    }
+
+    private var googleCalendarSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label("Google Agenda", systemImage: "calendar")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                Spacer()
+                Text("\(store.googleCalendarConnections.count) conta(s)")
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textMuted)
             }
 
             if let message = store.googleCalendarStatusMessage {
                 Text(message)
                     .font(.caption)
                     .foregroundStyle(LuumTheme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
 
             HStack(spacing: 10) {
-                Button("Conectar") {
-                    store.connectGoogleCalendar()
-                }
-                .buttonStyle(.glassProminent)
-                .disabled(store.isConnectingGoogleCalendar)
+                Button("Conectar") { store.connectGoogleCalendar() }
+                    .buttonStyle(.glassProminent)
+                    .disabled(store.isConnectingGoogleCalendar)
 
-                Button("Sincronizar") {
-                    store.refreshGoogleCalendar()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(!store.isGoogleCalendarConnected || store.isSyncingGoogleCalendar)
+                Button("Sincronizar") { store.refreshGoogleCalendar() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!store.isGoogleCalendarConnected || store.isSyncingGoogleCalendar)
 
-                Button("Desconectar") {
-                    store.disconnectAllGoogleCalendars()
-                }
-                .buttonStyle(.bordered)
-                .disabled(!store.isGoogleCalendarConnected)
+                Button("Desconectar") { store.disconnectAllGoogleCalendars() }
+                    .buttonStyle(.bordered)
+                    .disabled(!store.isGoogleCalendarConnected)
             }
 
             if store.googleCalendarConnections.isEmpty {
                 Text("Nenhuma conta conectada ainda.")
                     .foregroundStyle(LuumTheme.textSecondary)
-                    .padding(.top, 6)
+                    .font(.subheadline)
             } else {
-                VStack(spacing: 12) {
+                VStack(spacing: 10) {
                     ForEach(store.googleCalendarConnections) { connection in
                         GoogleConnectionCard(store: store, connection: connection)
                     }
                 }
             }
-
         }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.14), cornerRadius: 30)
     }
 
-    private var pendingConnectionsCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Conexões em breve")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.white)
-
-                    Text("Essas integrações vão usar login guiado. Nada de token, chave ou webhook manual.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
+    private var pendingIntegrationsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Em breve")
+                    .font(.headline)
+                    .foregroundStyle(.white)
                 Spacer()
-
-                CompactStatPill(
-                    title: "\(pendingProviderConnectedCount)",
-                    detail: "prontas"
-                )
+                Text("Sem token manual")
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textMuted)
             }
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 12)], spacing: 12) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 10)], spacing: 10) {
                 pendingIntegrationRow(
-                    title: pendingTitle(name: "Notion", isConnected: store.hasNotionToken, isAvailable: store.notionManagedOAuthAvailable),
-                    subtitle: pendingSubtitle(connected: "Pronto para sincronizar quando ativado.", isConnected: store.hasNotionToken, isAvailable: store.notionManagedOAuthAvailable),
+                    name: "Notion",
                     systemImage: "doc.text.image",
                     isConnected: store.hasNotionToken,
                     isAvailable: store.notionManagedOAuthAvailable
                 )
-
                 pendingIntegrationRow(
-                    title: pendingTitle(name: "Outlook", isConnected: store.hasOutlookToken, isAvailable: store.outlookManagedOAuthAvailable),
-                    subtitle: pendingSubtitle(connected: "Pronto para sincronizar quando ativado.", isConnected: store.hasOutlookToken, isAvailable: store.outlookManagedOAuthAvailable),
+                    name: "Outlook",
                     systemImage: "calendar",
                     isConnected: store.hasOutlookToken,
                     isAvailable: store.outlookManagedOAuthAvailable
                 )
-
                 pendingIntegrationRow(
-                    title: pendingTitle(name: "ClickUp", isConnected: store.hasClickUpToken, isAvailable: store.clickUpManagedOAuthAvailable),
-                    subtitle: pendingSubtitle(connected: "Pronto para sincronizar quando ativado.", isConnected: store.hasClickUpToken, isAvailable: store.clickUpManagedOAuthAvailable),
+                    name: "ClickUp",
                     systemImage: "checklist",
                     isConnected: store.hasClickUpToken,
                     isAvailable: store.clickUpManagedOAuthAvailable
                 )
-
                 pendingIntegrationRow(
-                    title: pendingTitle(name: "Linear", isConnected: store.hasLinearToken, isAvailable: store.linearManagedOAuthAvailable),
-                    subtitle: pendingSubtitle(connected: "Pronto para sincronizar quando ativado.", isConnected: store.hasLinearToken, isAvailable: store.linearManagedOAuthAvailable),
+                    name: "Linear",
                     systemImage: "arrow.up.right.square",
                     isConnected: store.hasLinearToken,
                     isAvailable: store.linearManagedOAuthAvailable
                 )
-
                 pendingIntegrationRow(
-                    title: pendingTitle(name: "Zapier", isConnected: store.zapierConfigured, isAvailable: store.zapierManagedConnectionAvailable),
-                    subtitle: pendingSubtitle(connected: "Automacao pronta neste Mac.", isConnected: store.zapierConfigured, isAvailable: store.zapierManagedConnectionAvailable),
+                    name: "Zapier",
                     systemImage: "bolt.horizontal",
                     isConnected: store.zapierConfigured,
                     isAvailable: store.zapierManagedConnectionAvailable
                 )
             }
 
-            pendingStatusMessages
-        }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.12), cornerRadius: 30)
-    }
-
-    @ViewBuilder
-    private var pendingStatusMessages: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ForEach(pendingConnectionMessages, id: \.self) { message in
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    private var aiClassificationCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("IA de classificacao")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.white)
-
-                    Text("Sugira categorias para apps e sites usando a IA do Luum.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
+            let messages = pendingConnectionMessages
+            if !messages.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(messages, id: \.self) { msg in
+                        Text(msg)
+                            .font(.caption)
+                            .foregroundStyle(LuumTheme.textSecondary)
+                    }
                 }
+            }
+        }
+    }
 
+    private var aiClassificationSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label("IA de classificação", systemImage: "sparkles")
+                    .font(.headline)
+                    .foregroundStyle(.white)
                 Spacer()
-
-                CompactStatPill(
-                    title: store.aiClassificationConfigured ? "Pronta" : "Pendente",
-                    detail: store.aiClassificationSettings.model
-                )
+                Text(store.aiClassificationConfigured ? "Pronta" : "Pendente")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(store.aiClassificationConfigured ? LuumTheme.emerald : LuumTheme.textMuted)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(.white.opacity(0.06)))
             }
 
-            Toggle("Ativar sugestoes por IA", isOn: Binding(
+            Toggle("Ativar sugestões por IA", isOn: Binding(
                 get: { store.aiClassificationSettings.isEnabled },
                 set: { store.updateAIClassificationEnabled($0) }
             ))
@@ -327,258 +327,201 @@ struct SettingsView: View {
                 Text(message)
                     .font(.caption)
                     .foregroundStyle(LuumTheme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("A IA usa a configuracao segura da sua conta Luum.")
+            Text("A IA usa a configuração segura da sua conta Luum — sem expor chaves.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
-                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.12), cornerRadius: 30)
     }
 
-    private var teamCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Equipe e ranking")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.white)
+    // MARK: - Captura
 
-                    Text("Ranking de equipe conectado pela sua conta Luum.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer()
-
-                CompactStatPill(
-                    title: store.teamRankingUsesPreviewData ? "Preview" : "Live",
-                    detail: "ranking"
-                )
-            }
-
-            simpleInfoRow(
-                systemImage: "person.2",
-                title: store.teamSettings.organizationName.isEmpty ? "Workspace Luum" : store.teamSettings.organizationName,
-                subtitle: store.teamSettings.memberDisplayName.isEmpty ? "Perfil da conta atual" : store.teamSettings.memberDisplayName
-            )
-
-            TextField("Workspace ID", text: Binding(
-                get: { store.teamSettings.workspaceID },
-                set: { store.updateTeamWorkspaceID($0) }
-            ))
-            .textFieldStyle(.roundedBorder)
-
-            HStack(spacing: 10) {
-                SecureField(
-                    store.hasWorkspaceSecret ? "Chave salva neste Mac" : "Chave compartilhada do workspace",
-                    text: $workspaceSecretDraft
-                )
-                .textFieldStyle(.roundedBorder)
-
-                Button(store.hasWorkspaceSecret ? "Atualizar chave" : "Salvar chave") {
-                    store.updateTeamWorkspaceSecret(workspaceSecretDraft)
-                    workspaceSecretDraft = ""
-                }
-                .buttonStyle(.bordered)
-                .disabled(workspaceSecretDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-
-            Text("O primeiro membro cria o workspace. Os demais usam o mesmo ID e a mesma chave de convite.")
+    @ViewBuilder
+    private var capturaSection: some View {
+        // Estado atual
+        SettingsRow(
+            symbol: store.isMonitoring ? "circle.fill" : "circle.slash",
+            title: "Estado da captura",
+            tint: store.isMonitoring ? LuumTheme.emerald : LuumTheme.textMuted
+        ) {
+            Text(store.isMonitoring ? "Captura ativa em background." : "Captura pausada.")
+                .foregroundStyle(.white)
+            Text("\(store.trackedAppsCount) apps · \(store.trackedSitesCount) sites no histórico")
+                .foregroundStyle(LuumTheme.textSecondary)
                 .font(.caption)
+        }
+
+        // Permissões do sistema
+        SettingsRow(
+            symbol: "safari",
+            title: "Permissão de navegador",
+            tint: ActivityCategory.communication.tint
+        ) {
+            Text(store.automationStatusMessage ?? "Automação do macOS autorizada.")
+                .foregroundStyle(LuumTheme.textSecondary)
+            Text("Necessária para classificar sites pela aba ativa.")
+                .foregroundStyle(LuumTheme.textMuted)
+                .font(.caption)
+
+            Button("Abrir Privacidade › Automação") {
+                SystemSettings.openAutomationPrivacy()
+            }
+            .buttonStyle(.bordered)
+            .padding(.top, 4)
+        }
+
+        SettingsRow(
+            symbol: "keyboard",
+            title: "Monitoramento de entrada",
+            tint: ActivityCategory.utilities.tint
+        ) {
+            Text(store.inputMonitoringMessage ?? "Permissão ativa para detectar inatividade.")
+                .foregroundStyle(LuumTheme.textSecondary)
+            Text("Opcional — o Luum funciona sem ela.")
+                .foregroundStyle(LuumTheme.textMuted)
+                .font(.caption)
+
+            Button("Solicitar acesso") {
+                store.requestInputMonitoringAccess()
+            }
+            .buttonStyle(.bordered)
+            .padding(.top, 4)
+        }
+
+        // Histórico local
+        SettingsRow(
+            symbol: "folder",
+            title: "Histórico local",
+            tint: LuumTheme.electricBlue
+        ) {
+            Text("Atividades salvas em JSON no Application Support.")
                 .foregroundStyle(LuumTheme.textSecondary)
 
-            Toggle("Compartilhar metricas anonimizadas no workspace", isOn: Binding(
-                get: { store.teamSettings.sharesAnonymousMetrics },
-                set: { store.updateTeamSharesAnonymousMetrics($0) }
-            ))
-            .toggleStyle(.switch)
-
-            Toggle("Sincronizar ranking automaticamente", isOn: Binding(
-                get: { store.teamSettings.automaticallySyncWorkspace },
-                set: { store.updateTeamAutomaticallySyncWorkspace($0) }
-            ))
-            .toggleStyle(.switch)
-
-            HStack(spacing: 10) {
-                Button("Sincronizar") {
-                    store.syncWorkspaceRankingNow()
-                }
-                .buttonStyle(.glassProminent)
-                .disabled(!store.teamSettings.sharesAnonymousMetrics || !store.teamWorkspaceConfigured || store.isSyncingWorkspace)
+            Button("Abrir pasta do histórico") {
+                SystemSettings.openActivityLogFolder()
             }
-
-            if let message = store.workspaceSyncStatusMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            .buttonStyle(.bordered)
+            .padding(.top, 4)
         }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.hotPink.opacity(0.12), cornerRadius: 30)
-    }
 
-    private var privacyCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        // Privacidade
+        VStack(alignment: .leading, spacing: 14) {
             Text("Privacidade local")
-                .font(.title3.weight(.semibold))
+                .font(.headline)
                 .foregroundStyle(.white)
 
-            Toggle("Salvar titulos das abas", isOn: Binding(
-                get: { store.privacySettings.storesPageTitles },
-                set: { store.updatePrivacyStorePageTitles($0) }
-            ))
-            .toggleStyle(.switch)
+            VStack(spacing: 10) {
+                Toggle("Salvar títulos das abas", isOn: Binding(
+                    get: { store.privacySettings.storesPageTitles },
+                    set: { store.updatePrivacyStorePageTitles($0) }
+                )).toggleStyle(.switch)
 
-            Toggle("Salvar URLs completas", isOn: Binding(
-                get: { store.privacySettings.storesFullURLs },
-                set: { store.updatePrivacyStoreFullURLs($0) }
-            ))
-            .toggleStyle(.switch)
+                Toggle("Salvar URLs completas", isOn: Binding(
+                    get: { store.privacySettings.storesFullURLs },
+                    set: { store.updatePrivacyStoreFullURLs($0) }
+                )).toggleStyle(.switch)
 
-            Toggle("No backup, enviar apenas dominios", isOn: Binding(
-                get: { store.privacySettings.syncOnlyDomains },
-                set: { store.updatePrivacySyncOnlyDomains($0) }
-            ))
-            .toggleStyle(.switch)
+                Toggle("No backup, enviar apenas domínios", isOn: Binding(
+                    get: { store.privacySettings.syncOnlyDomains },
+                    set: { store.updatePrivacySyncOnlyDomains($0) }
+                )).toggleStyle(.switch)
+            }
 
             Stepper(value: Binding(
                 get: { store.privacySettings.retentionDays },
                 set: { store.updatePrivacyRetentionDays($0) }
-            ), in: 7 ... 365, step: 1) {
-                Text("Retencao local: \(store.privacySettings.retentionDays) dias")
+            ), in: 7 ... 365) {
+                Text("Retenção local: \(store.privacySettings.retentionDays) dias")
                     .foregroundStyle(.white)
             }
 
-            Text("Os titulos e URLs agora podem ser reduzidos automaticamente antes de irem para disco ou para o backup, o que melhora privacidade e desempenho.")
-                .foregroundStyle(LuumTheme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            Text("Títulos e URLs podem ser reduzidos antes de irem para disco ou backup.")
+                .font(.caption)
+                .foregroundStyle(LuumTheme.textMuted)
         }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.14), cornerRadius: 30)
+        .padding(20)
+        .luumCard(cornerRadius: 20)
     }
 
-    private var cloudSyncCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Firebase / Firestore Sync")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.white)
+    // MARK: - Backup
 
-                    Text("Backup seguro da sua conta Luum para recuperar preferências e resumos.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
+    @ViewBuilder
+    private var backupSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label("Firebase / Firestore Sync", systemImage: "icloud")
+                    .font(.headline)
+                    .foregroundStyle(.white)
                 Spacer()
-
-                if let cloudSyncLastSyncAt = store.cloudSyncLastSyncAt {
-                    Text("Ultimo sync \(LuumFormatters.relativeTime(until: cloudSyncLastSyncAt))")
+                if let lastSync = store.cloudSyncLastSyncAt {
+                    Text("Sync \(LuumFormatters.relativeTime(until: lastSync))")
                         .font(.caption)
                         .foregroundStyle(LuumTheme.textMuted)
                 }
             }
 
-            Toggle("Ativar backup automatico", isOn: Binding(
+            Text("Backup seguro da sua conta Luum para recuperar preferências e resumos.")
+                .foregroundStyle(LuumTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Toggle("Ativar backup automático", isOn: Binding(
                 get: { store.cloudSyncSettings.isEnabled },
                 set: { store.updateCloudSyncEnabled($0) }
             ))
             .toggleStyle(.switch)
             .disabled(!store.canUse(.cloudBackup))
 
-            simpleInfoRow(
-                systemImage: "person.crop.circle",
-                title: store.accountEmail.isEmpty ? "Entre com sua conta Luum" : store.accountEmail,
-                subtitle: store.cloudSyncConfigured ? "Backup pronto" : "Aguardando login e plano compativel"
-            )
-
-            HStack(spacing: 10) {
-                Button("Sincronizar agora") {
-                    store.syncCloudBackupNow()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(!store.canUse(.cloudBackup) || !store.cloudSyncConfigured || store.isSyncingCloud)
-
-                Button("Restaurar backup") {
-                    store.restoreCloudBackup()
-                }
-                .buttonStyle(.bordered)
-                .disabled(!store.canUse(.cloudBackup) || !store.cloudSyncConfigured || store.isSyncingCloud)
-            }
-
-            Toggle("Sincronizar atividades brutas", isOn: Binding(
+            Toggle("Incluir atividades brutas", isOn: Binding(
                 get: { store.cloudSyncSettings.syncRawActivities },
                 set: { store.updateCloudSyncSyncRawActivities($0) }
             ))
             .toggleStyle(.switch)
             .disabled(!store.canUse(.rawActivityBackup))
 
-            if let cloudSyncStatusMessage = store.cloudSyncStatusMessage {
-                Text(cloudSyncStatusMessage)
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: "person.crop.circle")
+                    .font(.title3)
+                    .foregroundStyle(.white)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(store.accountEmail.isEmpty ? "Entre com sua conta Luum" : store.accountEmail)
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                    Text(store.cloudSyncConfigured ? "Backup pronto" : "Aguardando login e plano compatível")
+                        .font(.caption)
+                        .foregroundStyle(LuumTheme.textSecondary)
+                }
+                Spacer()
+            }
+            .padding(14)
+            .background(RoundedRectangle(cornerRadius: 14).fill(.white.opacity(0.04)))
+
+            HStack(spacing: 10) {
+                Button("Sincronizar agora") { store.syncCloudBackupNow() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!store.canUse(.cloudBackup) || !store.cloudSyncConfigured || store.isSyncingCloud)
+
+                Button("Restaurar backup") { store.restoreCloudBackup() }
+                    .buttonStyle(.bordered)
+                    .disabled(!store.canUse(.cloudBackup) || !store.cloudSyncConfigured || store.isSyncingCloud)
+            }
+
+            if let message = store.cloudSyncStatusMessage {
+                Text(message)
                     .font(.caption)
                     .foregroundStyle(LuumTheme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Text("Dados sensíveis das conexões ficam fora do backup.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
-                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(22)
-        .luumGlassCard(tint: ActivityCategory.work.glassTint, cornerRadius: 30)
+        .padding(20)
+        .luumCard(cornerRadius: 20)
     }
 
-    private var actionRow: some View {
-        HStack(spacing: 12) {
-            Button("Abrir Privacidade > Automacao") {
-                SystemSettings.openAutomationPrivacy()
-            }
-            .buttonStyle(.glassProminent)
-
-            Button("Solicitar monitoramento de entrada") {
-                store.requestInputMonitoringAccess()
-            }
-            .buttonStyle(.borderedProminent)
-
-            Button("Abrir pasta do historico") {
-                SystemSettings.openActivityLogFolder()
-            }
-            .buttonStyle(.bordered)
-        }
-    }
-
-    private var classificationCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Classificacao inicial")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
-
-            ForEach(store.rulePreviews) { preview in
-                HStack(alignment: .top, spacing: 14) {
-                    Image(systemName: preview.category.systemImage)
-                        .foregroundStyle(preview.category.tint)
-                        .frame(width: 18)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(preview.category.title)
-                            .font(.headline)
-                            .foregroundStyle(.white)
-
-                        Text(preview.examples.joined(separator: ", "))
-                            .foregroundStyle(LuumTheme.textSecondary)
-                    }
-                }
-                .padding(16)
-                .luumGlassCard(tint: preview.category.glassTint, cornerRadius: 26, shadowOpacity: 0.14)
-            }
-        }
-    }
+    // MARK: - Helpers
 
     private var activeIntegrationCount: Int {
         [
@@ -591,20 +534,7 @@ struct SettingsView: View {
             store.zapierSettings.isEnabled && store.zapierConfigured,
             store.cloudSyncSettings.isEnabled && store.cloudSyncConfigured,
         ]
-        .filter { $0 }
-        .count
-    }
-
-    private var pendingProviderConnectedCount: Int {
-        [
-            store.hasNotionToken,
-            store.hasOutlookToken,
-            store.hasClickUpToken,
-            store.hasLinearToken,
-            store.zapierConfigured,
-        ]
-        .filter { $0 }
-        .count
+        .filter { $0 }.count
     }
 
     private var pendingConnectionMessages: [String] {
@@ -616,8 +546,8 @@ struct SettingsView: View {
             store.linearStatusMessage,
             store.zapierStatusMessage,
         ]
-        .compactMap { message in
-            let trimmed = message?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        .compactMap { msg in
+            let trimmed = msg?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard !trimmed.isEmpty, !seen.contains(trimmed) else { return nil }
             seen.insert(trimmed)
             return trimmed
@@ -628,356 +558,176 @@ struct SettingsView: View {
         switch kind {
         case .aiClassification:
             if store.aiClassificationConfigured {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Ativo",
+                return .init(kind: kind, status: "Ativo",
                     detail: AIClassificationService.isLuumBackendEndpoint(store.aiClassificationSettings.endpointURL)
                         ? "Protegida pela conta Luum"
                         : "\(store.aiClassificationSettings.providerName) \(store.aiClassificationSettings.model)",
-                    tint: LuumTheme.secondaryAccent
-                )
+                    tint: LuumTheme.secondaryAccent)
             }
-
             if store.aiClassificationSettings.isEnabled {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Parcial",
+                return .init(kind: kind, status: "Parcial",
                     detail: AIClassificationService.isLuumBackendEndpoint(store.aiClassificationSettings.endpointURL)
-                        ? "Entre no Luum para liberar"
-                        : "Configuracao pendente",
-                    tint: LuumTheme.hotPink
-                )
+                        ? "Entre no Luum para liberar" : "Configuração pendente",
+                    tint: LuumTheme.hotPink)
             }
+            return .init(kind: kind, status: "Desativado", detail: "Sugestões opcionais", tint: LuumTheme.textMuted)
 
-            return IntegrationSnapshot(
-                kind: kind,
-                status: "Desativado",
-                detail: "Sugestoes opcionais",
-                tint: LuumTheme.textMuted
-            )
         case .googleCalendar:
             if store.isGoogleCalendarConnected {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Ativo",
+                return .init(kind: kind, status: "Ativo",
                     detail: "\(store.googleCalendarConnections.count) conta(s) conectada(s)",
-                    tint: LuumTheme.electricBlue
-                )
+                    tint: LuumTheme.electricBlue)
             }
-
             if store.isGoogleCalendarConfigured {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Pronto",
-                    detail: "Login disponivel",
-                    tint: LuumTheme.secondaryAccent
-                )
+                return .init(kind: kind, status: "Pronto", detail: "Login disponível", tint: LuumTheme.secondaryAccent)
             }
+            return .init(kind: kind, status: "Pendente", detail: "Conexão pendente", tint: LuumTheme.textMuted)
 
-            return IntegrationSnapshot(
-                kind: kind,
-                status: "Pendente",
-                detail: "Conexao pendente",
-                tint: LuumTheme.textMuted
-            )
         case .notionCalendar:
             if store.notionCalendarSettings.isEnabled && store.notionCalendarConfigured {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Ativo",
-                    detail: "\(store.notionCalendarSettings.databaseIDs.count) fonte(s) conectada(s)",
-                    tint: LuumTheme.secondaryAccent
-                )
+                return .init(kind: kind, status: "Ativo",
+                    detail: "\(store.notionCalendarSettings.databaseIDs.count) fonte(s)",
+                    tint: LuumTheme.secondaryAccent)
             }
-
             if store.notionManagedOAuthAvailable {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Pronto",
-                    detail: "Conexao guiada preparada",
-                    tint: LuumTheme.secondaryAccent
-                )
+                return .init(kind: kind, status: "Pronto", detail: "Conexão guiada preparada", tint: LuumTheme.secondaryAccent)
             }
-
             if store.notionCalendarSettings.isEnabled {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Parcial",
-                    detail: "Conexao pendente",
-                    tint: LuumTheme.hotPink
-                )
+                return .init(kind: kind, status: "Parcial", detail: "Conexão pendente", tint: LuumTheme.hotPink)
             }
+            return .init(kind: kind, status: "Desativado", detail: "Integração opcional", tint: LuumTheme.textMuted)
 
-            return IntegrationSnapshot(
-                kind: kind,
-                status: "Desativado",
-                detail: "Integracao opcional",
-                tint: LuumTheme.textMuted
-            )
         case .outlookCalendar:
             if store.outlookCalendarSettings.isEnabled && store.outlookCalendarConfigured {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Ativo",
-                    detail: "\(store.outlookCalendarSettings.calendars.filter(\.isSelected).count) calendario(s) sincronizados",
-                    tint: LuumTheme.electricBlue
-                )
+                return .init(kind: kind, status: "Ativo",
+                    detail: "\(store.outlookCalendarSettings.calendars.filter(\.isSelected).count) calendário(s)",
+                    tint: LuumTheme.electricBlue)
             }
-
             if store.outlookManagedOAuthAvailable {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Pronto",
-                    detail: "Conexao guiada preparada",
-                    tint: LuumTheme.electricBlue
-                )
+                return .init(kind: kind, status: "Pronto", detail: "Conexão guiada preparada", tint: LuumTheme.electricBlue)
             }
-
             if store.outlookCalendarSettings.isEnabled {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Parcial",
-                    detail: "Conexao pendente",
-                    tint: LuumTheme.hotPink
-                )
+                return .init(kind: kind, status: "Parcial", detail: "Conexão pendente", tint: LuumTheme.hotPink)
             }
+            return .init(kind: kind, status: "Desativado", detail: "Integração opcional", tint: LuumTheme.textMuted)
 
-            return IntegrationSnapshot(
-                kind: kind,
-                status: "Desativado",
-                detail: "Integracao opcional",
-                tint: LuumTheme.textMuted
-            )
         case .clickUp:
             if store.clickUpSettings.isEnabled && store.clickUpConfigured {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Ativo",
-                    detail: "\(store.clickUpSettings.listIDs.count) lista(s) conectada(s)",
-                    tint: LuumTheme.hotPink
-                )
+                return .init(kind: kind, status: "Ativo",
+                    detail: "\(store.clickUpSettings.listIDs.count) lista(s)",
+                    tint: LuumTheme.hotPink)
             }
-
             if store.clickUpManagedOAuthAvailable {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Pronto",
-                    detail: "Conexao guiada preparada",
-                    tint: LuumTheme.secondaryAccent
-                )
+                return .init(kind: kind, status: "Pronto", detail: "Conexão guiada preparada", tint: LuumTheme.secondaryAccent)
             }
-
             if store.clickUpSettings.isEnabled {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Parcial",
-                    detail: "Conexao pendente",
-                    tint: LuumTheme.secondaryAccent
-                )
+                return .init(kind: kind, status: "Parcial", detail: "Conexão pendente", tint: LuumTheme.secondaryAccent)
             }
+            return .init(kind: kind, status: "Desativado", detail: "Integração opcional", tint: LuumTheme.textMuted)
 
-            return IntegrationSnapshot(
-                kind: kind,
-                status: "Desativado",
-                detail: "Integracao opcional",
-                tint: LuumTheme.textMuted
-            )
         case .linear:
             if store.linearSettings.isEnabled && store.linearConfigured {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Ativo",
-                    detail: "\(store.linearSettings.teamIDs.count) time(s) conectados",
-                    tint: LuumTheme.secondaryAccent
-                )
+                return .init(kind: kind, status: "Ativo",
+                    detail: "\(store.linearSettings.teamIDs.count) time(s)",
+                    tint: LuumTheme.secondaryAccent)
             }
-
             if store.linearManagedOAuthAvailable {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Pronto",
-                    detail: "Conexao guiada preparada",
-                    tint: LuumTheme.secondaryAccent
-                )
+                return .init(kind: kind, status: "Pronto", detail: "Conexão guiada preparada", tint: LuumTheme.secondaryAccent)
             }
-
             if store.linearSettings.isEnabled {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Parcial",
-                    detail: "Conexao pendente",
-                    tint: LuumTheme.hotPink
-                )
+                return .init(kind: kind, status: "Parcial", detail: "Conexão pendente", tint: LuumTheme.hotPink)
             }
+            return .init(kind: kind, status: "Desativado", detail: "Integração opcional", tint: LuumTheme.textMuted)
 
-            return IntegrationSnapshot(
-                kind: kind,
-                status: "Desativado",
-                detail: "Integracao opcional",
-                tint: LuumTheme.textMuted
-            )
         case .zapier:
             if store.zapierSettings.isEnabled && store.zapierConfigured {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Ativo",
-                    detail: "Automacoes prontas",
-                    tint: ActivityCategory.work.tint
-                )
+                return .init(kind: kind, status: "Ativo", detail: "Automações prontas", tint: ActivityCategory.work.tint)
             }
-
             if store.zapierManagedConnectionAvailable {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Pronto",
-                    detail: "Conexao guiada preparada",
-                    tint: ActivityCategory.work.tint
-                )
+                return .init(kind: kind, status: "Pronto", detail: "Conexão guiada preparada", tint: ActivityCategory.work.tint)
             }
-
             if store.zapierSettings.isEnabled {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Parcial",
-                    detail: "Conexao pendente",
-                    tint: LuumTheme.hotPink
-                )
+                return .init(kind: kind, status: "Parcial", detail: "Conexão pendente", tint: LuumTheme.hotPink)
             }
+            return .init(kind: kind, status: "Desativado", detail: "Automação opcional", tint: LuumTheme.textMuted)
 
-            return IntegrationSnapshot(
-                kind: kind,
-                status: "Desativado",
-                detail: "Integracao opcional",
-                tint: LuumTheme.textMuted
-            )
         case .firebaseSync:
             if store.cloudSyncSettings.isEnabled && store.cloudSyncConfigured {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Ativo",
-                    detail: "Backup pronto para nuvem",
-                    tint: ActivityCategory.work.tint
-                )
+                return .init(kind: kind, status: "Ativo", detail: "Backup pronto para nuvem", tint: ActivityCategory.work.tint)
             }
-
             if store.cloudSyncSettings.isEnabled {
-                return IntegrationSnapshot(
-                    kind: kind,
-                    status: "Parcial",
-                    detail: "Entre no Luum para ativar",
-                    tint: LuumTheme.hotPink
-                )
+                return .init(kind: kind, status: "Parcial", detail: "Entre no Luum para ativar", tint: LuumTheme.hotPink)
             }
-
-            return IntegrationSnapshot(
-                kind: kind,
-                status: "Desativado",
-                detail: "Sync opcional",
-                tint: LuumTheme.textMuted
-            )
+            return .init(kind: kind, status: "Desativado", detail: "Sync opcional", tint: LuumTheme.textMuted)
         }
     }
 
-    private func pendingTitle(name: String, isConnected: Bool, isAvailable: Bool) -> String {
-        if isConnected {
-            return "\(name) conectado"
-        }
-        return isAvailable ? "Conectar \(name)" : "\(name) em breve"
-    }
-
-    private func pendingSubtitle(connected: String, isConnected: Bool, isAvailable: Bool) -> String {
-        if isConnected {
-            return connected
-        }
-        return isAvailable
-            ? "Conexao guiada disponivel pela conta Luum."
-            : "Login guiado sera liberado pelo Luum, sem token manual."
-    }
-
-    private func settingsCard(title: String, lines: [String], tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
-
-            ForEach(lines, id: \.self) { line in
-                Text(line)
-                    .foregroundStyle(LuumTheme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(22)
-        .luumGlassCard(tint: tint, cornerRadius: 30)
-    }
-
-    private func simpleInfoRow(systemImage: String, title: String, subtitle: String) -> some View {
-        HStack(alignment: .center, spacing: 14) {
+    private func pendingIntegrationRow(name: String, systemImage: String, isConnected: Bool, isAvailable: Bool) -> some View {
+        HStack(spacing: 12) {
             Image(systemName: systemImage)
-                .font(.title3.weight(.semibold))
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
-                .frame(width: 28, height: 28)
+                .frame(width: 24, height: 24)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(isConnected ? "\(name) conectado" : name)
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white)
-
-                Text(subtitle)
+                Text(isConnected
+                    ? "Pronto para sincronizar."
+                    : (isAvailable ? "Conexão guiada disponível." : "Login guiado será liberado pelo Luum."))
                     .font(.caption)
                     .foregroundStyle(LuumTheme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer()
-        }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.white.opacity(0.045))
-        )
-    }
-
-    private func pendingIntegrationRow(title: String, subtitle: String, systemImage: String, isConnected: Bool, isAvailable: Bool) -> some View {
-        HStack(alignment: .center, spacing: 14) {
-            Image(systemName: systemImage)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
-                .frame(width: 28, height: 28)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundStyle(.white)
-
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer()
 
             if isConnected {
-                Button("Conectado") {}
-                    .buttonStyle(.bordered)
-                    .disabled(true)
-            } else if isAvailable {
-                Button("Conectar") {}
-                    .buttonStyle(.glassProminent)
-                    .disabled(true)
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(LuumTheme.emerald)
             } else {
-                Button("Em breve") {}
+                Button("Conectar \(name)") {}
                     .buttonStyle(.bordered)
-                    .disabled(true)
+                    .controlSize(.small)
+                    .disabled(!isAvailable)
             }
         }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.white.opacity(0.045))
-        )
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 14).fill(.white.opacity(0.04)))
     }
 }
+
+// MARK: - SettingsRow
+
+private struct SettingsRow<Content: View>: View {
+    let symbol: String
+    let title: String
+    let tint: Color
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: symbol)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 28, height: 28)
+                    .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+            }
+
+            content
+                .padding(.leading, 38)
+        }
+        .padding(20)
+        .luumCard(cornerRadius: 20)
+    }
+}
+
+// MARK: - AppVersionInfo
 
 private struct AppVersionInfo {
     let version: String
@@ -998,49 +748,7 @@ private struct AppVersionInfo {
     }
 }
 
-private struct ChipListCard: View {
-    let title: String
-    let items: [String]
-    let tint: Color
-    let onDelete: (String) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.7))
-
-            VStack(spacing: 8) {
-                ForEach(items, id: \.self) { item in
-                    HStack(spacing: 12) {
-                        Circle()
-                            .fill(tint)
-                            .frame(width: 8, height: 8)
-
-                        Text(item)
-                            .foregroundStyle(.white)
-                            .font(.caption.weight(.semibold))
-                            .textSelection(.enabled)
-
-                        Spacer()
-
-                        Button(role: .destructive) {
-                            onDelete(item)
-                        } label: {
-                            Image(systemName: "trash")
-                        }
-                        .buttonStyle(.borderless)
-                    }
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(.white.opacity(0.03))
-                    )
-                }
-            }
-        }
-    }
-}
+// MARK: - IntegrationSnapshot
 
 private struct IntegrationSnapshot: Identifiable {
     let kind: IntegrationKind
@@ -1051,18 +759,21 @@ private struct IntegrationSnapshot: Identifiable {
     var id: String { kind.id }
 }
 
+// MARK: - IntegrationStatusTile
+
 private struct IntegrationStatusTile: View {
     let snapshot: IntegrationSnapshot
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Image(systemName: snapshot.kind.systemImage)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(snapshot.tint)
 
             Text(snapshot.kind.title)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
+                .lineLimit(1)
 
             Text(snapshot.status)
                 .font(.caption.weight(.semibold))
@@ -1071,37 +782,38 @@ private struct IntegrationStatusTile: View {
             Text(snapshot.detail)
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(2)
         }
-        .frame(maxWidth: .infinity, minHeight: 126, alignment: .topLeading)
-        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 110, alignment: .topLeading)
+        .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(.white.opacity(0.03))
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(snapshot.tint.opacity(0.14))
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(snapshot.tint.opacity(0.12))
         }
     }
 }
+
+// MARK: - GoogleConnectionCard
 
 private struct GoogleConnectionCard: View {
     @Bindable var store: ActivityStore
     let connection: GoogleCalendarConnectionSnapshot
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 12) {
                 Toggle(isOn: Binding(
                     get: { connection.isEnabled },
                     set: { store.setGoogleCalendarConnectionEnabled(connection.id, isEnabled: $0) }
                 )) {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 3) {
                         Text(connection.profile.name)
                             .foregroundStyle(.white)
                             .font(.headline)
-
                         Text(connection.profile.email)
                             .foregroundStyle(LuumTheme.textSecondary)
                             .font(.caption)
@@ -1119,46 +831,34 @@ private struct GoogleConnectionCard: View {
                 .buttonStyle(.borderless)
             }
 
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Calendarios incluidos")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.72))
+            Text("Calendários incluídos")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.6))
 
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 10)], spacing: 10) {
-                    ForEach(connection.calendars) { calendar in
-                        Toggle(isOn: Binding(
-                            get: { calendar.isSelected },
-                            set: { store.setCalendarSelection(connectionID: connection.id, calendarID: calendar.id, isSelected: $0) }
-                        )) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(calendar.title)
-                                    .foregroundStyle(.white)
-                                    .font(.caption.weight(.semibold))
-                                    .lineLimit(1)
-
-                                Text(calendar.isPrimary ? "Principal" : (calendar.accessRole ?? "calendar"))
-                                    .foregroundStyle(LuumTheme.textSecondary)
-                                    .font(.caption2)
-                            }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 8)], spacing: 8) {
+                ForEach(connection.calendars) { calendar in
+                    Toggle(isOn: Binding(
+                        get: { calendar.isSelected },
+                        set: { store.setCalendarSelection(connectionID: connection.id, calendarID: calendar.id, isSelected: $0) }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(calendar.title)
+                                .foregroundStyle(.white)
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(1)
+                            Text(calendar.isPrimary ? "Principal" : (calendar.accessRole ?? "calendar"))
+                                .foregroundStyle(LuumTheme.textSecondary)
+                                .font(.caption2)
                         }
-                        .toggleStyle(.checkbox)
-                        .padding(10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .fill(.white.opacity(0.02))
-                        )
                     }
+                    .toggleStyle(.checkbox)
+                    .padding(10)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(.white.opacity(0.02)))
                 }
             }
         }
-        .padding(18)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(.white.opacity(0.02))
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(.white.opacity(0.05))
-        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 18).fill(.white.opacity(0.02)))
+        .overlay { RoundedRectangle(cornerRadius: 18).stroke(.white.opacity(0.05)) }
     }
 }

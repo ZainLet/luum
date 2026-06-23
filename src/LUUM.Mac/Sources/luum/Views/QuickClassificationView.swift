@@ -25,7 +25,7 @@ enum QuickClassificationKind {
     var helperText: String {
         switch self {
         case .applications:
-            "Os apps com mais tempo no dia aparecem primeiro. Voce pode trocar a categoria ou ocultar um item sem abrir uma lista enorme de regras. Se ocultar um navegador, os sites dele continuam aparecendo na aba de sites."
+            "Os apps com mais tempo no dia aparecem primeiro. Você pode trocar a categoria ou ocultar um item sem abrir uma lista enorme de regras. Se ocultar um navegador, os sites dele continuam aparecendo na aba de sites."
         case .websites:
             "Os dominios mais presentes no dia aparecem primeiro. Ajuste a categoria com um clique ou bloqueie um site para ele sair das metricas."
         }
@@ -349,7 +349,7 @@ private struct QuickClassificationRow: View {
             }
             .buttonStyle(.borderless)
             .disabled(!store.aiClassificationConfigured || store.isClassifyingWithAI)
-            .help(store.aiClassificationConfigured ? "Classificar com IA" : "Configure a IA nas preferencias")
+            .help(store.aiClassificationConfigured ? "Classificar com IA" : "Configure a IA nas preferências")
 
             Button(role: .destructive) {
                 kind.ignore(item, using: store)

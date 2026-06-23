@@ -19,7 +19,7 @@ struct BusinessWorkspaceView: View {
                 LuumSectionHeader(
                     eyebrow: "Operacao",
                     title: "Clientes, projetos e tarefas",
-                    subtitle: "Monte a base comercial que transforma rastreamento de tempo em rentabilidade, contratos e relatorios por cliente."
+                    subtitle: "Monte a base comercial que transforma rastreamento de tempo em rentabilidade, contratos e relatórios por cliente."
                 )
 
                 metricsRow
