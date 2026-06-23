@@ -1366,3 +1366,67 @@ section .eyebrow {
         width: 100%;
     }
 }
+
+/* ── Download section ─────────────────────────────────────────────────────── */
+.hero-system-req {
+    margin-top: 14px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+}
+
+.btn-download { display: inline-flex; align-items: center; gap: 2px; position: relative; }
+.download-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: rgba(255,255,255,0.18);
+    color: #fff;
+    vertical-align: 1px;
+}
+
+.download-section { padding: 80px 0; }
+.download-card {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: start;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 48px;
+}
+.download-left h2 { font-size: 2rem; margin-bottom: 12px; }
+.download-left p { color: var(--text-secondary); margin-bottom: 28px; font-size: 1rem; }
+.download-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 24px; }
+.download-meta { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.download-meta li {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.875rem; color: var(--text-muted);
+}
+.download-meta svg { flex-shrink: 0; color: var(--accent); }
+
+.download-steps { padding: 28px; background: rgba(255,255,255,0.03); border-radius: var(--radius-md); border: 1px solid var(--border-subtle); }
+.download-steps-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 16px; font-weight: 600; }
+.download-steps ol { padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+.download-steps li { font-size: 0.9375rem; color: var(--text-secondary); line-height: 1.5; }
+.download-steps li strong { color: var(--text-primary); }
+.download-steps code { font-size: 0.85em; background: rgba(255,255,255,0.08); padding: 1px 6px; border-radius: 4px; }
+.download-gatekeeper-note {
+    margin-top: 16px; padding: 12px; border-radius: var(--radius-md);
+    background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.15);
+    font-size: 0.82rem; color: #fcd34d; line-height: 1.5;
+}
+.download-gatekeeper-note kbd {
+    font-family: inherit; background: rgba(255,255,255,0.1); border-radius: 4px;
+    padding: 1px 5px; font-size: 0.9em;
+}
+
+@media (max-width: 768px) {
+    .download-card { grid-template-columns: 1fr; padding: 28px; gap: 28px; }
+}

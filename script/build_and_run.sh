@@ -338,7 +338,83 @@ NOTES
   cp "$pkg_path.txt" "$stable_pkg_path.txt"
   cp "$pkg_path.txt" "$latest_pkg_path.txt"
 
-  echo "$pkg_path"
+  # ── DMG ────────────────────────────────────────────────────────────────────
+  local dmg_name="Luum-${APP_VERSION}-${RELEASE_CHANNEL}"
+  local dmg_tmp="$release_dir/_tmp_${dmg_name}.dmg"
+  local dmg_path="$release_dir/${dmg_name}.dmg"
+  local stable_dmg_path="$release_dir/Luum-${APP_VERSION}-${RELEASE_CHANNEL}-latest.dmg"
+  rm -f "$dmg_tmp" "$dmg_path" "$stable_dmg_path" "$dmg_path.sha256" "$stable_dmg_path.sha256"
+
+  # Gera imagem de fundo PNG escura (python3 nativo, sem deps)
+  local bg_png="$release_dir/_dmg_bg.png"
+  python3 - "$bg_png" <<'PYSCRIPT'
+import struct, zlib, sys
+W, H = 560, 340
+r, g, b = 10, 7, 20  # dark #0a0714
+def chunk(tag, data):
+    raw = tag + data
+    return struct.pack('>I', len(data)) + raw + struct.pack('>I', zlib.crc32(raw) & 0xffffffff)
+row = b'\x00' + bytes([r, g, b] * W)
+compressed = zlib.compress(row * H, 9)
+png = (b'\x89PNG\r\n\x1a\n'
+       + chunk(b'IHDR', struct.pack('>IIBBBBB', W, H, 8, 2, 0, 0, 0))
+       + chunk(b'IDAT', compressed)
+       + chunk(b'IEND', b''))
+with open(sys.argv[1], 'wb') as f:
+    f.write(png)
+PYSCRIPT
+
+  # Staging: app + symlink Applications
+  local dmg_stage
+  dmg_stage="$(mktemp -d)"
+  /usr/bin/ditto --norsrc --noextattr --noacl --noqtn "$APP_BUNDLE" "$dmg_stage/Luum.app"
+  ln -s /Applications "$dmg_stage/Applications"
+
+  # Cria DMG leitura/escrita
+  hdiutil create \
+    -volname "Luum $APP_VERSION" \
+    -srcfolder "$dmg_stage" \
+    -ov -format UDRW \
+    -size 80m \
+    "$dmg_tmp" >/dev/null
+  rm -rf "$dmg_stage"
+
+  # Monta e personaliza janela via Finder/AppleScript
+  local device
+  device="$(hdiutil attach -readwrite -noverify -noautoopen "$dmg_tmp" 2>/dev/null | awk '/\/dev\/disk/{print $1}' | head -1)"
+  local volname="Luum $APP_VERSION"
+  sleep 2
+  osascript <<APPLESCRIPT 2>/dev/null || true
+tell application "Finder"
+  tell disk "$volname"
+    open
+    set current view of container window to icon view
+    set toolbar visible of container window to false
+    set statusbar visible of container window to false
+    set bounds of container window to {200, 120, 760, 460}
+    set theViewOptions to the icon view options of container window
+    set arrangement of theViewOptions to not arranged
+    set icon size of theViewOptions to 108
+    set background picture of theViewOptions to POSIX file "$bg_png"
+    set position of item "Luum.app" of container window to {155, 170}
+    set position of item "Applications" of container window to {405, 170}
+    update without registering applications
+    close
+  end tell
+end tell
+APPLESCRIPT
+  sync
+  hdiutil detach "$device" >/dev/null 2>&1 || true
+  rm -f "$bg_png"
+
+  # Converte para comprimido somente-leitura
+  hdiutil convert "$dmg_tmp" -format UDZO -imagekey zlib-level=9 -o "$dmg_path" >/dev/null
+  rm -f "$dmg_tmp"
+  cp "$dmg_path" "$stable_dmg_path"
+  shasum -a 256 "$dmg_path" >"$dmg_path.sha256"
+  shasum -a 256 "$stable_dmg_path" >"$stable_dmg_path.sha256"
+
+  echo "$dmg_path"
 }
 
 open_app() {

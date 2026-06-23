@@ -83,22 +83,32 @@ final class LUUMAppDelegate: NSObject, NSApplicationDelegate, UNUserNotification
 struct LUUMApp: App {
     @NSApplicationDelegateAdaptor(LUUMAppDelegate.self) private var appDelegate
     @State private var store = ActivityStore()
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
     var body: some Scene {
         WindowGroup(id: "main") {
-            ContentView(store: store)
-                .frame(minWidth: 1280, minHeight: 820)
-                .tint(LuumTheme.accent)
-                .task {
-                    store.bootstrap()
+            Group {
+                if hasCompletedOnboarding {
+                    ContentView(store: store)
+                        .frame(minWidth: 1280, minHeight: 820)
+                } else {
+                    OnboardingView(store: store) {
+                        hasCompletedOnboarding = true
+                    }
+                    .frame(width: 760, height: 600)
                 }
-                .onOpenURL { url in
-                    store.handleAuthCallbackURL(url)
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .luumAuthCallbackReceived)) { notification in
-                    guard let url = notification.object as? URL else { return }
-                    store.handleAuthCallbackURL(url)
-                }
+            }
+            .tint(LuumTheme.accent)
+            .task {
+                store.bootstrap()
+            }
+            .onOpenURL { url in
+                store.handleAuthCallbackURL(url)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .luumAuthCallbackReceived)) { notification in
+                guard let url = notification.object as? URL else { return }
+                store.handleAuthCallbackURL(url)
+            }
         }
         .defaultSize(width: 1440, height: 920)
         .commands {
