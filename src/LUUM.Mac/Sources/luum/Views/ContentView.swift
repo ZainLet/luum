@@ -436,23 +436,10 @@ private struct SidebarHero: View {
         VStack(alignment: .leading, spacing: 12) {
             // Brand row: logo L + nome/plano + pulsing dot
             HStack(alignment: .center, spacing: 11) {
-                // Logo "L" 34x34 com gradiente accent
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [LuumTheme.accent, Color(red: 0.725, green: 0.651, blue: 1.0)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 34, height: 34)
-                        .shadow(color: LuumTheme.accent.opacity(0.5), radius: 7, x: 0, y: 4)
-
-                    Text("L")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(.white)
-                }
+                // Logo real do Luum 34x34 com sombra accent
+                LuumAppMark(size: 34)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .shadow(color: LuumTheme.accent.opacity(0.5), radius: 7, x: 0, y: 4)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Luum")
