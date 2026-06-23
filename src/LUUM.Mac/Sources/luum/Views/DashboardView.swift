@@ -56,63 +56,96 @@ struct DashboardView: View {
         }
     }
 
+    private var heroSubtitleText: String {
+        if let categoryTitle = store.currentActivityCategory?.title {
+            return categoryTitle
+        }
+        return store.isMonitoring ? "Aguardando classificacao · captura local ligada" : "Monitoramento pausado"
+    }
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                contextHeader
+            VStack(alignment: .leading, spacing: 20) {
+                // Cabecalho: saudacao + navegacao de data (SEM card wrapper)
+                pageHeader
                     .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : -14)
-                    .animation(.spring(duration: 0.6, bounce: 0.25), value: appeared)
+                    .offset(y: appeared ? 0 : -12)
+                    .animation(.spring(duration: 0.5, bounce: 0.2), value: appeared)
+
+                // Card hero: atividade atual + proxima agenda
+                heroCard
+                    .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : 12)
+                    .animation(.spring(duration: 0.55, bounce: 0.18).delay(0.06), value: appeared)
+
+                // Barra de IA
+                aiPromptField
+                    .opacity(appeared ? 1 : 0)
+                    .animation(.spring(duration: 0.4, bounce: 0.15).delay(0.10), value: appeared)
 
                 aiResponseCard
-                    .animation(.spring(duration: 0.4, bounce: 0.2), value: store.isQueryingAI)
-                    .animation(.spring(duration: 0.4, bounce: 0.2), value: store.aiQueryResponse != nil)
-                    .animation(.spring(duration: 0.4, bounce: 0.2), value: store.aiQueryError != nil)
+                    .animation(.spring(duration: 0.35, bounce: 0.15), value: store.isQueryingAI)
+                    .animation(.spring(duration: 0.35, bounce: 0.15), value: store.aiQueryResponse != nil)
+                    .animation(.spring(duration: 0.35, bounce: 0.15), value: store.aiQueryError != nil)
+
+                // 3 cartoes de metricas
+                metricsStrip
+                    .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : 14)
+                    .animation(.spring(duration: 0.55, bounce: 0.18).delay(0.14), value: appeared)
 
                 if store.needsOnboarding {
                     onboardingCard
                         .opacity(appeared ? 1 : 0)
-                        .offset(y: appeared ? 0 : -8)
-                        .animation(.spring(duration: 0.55, bounce: 0.2).delay(0.07), value: appeared)
+                        .animation(.spring(duration: 0.5, bounce: 0.15).delay(0.18), value: appeared)
                 }
 
+                // Grade 2 colunas: categorias + agenda + acoes
                 HStack(alignment: .top, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 16) {
-                        metricsStrip
-                            .opacity(appeared ? 1 : 0)
-                            .offset(y: appeared ? 0 : 14)
-                            .animation(.spring(duration: 0.58, bounce: 0.2).delay(0.10), value: appeared)
+                    // Esquerda: grafico de categorias (~380pt)
+                    performanceCard
+                        .frame(width: 380)
 
-                        quickActionStrip
-                            .opacity(appeared ? 1 : 0)
-                            .offset(y: appeared ? 0 : 14)
-                            .animation(.spring(duration: 0.58, bounce: 0.2).delay(0.18), value: appeared)
-
-                        timelineBoard
-                            .opacity(appeared ? 1 : 0)
-                            .offset(y: appeared ? 0 : 14)
-                            .animation(.spring(duration: 0.58, bounce: 0.2).delay(0.26), value: appeared)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-
+                    // Direita: agenda + atalhos
                     VStack(spacing: 14) {
                         agendaCard
-                        performanceCard
-                        topBreakdownsCard
+
+                        // Atalhos rapidos (2 chips horizontais)
+                        HStack(spacing: 10) {
+                            HomeActionChip(
+                                title: "Relatorio semanal",
+                                detail: "tendencias e export",
+                                tint: LuumTheme.accent,
+                                symbol: "chart.xyaxis.line",
+                                action: openReports
+                            )
+                            HomeActionChip(
+                                title: "Equipe e ranking",
+                                detail: "ao vivo",
+                                // #35e6a3 — verde esmeralda
+                                tint: Color(red: 0.208, green: 0.902, blue: 0.639),
+                                symbol: "person.2.fill",
+                                action: openTeam
+                            )
+                        }
                     }
-                    .frame(width: 312)
-                    .opacity(appeared ? 1 : 0)
-                    .offset(x: appeared ? 0 : 20)
-                    .animation(.spring(duration: 0.65, bounce: 0.15).delay(0.13), value: appeared)
+                    .frame(maxWidth: .infinity)
                 }
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 16)
+                .animation(.spring(duration: 0.6, bounce: 0.15).delay(0.20), value: appeared)
             }
-            .padding(20)
+            .padding(.horizontal, 44)
+            .padding(.top, 34)
+            .padding(.bottom, 34)
         }
         .scrollIndicators(.hidden)
         .task {
             appeared = true
         }
     }
+
+    // MARK: - onboardingCard
 
     private var onboardingCard: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -174,88 +207,199 @@ struct DashboardView: View {
         .luumGlassCard(tint: LuumTheme.accent.opacity(0.14), cornerRadius: 32)
     }
 
-    private var contextHeader: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top, spacing: 22) {
-                VStack(alignment: .leading, spacing: 14) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(greetingTitle)
-                            .font(.system(size: 34, weight: .bold, design: .default))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.white, LuumTheme.electricBlue.opacity(0.72)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .animation(.easeInOut(duration: 0.4), value: greetingTitle)
+    // MARK: - pageHeader
 
-                        Text("Aqui está o que importa hoje.")
-                            .font(.body)
-                            .foregroundStyle(LuumTheme.textSecondary)
-                    }
+    // SEM card wrapper — apenas layout HStack com eyebrow + titulo 33px + date nav
+    private var pageHeader: some View {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 6) {
+                // Eyebrow: 11px weight:600 tracking:.09em color:#6e6e76
+                Text("VISAO GERAL")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.463)) // #6e6e76
+                    .tracking(0.99) // ~.09em at 11px
 
-                    HStack(spacing: 10) {
-                        StatusPill(
-                            title: store.isMonitoring ? "Captura ativa" : "Captura pausada",
-                            detail: store.currentActivityCategory?.title ?? "Monitoramento local",
-                            tint: store.currentActivityCategory?.tint ?? LuumTheme.cyanGreen
-                        )
+                // Titulo: 33px weight:680 tracking:-.02em color:#f5f5f7
+                Text("\(greetingTitle), Luum")
+                    .font(.system(size: 33, weight: .bold))
+                    .foregroundStyle(Color(red: 0.961, green: 0.961, blue: 0.969)) // #f5f5f7
+                    .tracking(-0.66) // -.02em at 33px
+                    .animation(.easeInOut(duration: 0.4), value: greetingTitle)
 
-                        StatusPill(
-                            title: agenda.isConnected ? "Agenda conectada" : "Agenda desconectada",
-                            detail: agenda.isConnected ? "\(agenda.selectedCalendarCount) fonte(s)" : "Agenda integrada",
-                            tint: agenda.isConnected ? LuumTheme.electricBlue : LuumTheme.hotPink
-                        )
-
-                        StatusPill(
-                            title: LuumFormatters.dayLabel(selectedDay),
-                            detail: "dia selecionado",
-                            tint: LuumTheme.secondaryAccent
-                        )
-
-                        if store.focusShieldProfilesCount > 0 {
-                            StatusPill(
-                                title: store.currentFocusBlockMatch == nil ? "Escudo pronto" : "Bloqueio ativo",
-                                detail: store.currentFocusBlockMatch?.title ?? "\(store.focusShieldProfilesCount) perfil(is)",
-                                tint: store.currentFocusBlockMatch == nil ? LuumTheme.hotPink : LuumTheme.electricBlue
-                            )
-                        }
-                    }
-                }
-
-                Spacer(minLength: 12)
-
-                VStack(alignment: .trailing, spacing: 14) {
-                    DashboardDatePanel(selectedDay: $selectedDay)
-                    summarySnapshotCard
-                        .frame(width: 330)
-                }
+                // Subtitulo: 15px color:#9a9aa2
+                Text("Aqui esta o que importa agora.")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Color(red: 0.604, green: 0.604, blue: 0.635)) // #9a9aa2
             }
 
-            aiPromptField
+            Spacer(minLength: 20)
+
+            // Date nav: chevron-left + pill com data + chip "Hoje" accent + chevron-right
+            DashboardDatePanel(selectedDay: $selectedDay)
         }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.10), cornerRadius: 20, shadowOpacity: 0.08)
     }
 
+    // MARK: - heroCard
+
+    private var heroCard: some View {
+        HStack(alignment: .top, spacing: 0) {
+            // Atividade atual
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    LuumPulsingDot(isActive: store.isMonitoring, color: LuumTheme.accent, size: 7)
+                    Text("Agora".uppercased())
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.463)) // #6e6e76
+                        .tracking(0.72) // .06em
+                }
+
+                Text(store.isMonitoring ? store.currentActivityTitle : "Nenhuma atividade ativa")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .tracking(-0.3)
+                    .lineLimit(2)
+                    .padding(.top, 10)
+                    .animation(.easeInOut(duration: 0.3), value: store.currentActivityTitle)
+
+                Text(heroSubtitleText)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.463)) // #6e6e76
+                    .padding(.top, 4)
+
+                HStack(spacing: 10) {
+                    // Iniciar foco: background accent + shadow
+                    Button {
+                        openFocus()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 12, weight: .semibold))
+                            Text("Iniciar foco")
+                                .font(.system(size: 14, weight: .semibold))
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                .fill(LuumTheme.accent)
+                                .shadow(color: LuumTheme.accent.opacity(0.45), radius: 12, x: 0, y: 6)
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    // Conectar agenda: rgba(255,255,255,.07)
+                    Button {
+                        openAgenda()
+                    } label: {
+                        Text("Conectar agenda")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                    .fill(Color.white.opacity(0.07))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 20)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(26)
+            // Decoracao radial absoluta: posicionada no topTrailing, FORA do padding como overlay
+            .overlay(alignment: .topTrailing) {
+                RadialGradient(
+                    colors: [LuumTheme.accent.opacity(0.22), .clear],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: 120
+                )
+                .frame(width: 240, height: 240)
+                .offset(x: 40, y: -60)
+                .allowsHitTesting(false)
+            }
+            .clipped()
+
+            // Divisor vertical: 1px rgba(255,255,255,.08)
+            Rectangle()
+                .fill(Color.white.opacity(0.08))
+                .frame(width: 1)
+
+            // Proxima agenda: width:300
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Proxima agenda".uppercased())
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.463)) // #6e6e76
+                    .tracking(0.72)
+
+                if let nextEvent = agenda.nextEvent {
+                    Text(nextEvent.title)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .padding(.top, 4)
+
+                    Text(nextEvent.isAllDay ? "Dia inteiro" : LuumFormatters.timeRange(start: nextEvent.startDate, end: nextEvent.endDate))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(LuumTheme.electricBlue)
+
+                    Text("\(nextEvent.accountLabel) · \(nextEvent.calendarTitle)")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.463))
+                        .padding(.top, 2)
+                } else {
+                    Text("Sem compromisso em fila")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.top, 4)
+
+                    Text(agenda.isConnected
+                        ? "Nenhum evento nas proximas horas."
+                        : "Conecte Google, Notion ou Outlook para o Luum comparar o plano com o uso real.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.463))
+                        .lineLimit(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 6)
+                }
+            }
+            .frame(width: 300, alignment: .topLeading)
+            .padding(26)
+        }
+        // overflow:hidden via clipped no container
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white.opacity(0.04))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    // MARK: - aiPromptField
+
+    // height:58px, fundo accent.opacity(0.07), border accent.opacity(0.22), sparkle accentLight, badge "Em breve"
     private var aiPromptField: some View {
         HStack(spacing: 12) {
             if store.isQueryingAI {
                 ProgressView()
                     .scaleEffect(0.65)
-                    .frame(width: 14, height: 14)
+                    .frame(width: 20, height: 20)
             } else {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(LuumTheme.electricBlue)
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(Color(red: 0.725, green: 0.651, blue: 1.0))
             }
 
             TextField(
-                "Pergunte ao Luum... \"O que fiz hoje?\" ou \"Qual projeto está em risco?\"",
+                "Pergunte ao Luum... \"O que fiz hoje?\" ou \"Qual projeto esta em risco?\"",
                 text: $aiQuery
             )
-            .font(.subheadline)
+            .font(.system(size: 15))
             .foregroundStyle(.white)
             .textFieldStyle(.plain)
             .disabled(store.isQueryingAI)
@@ -272,31 +416,44 @@ struct DashboardView: View {
                     aiQuery = ""
                 } label: {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(LuumTheme.accent)
                 }
                 .buttonStyle(.plain)
                 .transition(.scale(scale: 0.7).combined(with: .opacity))
+            } else if aiQuery.isEmpty && !store.isQueryingAI {
+                // Badge "Em breve": background rgba(255,255,255,.06), radius 7, padding 4 10, 12px weight:600 #9a9aa2
+                Text("Em breve")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.604, green: 0.604, blue: 0.635)) // #9a9aa2
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(Color.white.opacity(0.06))
+                    )
             }
         }
-        .animation(.spring(duration: 0.25, bounce: 0.3), value: aiQuery.isEmpty || store.isQueryingAI)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 13)
+        .animation(.spring(duration: 0.22, bounce: 0.25), value: aiQuery.isEmpty || store.isQueryingAI)
+        .padding(.horizontal, 18)
+        .frame(height: 58)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(LuumTheme.panelFillStrong)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(LuumTheme.accent.opacity(0.07))
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(
                     store.isQueryingAI
-                        ? LuumTheme.accent.opacity(0.45)
-                        : LuumTheme.electricBlue.opacity(0.22),
+                        ? LuumTheme.accent.opacity(0.50)
+                        : LuumTheme.accent.opacity(0.22),
                     lineWidth: 1
                 )
-                .animation(.easeInOut(duration: 0.3), value: store.isQueryingAI)
+                .animation(.easeInOut(duration: 0.25), value: store.isQueryingAI)
         }
     }
+
+    // MARK: - aiResponseCard
 
     @ViewBuilder
     private var aiResponseCard: some View {
@@ -373,51 +530,23 @@ struct DashboardView: View {
         }
     }
 
-    private var summarySnapshotCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            SnapshotLine(
-                eyebrow: "Agora",
-                title: store.currentActivityTitle,
-                detail: store.currentActivityCategory?.title ?? "Aguardando nova atividade",
-                tint: store.currentActivityCategory?.tint ?? LuumTheme.accent
-            )
+    // MARK: - metricsStrip
 
-            Divider()
-                .overlay(.white.opacity(0.06))
-
-            SnapshotLine(
-                eyebrow: "Proxima agenda",
-                title: agenda.nextEvent?.title ?? "Sem compromisso em fila",
-                detail: nextAgendaLabel,
-                tint: LuumTheme.electricBlue
-            )
-        }
-        .padding(16)
-        .luumGlassCard(tint: LuumTheme.accent.opacity(0.10), cornerRadius: 16, shadowOpacity: 0.08)
-    }
-
+    // 3 cards em grid 1fr 1fr 1fr, gap:16, label 12px uppercase, valor 30px bold, detalhe 13px accentLight com →
     private var metricsStrip: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 16) {
             OverviewMetricCard(
                 title: "Tempo capturado",
                 value: LuumFormatters.duration(summary.totalTrackedTime),
-                detail: "historico do dia",
+                detail: "historico do dia →",
                 tint: LuumTheme.accent,
-                action: openApps
-            )
-
-            OverviewMetricCard(
-                title: "Tempo planejado",
-                value: LuumFormatters.duration(agenda.plannedTime),
-                detail: "agenda do dia",
-                tint: LuumTheme.secondaryAccent,
-                action: openAgenda
+                action: openReports
             )
 
             OverviewMetricCard(
                 title: "Cobertura",
                 value: trackedVersusPlanned,
-                detail: "real vs agenda",
+                detail: "real vs agenda →",
                 tint: LuumTheme.electricBlue,
                 action: openAgenda
             )
@@ -425,94 +554,20 @@ struct DashboardView: View {
             OverviewMetricCard(
                 title: "Categoria lider",
                 value: leadingCategory?.category.title ?? "Sem dados",
-                detail: leadingCategory.map { LuumFormatters.duration($0.duration) } ?? "aguardando uso",
-                tint: leadingCategory?.category.tint ?? LuumTheme.hotPink,
+                detail: leadingCategory.map { LuumFormatters.duration($0.duration) + " capturados" } ?? "aguardando uso",
+                tint: leadingCategory?.category.tint ?? LuumTheme.textMuted,
                 action: openCategories
             )
         }
     }
 
-    private var quickActionStrip: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
-            QuickActionCard(
-                title: "Busca global",
-                detail: "encontre qualquer contexto",
-                symbol: "magnifyingglass",
-                tint: LuumTheme.accent,
-                action: { openSearch("") }
-            )
-
-            QuickActionCard(
-                title: "Foco e metas",
-                detail: "acompanhe limites, metas e bloqueios",
-                symbol: "target",
-                tint: LuumTheme.electricBlue,
-                action: openFocus
-            )
-
-            QuickActionCard(
-                title: "Relatorio semanal",
-                detail: "veja tendencias e exporte",
-                symbol: "chart.xyaxis.line",
-                tint: LuumTheme.hotPink,
-                action: openReports
-            )
-
-            QuickActionCard(
-                title: "Equipe e ranking",
-                detail: store.teamRankingUsesPreviewData ? "ative o workspace real" : "ranking ao vivo da empresa",
-                symbol: "person.3.fill",
-                tint: LuumTheme.secondaryAccent,
-                action: openTeam
-            )
-        }
-    }
-
-    private var timelineBoard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Linha do tempo")
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(.white)
-
-                    Text("Atividade real e agenda ficam lado a lado para voce entender o dia sem blocos sobrepostos nem excesso de informacao.")
-                        .foregroundStyle(LuumTheme.textSecondary)
-                }
-
-                Spacer()
-
-                Button("Apps e sites") {
-                    openApps()
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(LuumTheme.textSecondary)
-
-                HStack(spacing: 8) {
-                    LegendChip(title: "Atividade real", tint: LuumTheme.accent)
-                    LegendChip(title: "Agenda integrada", tint: LuumTheme.electricBlue)
-                }
-            }
-
-            TimelineScene(
-                store: store,
-                activities: summary.timelineActivities,
-                agendaItems: agenda.events,
-                openApps: openApps,
-                openAgenda: openAgenda
-            )
-            .frame(height: 620)
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.14), cornerRadius: 34)
-    }
+    // MARK: - agendaCard
 
     private var agendaCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Agenda")
-                    .font(.title3.weight(.semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.white)
 
                 Spacer()
@@ -521,7 +576,7 @@ struct DashboardView: View {
                     openAgenda()
                 }
                 .buttonStyle(.borderless)
-                .foregroundStyle(LuumTheme.textSecondary)
+                .foregroundStyle(Color(red: 0.725, green: 0.651, blue: 1.0))
 
                 if let lastSyncAt = agenda.lastSyncAt {
                     Text("sync \(LuumFormatters.relativeTime(until: lastSyncAt))")
@@ -601,15 +656,25 @@ struct DashboardView: View {
                 }
             }
         }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.12))
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.04))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+        }
     }
 
+    // MARK: - performanceCard
+
+    // Donut SVG 118x118 + legenda com square 9px + 13px text
     private var performanceCard: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
                 Text("Categorias")
-                    .font(.title3.weight(.semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.white)
 
                 Spacer()
@@ -618,7 +683,7 @@ struct DashboardView: View {
                     openCategories()
                 }
                 .buttonStyle(.borderless)
-                .foregroundStyle(LuumTheme.textSecondary)
+                .foregroundStyle(Color(red: 0.725, green: 0.651, blue: 1.0))
             }
 
             if summary.categoryBreakdown.isEmpty {
@@ -626,6 +691,7 @@ struct DashboardView: View {
                     .foregroundStyle(LuumTheme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
+                // Donut: frame 118x118 como no design
                 Chart(summary.categoryBreakdown) { bucket in
                     SectorMark(
                         angle: .value("Tempo", bucket.duration),
@@ -634,80 +700,43 @@ struct DashboardView: View {
                     )
                     .foregroundStyle(bucket.category.tint.gradient)
                 }
-                .frame(height: 190)
+                .frame(height: 118)
 
+                // Legenda: square 9x9 (nao circle) + 13px text
                 VStack(spacing: 10) {
                     ForEach(summary.categoryBreakdown.prefix(5)) { bucket in
                         HStack {
-                            Circle()
+                            // square 9px como no design (nao circle)
+                            RoundedRectangle(cornerRadius: 2, style: .continuous)
                                 .fill(bucket.category.tint)
-                                .frame(width: 10, height: 10)
+                                .frame(width: 9, height: 9)
 
                             Text(bucket.category.title)
+                                .font(.system(size: 13))
                                 .foregroundStyle(.white.opacity(0.9))
 
                             Spacer()
 
                             Text(LuumFormatters.duration(bucket.duration))
+                                .font(.system(size: 13, weight: .semibold))
                                 .foregroundStyle(bucket.category.tint)
-                                .font(.subheadline.weight(.semibold))
                         }
                     }
                 }
             }
         }
-        .padding(22)
-        .luumGlassCard(tint: LuumTheme.hotPink.opacity(0.12))
-    }
-
-    private var topBreakdownsCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Apps e sites")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.white)
-
-                Spacer()
-
-                HStack(spacing: 12) {
-                    Button("Apps") {
-                        openApps()
-                    }
-                    .buttonStyle(.borderless)
-
-                    Button("Sites") {
-                        openWebsites()
-                    }
-                    .buttonStyle(.borderless)
-                }
-                .foregroundStyle(LuumTheme.textSecondary)
-            }
-
-            BreakdownHighlight(
-                title: "Top app",
-                item: summary.appBreakdown.first,
-                emptyState: "Nenhum app consolidado ainda.",
-                tint: LuumTheme.accent
-            )
-
-            BreakdownHighlight(
-                title: "Top site",
-                item: summary.websiteBreakdown.first,
-                emptyState: "Nenhum site consolidado ainda.",
-                tint: LuumTheme.electricBlue
-            )
-
-            if let automationStatusMessage = store.automationStatusMessage {
-                Text(automationStatusMessage)
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.04))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.07), lineWidth: 1)
         }
-        .padding(22)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.12))
     }
+
+    // MARK: - handleOnboarding
 
     private func handleOnboarding(itemID: String) {
         switch itemID {
@@ -724,6 +753,8 @@ struct DashboardView: View {
         }
     }
 }
+
+// MARK: - TimelineScene
 
 private struct TimelineScene: View {
     let store: ActivityStore
@@ -745,7 +776,7 @@ private struct TimelineScene: View {
             TimelineColumnCard(title: "Atividade real", icon: "waveform.path.ecg.rectangle.fill", tint: LuumTheme.accent) {
                 if activities.isEmpty {
                     TimelineEmptyState(
-                        text: "Nenhuma atividade capturada neste dia. Certifique-se de que o monitoramento está ativo.",
+                        text: "Nenhuma atividade capturada neste dia. Certifique-se de que o monitoramento esta ativo.",
                         actionTitle: openApps != nil ? "Ver apps e sites" : nil,
                         action: openApps
                     )
@@ -774,7 +805,7 @@ private struct TimelineScene: View {
             TimelineColumnCard(title: "Agenda", icon: "calendar.badge.clock", tint: LuumTheme.electricBlue) {
                 if agendaItems.isEmpty {
                     TimelineEmptyState(
-                        text: "Nenhum compromisso das fontes integradas para o dia selecionado ou para os próximos 3 dias.",
+                        text: "Nenhum compromisso das fontes integradas para o dia selecionado ou para os proximos 3 dias.",
                         actionTitle: openAgenda != nil ? "Conectar agenda" : nil,
                         action: openAgenda
                     )
@@ -1259,6 +1290,11 @@ private struct QuickActionCard: View {
     }
 }
 
+// MARK: - OverviewMetricCard
+// label 12px uppercase tracking:.05em color:#6e6e76
+// valor 30px weight:680 tracking:-.02em (tabular-nums)
+// detalhe 13px color:accentLight cursor:pointer com →
+
 private struct OverviewMetricCard: View {
     let title: String
     let value: String
@@ -1270,84 +1306,125 @@ private struct OverviewMetricCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 0) {
+                // Label: 12px weight:600 tracking:.05em uppercase color:#6e6e76
                 Text(title.uppercased())
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(LuumTheme.textMuted)
-                    .tracking(1.1)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.463)) // #6e6e76
+                    .tracking(0.6) // ~.05em at 12px
 
+                // Valor: 30px weight bold (tabular-nums) tracking:-.02em
                 Text(value)
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(.white)
+                    .monospacedDigit()
                     .lineLimit(1)
                     .contentTransition(.numericText())
+                    .tracking(-0.6) // -.02em at 30px
+                    .padding(.top, 8)
 
+                // Detalhe: 13px accentLight (tint do card) com →
                 Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(tint.opacity(0.9))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(tint)
                     .lineLimit(1)
+                    .padding(.top, 4)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(18)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 18)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .scaleEffect(isHovered ? 1.018 : 1.0)
-        .brightness(isHovered ? 0.04 : 0)
-        .animation(.spring(duration: 0.22, bounce: 0.2), value: isHovered)
+        .scaleEffect(isHovered ? 1.015 : 1.0)
+        .animation(.spring(duration: 0.2, bounce: 0.2), value: isHovered)
         .onHover { isHovered = $0 }
-        .luumGlassCard(tint: tint.opacity(0.16), cornerRadius: 26, shadowOpacity: 0.14)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.04))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+        }
     }
 }
+
+// MARK: - DashboardDatePanel
+// chevron-left + pill com data (background rgba(255,255,255,.05) border .08 radius 10 padding 7 14 14px weight:600)
+// + chip "Hoje" (background rgba(124,92,255,.18) border rgba(124,92,255,.3) color accentLight)
+// + chevron-right
 
 private struct DashboardDatePanel: View {
     @Binding var selectedDay: Date
 
+    private var isToday: Bool {
+        Calendar.autoupdatingCurrent.isDateInToday(selectedDay)
+    }
+
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
+            // Chevron esquerdo
             Button {
                 shiftDay(by: -1)
             } label: {
                 Image(systemName: "chevron.left")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.plain)
 
-            HStack(spacing: 10) {
-                Image(systemName: "calendar")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(LuumTheme.textSecondary)
-
+            // Pill com data: background rgba(255,255,255,.05), border .08, radius 10, padding 7 14
+            HStack(spacing: 8) {
                 DatePicker("Dia", selection: $selectedDay, displayedComponents: .date)
                     .labelsHidden()
                     .datePickerStyle(.compact)
+                    .font(.system(size: 14, weight: .semibold))
                     .frame(width: 122)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
             .background(
-                Capsule(style: .continuous)
-                    .fill(LuumTheme.panelFill)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.white.opacity(0.05))
             )
             .overlay {
-                Capsule(style: .continuous)
-                    .stroke(LuumTheme.surfaceOutline)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
             }
 
+            // Chip "Hoje": accent bg quando selecionado, cinza quando nao
             Button("Hoje") {
                 selectedDay = Date()
             }
-            .buttonStyle(.borderless)
-            .foregroundStyle(LuumTheme.textSecondary)
+            .buttonStyle(.plain)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(isToday ? Color(red: 0.725, green: 0.651, blue: 1.0) : Color.white.opacity(0.6))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isToday ? LuumTheme.accent.opacity(0.18) : Color.clear)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(isToday ? LuumTheme.accent.opacity(0.30) : Color.white.opacity(0.08), lineWidth: 1)
+            }
 
+            // Chevron direito
             Button {
                 shiftDay(by: 1)
             } label: {
                 Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.plain)
         }
-        .font(.subheadline.weight(.semibold))
-        .foregroundStyle(.white)
     }
 
     private func shiftDay(by value: Int) {
@@ -1384,6 +1461,59 @@ private struct SnapshotLine: View {
                 .foregroundStyle(LuumTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+}
+
+// MARK: - HomeActionChip
+// icone 30x30 rounded-8 + titulo 13px weight:600 + detalhe 12px #6e6e76
+
+private struct HomeActionChip: View {
+    let title: String
+    let detail: String
+    let tint: Color
+    let symbol: String
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(tint.opacity(0.18))
+                        .frame(width: 30, height: 30)
+                    Image(systemName: symbol)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(tint)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white)
+                    Text(detail)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.463)) // #6e6e76
+                }
+
+                Spacer()
+            }
+            .padding(11)
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .fill(Color.white.opacity(isHovered ? 0.06 : 0.04))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+        }
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .onHover { isHovered = $0 }
     }
 }
 
