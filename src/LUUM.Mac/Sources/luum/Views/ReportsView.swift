@@ -18,7 +18,14 @@ struct ReportsView: View {
                 summaryCard(report: report)
                 highlightsCard(report: report)
                 goalsCard(report: report)
-                breakdownCard(title: "Top categorias", items: report.topCategories.prefix(8).map { ($0.category.title, LuumFormatters.duration($0.duration), $0.category.tint) })
+                breakdownCard(
+                    title: "Top categorias",
+                    items: report.topCategories.prefix(8).map { ($0.category.title, LuumFormatters.duration($0.duration), $0.category.tint) },
+                    fractions: {
+                        let max = report.topCategories.first?.duration ?? 1
+                        return report.topCategories.prefix(8).map { $0.duration / max }
+                    }()
+                )
                 breakdownCard(title: "Top apps", items: report.topApps.prefix(12).map { ($0.label, LuumFormatters.duration($0.duration), $0.category?.tint ?? LuumTheme.accent) })
                 breakdownCard(title: "Top sites", items: report.topSites.prefix(12).map { ($0.label, LuumFormatters.duration($0.duration), $0.category?.tint ?? LuumTheme.electricBlue) })
                 exportCard
@@ -109,7 +116,7 @@ struct ReportsView: View {
         .luumGlassCard(tint: LuumTheme.electricBlue.opacity(0.12), cornerRadius: 30)
     }
 
-    private func breakdownCard(title: String, items: [(String, String, Color)]) -> some View {
+    private func breakdownCard(title: String, items: [(String, String, Color)], fractions: [Double] = []) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(title)
                 .font(.title3.weight(.semibold))
@@ -119,21 +126,37 @@ struct ReportsView: View {
                 Text("Sem dados suficientes.")
                     .foregroundStyle(LuumTheme.textSecondary)
             } else {
-                ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                    HStack {
-                        Circle()
-                            .fill(item.2)
-                            .frame(width: 10, height: 10)
+                ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Circle()
+                                .fill(item.2)
+                                .frame(width: 10, height: 10)
 
-                        Text(item.0)
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
+                            Text(item.0)
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
 
-                        Spacer()
+                            Spacer()
 
-                        Text(item.1)
-                            .foregroundStyle(item.2)
-                            .font(.subheadline.weight(.semibold))
+                            Text(item.1)
+                                .foregroundStyle(item.2)
+                                .font(.subheadline.weight(.semibold))
+                        }
+
+                        if index < fractions.count {
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                        .fill(.white.opacity(0.06))
+                                        .frame(height: 6)
+                                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                        .fill(item.2)
+                                        .frame(width: geo.size.width * fractions[index], height: 6)
+                                }
+                            }
+                            .frame(height: 6)
+                        }
                     }
                     .padding(14)
                     .background(
@@ -212,7 +235,7 @@ private struct ReportMetricCard: View {
                 .tracking(1.1)
 
             Text(value)
-                .font(.title3.weight(.semibold))
+                .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(.white)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

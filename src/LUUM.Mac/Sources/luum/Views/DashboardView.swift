@@ -409,17 +409,6 @@ struct DashboardView: View {
                 }
                 .buttonStyle(.plain)
                 .transition(.scale(scale: 0.7).combined(with: .opacity))
-            } else if aiQuery.isEmpty && !store.isQueryingAI {
-                // Badge "Em breve": background rgba(255,255,255,.06), radius 7, padding 4 10, 12px weight:600 #9a9aa2
-                Text("Em breve")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color(red: 0.604, green: 0.604, blue: 0.635)) // #9a9aa2
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .fill(Color.white.opacity(0.06))
-                    )
             }
         }
         .animation(.spring(duration: 0.22, bounce: 0.25), value: aiQuery.isEmpty || store.isQueryingAI)
@@ -540,7 +529,7 @@ struct DashboardView: View {
             )
 
             OverviewMetricCard(
-                title: "Categoria lider",
+                title: "Categoria líder",
                 value: leadingCategory?.category.title ?? "Sem dados",
                 detail: leadingCategory.map { LuumFormatters.duration($0.duration) + " capturados" } ?? "aguardando uso",
                 tint: leadingCategory?.category.tint ?? LuumTheme.textMuted,

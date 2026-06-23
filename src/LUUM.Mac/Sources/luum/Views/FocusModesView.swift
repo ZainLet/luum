@@ -38,7 +38,7 @@ struct FocusModesView: View {
             VStack(alignment: .leading, spacing: 22) {
                 LuumSectionHeader(
                     eyebrow: "Foco",
-                    title: "Metas, foco e anti-distracao",
+                    title: "Metas, foco e anti-distração",
                     subtitle: "Configure limites, janelas de foco e metas por categoria para o luum ajudar você a manter o dia alinhado com a sua intenção."
                 )
 
@@ -135,7 +135,7 @@ struct FocusModesView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Bloqueio ativo agora", systemImage: "hand.raised.fill")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(LuumTheme.hotPink)
+                        .foregroundStyle(LuumTheme.accent)
 
                     Text(match.title)
                         .font(.headline.weight(.semibold))
@@ -148,7 +148,7 @@ struct FocusModesView: View {
                 .padding(16)
                 .background(
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .fill(LuumTheme.hotPink.opacity(0.08))
+                        .fill(LuumTheme.accent.opacity(0.08))
                 )
             } else if let focusShieldStatusMessage = store.focusShieldStatusMessage {
                 Text(focusShieldStatusMessage)
@@ -194,7 +194,7 @@ struct FocusModesView: View {
             }
         }
         .padding(22)
-        .luumGlassCard(tint: LuumTheme.hotPink.opacity(0.12), cornerRadius: 30)
+        .luumGlassCard(tint: LuumTheme.accent.opacity(0.10), cornerRadius: 30)
     }
 
     private var goalsCard: some View {
@@ -317,7 +317,7 @@ struct FocusModesView: View {
                 )
 
                 Stepper(value: $newProfileStartHour, in: 0 ... 23, step: 1) {
-                    Text("Inicio \(newProfileStartHour)h")
+                    Text("Início \(newProfileStartHour)h")
                         .foregroundStyle(.white)
                 }
 
@@ -552,7 +552,7 @@ private struct EditableFocusProfileCard: View {
                 )
 
                 Stepper(value: $startHour, in: 0 ... 23, step: 1) {
-                    Text("Inicio \(startHour)h")
+                    Text("Início \(startHour)h")
                         .foregroundStyle(.white)
                 }
 
@@ -690,7 +690,7 @@ private struct FocusBlockRuleEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Escudo anti-distracao")
+                Text("Escudo anti-distração")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white)
 
