@@ -17,8 +17,13 @@ const SETTINGS = {
     GOOGLE_CALENDAR_CLIENT_ID: { category: 'app', label: 'Google Calendar Client ID', env: 'GOOGLE_CALENDAR_CLIENT_ID' },
     OUTLOOK_CLIENT_ID: { category: 'app', label: 'Microsoft Outlook Client ID', env: 'OUTLOOK_CLIENT_ID' },
     NOTION_INTEGRATION_TOKEN: { category: 'app', label: 'Notion integration token', env: 'NOTION_INTEGRATION_TOKEN' },
+    NOTION_CLIENT_ID: { category: 'app', label: 'Notion OAuth client ID', env: 'NOTION_CLIENT_ID' },
+    NOTION_CLIENT_SECRET: { category: 'app', label: 'Notion OAuth client secret', env: 'NOTION_CLIENT_SECRET' },
     CLICKUP_API_TOKEN: { category: 'app', label: 'ClickUp API token', env: 'CLICKUP_API_TOKEN' },
+    CLICKUP_WEBHOOK_SECRET: { category: 'app', label: 'ClickUp webhook secret', env: 'CLICKUP_WEBHOOK_SECRET' },
     LINEAR_API_KEY: { category: 'app', label: 'Linear API key', env: 'LINEAR_API_KEY' },
+    LINEAR_CLIENT_ID: { category: 'app', label: 'Linear OAuth client ID', env: 'LINEAR_CLIENT_ID' },
+    LINEAR_CLIENT_SECRET: { category: 'app', label: 'Linear OAuth client secret', env: 'LINEAR_CLIENT_SECRET' },
     ZAPIER_WEBHOOK_URL: { category: 'app', label: 'Zapier webhook URL', env: 'ZAPIER_WEBHOOK_URL' }
 };
 

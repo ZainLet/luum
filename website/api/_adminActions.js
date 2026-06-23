@@ -347,6 +347,64 @@ async function stripeHealthHandler(req, res) {
     }
 }
 
+const VALID_CRASH_STATUSES = ['novo', 'em análise', 'resolvido', 'ignorado'];
+
+async function crashReportsHandler(req, res) {
+    addCors(req, res, { methods: 'GET, PATCH, OPTIONS' });
+    if (req.method === 'OPTIONS') return handleOptions(req, res, { methods: 'GET, PATCH, OPTIONS' });
+
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+
+        const db = getFirestore();
+
+        if (req.method === 'GET') {
+            const { uid, status, limit: limitStr } = req.query || {};
+            const limit = Math.min(parseInt(limitStr) || 100, 500);
+            let reports = [];
+
+            if (uid) {
+                const snap = await db.collection('crashReports').doc(uid).collection('reports')
+                    .orderBy('timestamp', 'desc').limit(limit).get();
+                snap.forEach((doc) => reports.push({ id: doc.id, uid, ...doc.data() }));
+            } else {
+                const usersSnap = await db.collection('crashReports').listDocuments();
+                const perUser = Math.max(5, Math.floor(limit / Math.max(usersSnap.length, 1)));
+                await Promise.all(usersSnap.map(async (userRef) => {
+                    let q = userRef.collection('reports').orderBy('timestamp', 'desc');
+                    if (status) q = q.where('status', '==', status);
+                    const snap = await q.limit(perUser).get();
+                    snap.forEach((doc) => reports.push({ id: doc.id, uid: userRef.id, ...doc.data() }));
+                }));
+                reports.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                if (reports.length > limit) reports = reports.slice(0, limit);
+            }
+            return res.status(200).json({ ok: true, reports, total: reports.length });
+        }
+
+        if (req.method === 'PATCH') {
+            const body = jsonBody(req);
+            const { uid, reportId, status } = body;
+            if (!uid || !reportId || !status) {
+                return res.status(400).json({ error: 'uid, reportId e status são obrigatórios.' });
+            }
+            if (!VALID_CRASH_STATUSES.includes(status)) {
+                return res.status(400).json({ error: `Status inválido. Use: ${VALID_CRASH_STATUSES.join(', ')}` });
+            }
+            await db.collection('crashReports').doc(uid).collection('reports').doc(reportId)
+                .update({ status, updatedAt: new Date().toISOString() });
+            return res.status(200).json({ ok: true });
+        }
+
+        return res.status(405).json({ error: 'Método não permitido.' });
+    } catch (err) {
+        const code = err.statusCode || 500;
+        if (code >= 500) console.error('[Admin CrashReports Error]', err);
+        return res.status(code).json({ error: err.statusCode ? err.message : 'Erro ao processar crash reports.' });
+    }
+}
+
 async function adminActionHandler(req, res) {
     switch (routeAction(req)) {
         case 'health':
@@ -357,6 +415,8 @@ async function adminActionHandler(req, res) {
             return integrationsHandler(req, res);
         case 'stripe-health':
             return stripeHealthHandler(req, res);
+        case 'crash-reports':
+            return crashReportsHandler(req, res);
         default:
             addCors(req, res, { methods: 'GET, POST, OPTIONS' });
             if (req.method === 'OPTIONS') return handleOptions(req, res, { methods: 'GET, POST, OPTIONS' });

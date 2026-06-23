@@ -100,6 +100,11 @@ function includesFeature(entitlement, feature) {
             return rank >= PLAN_RANK.negocios;
         case 'teamWorkspace':
             return rank >= PLAN_RANK.equipes;
+        case 'integration_notion':
+        case 'integration_clickup':
+        case 'integration_linear':
+        case 'integration_zapier':
+            return rank >= PLAN_RANK.profissional;
         default:
             return false;
     }

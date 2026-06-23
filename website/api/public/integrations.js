@@ -24,10 +24,10 @@ async function publicIntegrationsHandler(req, res) {
         managedOAuth: {
             googleCalendar: Boolean(googleCalendarClientID),
             outlookCalendar: false,
-            notion: false,
-            clickUp: false,
-            linear: false,
-            zapier: false
+            notion: true,
+            clickUp: true,
+            linear: true,
+            zapier: true
         }
     });
 }
