@@ -65,23 +65,23 @@
                 <span class="eyebrow">Soluções</span>
                 <h2>Para quem o Luum é feito?</h2>
                 <p class="section-subtitle">Transforme dados brutos de uso em decisões estratégicas. O Luum se adapta ao seu modelo de trabalho.</p>
-                <div class="solution-grid">
-                    <div class="solution-card fade-in">
+                <div class="solution-grid" data-stagger>
+                    <div class="solution-card">
                         <h3>Para Equipes Remotas</h3>
                         <p>Elimine a cegueira operacional do home office. Monitore engajamento, identifique sobrecarga e proteja o foco do time com dados, não suposições.</p>
                         <a href="#">Saiba mais <span class="arrow">&rarr;</span></a>
                     </div>
-                    <div class="solution-card fade-in">
+                    <div class="solution-card">
                         <h3>Para Freelancers</h3>
                         <p>Rastreie horas faturáveis com precisão cirúrgica. Compare o tempo planejado com o real e cobre de forma justa por cada minuto de valor entregue.</p>
                         <a href="#">Saiba mais <span class="arrow">&rarr;</span></a>
                     </div>
-                    <div class="solution-card fade-in">
+                    <div class="solution-card">
                         <h3>Para Profissionais</h3>
                         <p>Identifique seus padrões de context switching, descubra suas horas de ouro e elimine distrações que fragmentam seu foco diário.</p>
                         <a href="#">Saiba mais <span class="arrow">&rarr;</span></a>
                     </div>
-                    <div class="solution-card fade-in">
+                    <div class="solution-card">
                         <h3>Para Líderes</h3>
                         <p>Tenha visibilidade real da capacidade do time. Previna burnout antes que ocorra, aloque recursos com dados e tome decisões baseadas em fatos.</p>
                         <a href="#">Saiba mais <span class="arrow">&rarr;</span></a>
@@ -97,42 +97,42 @@
                 <h2>Deep Work. Sem esforço.</h2>
                 <p class="section-subtitle">O Luum transforma dados brutos de uso de aplicações em insights estratégicos para todo o time.</p>
 
-                <div class="feature-item fade-in">
-                    <div class="feature-text">
+                <div class="feature-item">
+                    <div class="feature-text" data-reveal="left">
                         <h3>Monitoramento Inteligente e Ético</h3>
                         <p>O Luum detecta automaticamente o aplicativo em foco e a URL exata da aba ativa. Com mais de 70 regras nativas de classificação, categoriza atividades em Trabalho, Reuniões, Desenvolvimento, Aprendizado, Comunicação ou Entretenimento.</p>
                     </div>
-                    <div class="feature-image">
+                    <div class="feature-image" data-reveal="right">
                         <img src="/assets/screenshots/luum-monitoramento.png" alt="Monitoramento Inteligente" loading="lazy">
                     </div>
                 </div>
 
-                <div class="feature-item reverse fade-in">
-                    <div class="feature-text">
+                <div class="feature-item reverse">
+                    <div class="feature-text" data-reveal="right">
                         <h3>Focus Shields</h3>
                         <p>Configure perfis de foco que bloqueiam sites e aplicativos durante períodos críticos. O sistema detecta sequências longas em categorias não produtivas e sugere pausas ou retomada de foco ativamente.</p>
                     </div>
-                    <div class="feature-image">
+                    <div class="feature-image" data-reveal="left">
                         <img src="/assets/screenshots/luum-foco.png" alt="Focus Shields" loading="lazy">
                     </div>
                 </div>
 
-                <div class="feature-item fade-in">
-                    <div class="feature-text">
+                <div class="feature-item">
+                    <div class="feature-text" data-reveal="left">
                         <h3>Dashboard de Insights</h3>
                         <p>Visualize a distribuição do tempo por categoria, aplicativo ou domínio. Identifique as horas de ouro do seu time, meça o custo real das reuniões e compare o planejado com o executado.</p>
                     </div>
-                    <div class="feature-image">
+                    <div class="feature-image" data-reveal="right">
                         <img src="/assets/screenshots/luum-dashboard.png" alt="Dashboard de Insights" loading="lazy">
                     </div>
                 </div>
 
-                <div class="feature-item reverse fade-in">
-                    <div class="feature-text">
+                <div class="feature-item reverse">
+                    <div class="feature-text" data-reveal="right">
                         <h3>Ranking de Equipe</h3>
                         <p>Para empresas, o Luum oferece visão comparativa da produtividade do time. Identifique colaboradores sobrecarregados, ferramentas redundantes e processos ineficientes que consomem horas valiosas.</p>
                     </div>
-                    <div class="feature-image">
+                    <div class="feature-image" data-reveal="left">
                         <img src="/assets/screenshots/luum-equipe.png" alt="Ranking de Equipe" loading="lazy">
                     </div>
                 </div>
@@ -151,15 +151,18 @@
                     <button class="toggle-btn" data-billing="annually">Anual <span class="save-badge">2 meses grátis</span></button>
                 </div>
 
-                <div class="pricing-grid">
-                    <div class="pricing-card fade-in">
+                <div class="pricing-grid" data-stagger>
+                    <div class="pricing-card">
                         <span class="plan-tag">Individual</span>
                         <h3>Essencial</h3>
                         <p class="plan-description">Para quem busca produtividade pessoal.</p>
                         <div class="price-display">
-                            <span class="price-monthly">R$ 29,90<span>/mês</span></span>
-                            <span class="price-annually hidden">R$ 24,92<span>/mês</span></span>
-                            <p class="billing-info price-annually hidden">R$ 299,00/ano; economize 16%</p>
+                            <div class="price-amount price-monthly">R$ 29,90<span class="price-period">/mês</span></div>
+                            <div class="price-amount price-annually hidden">R$ 24,92<span class="price-period">/mês</span></div>
+                            <div class="billing-info price-annually hidden">
+                                <span class="billing-total">R$ 299,00/ano</span>
+                                <span class="billing-save">−16%</span>
+                            </div>
                         </div>
                         <button class="btn btn-primary" data-checkout="essencial" data-plan="essencial">Assinar Agora</button>
                         <ul class="features-list">
@@ -173,14 +176,17 @@
                         </ul>
                     </div>
 
-                    <div class="pricing-card fade-in">
+                    <div class="pricing-card">
                         <span class="plan-tag">Freelancers</span>
                         <h3>Profissional</h3>
                         <p class="plan-description">Para freelancers que faturam por hora.</p>
                         <div class="price-display">
-                            <span class="price-monthly">R$ 49,90<span>/mês</span></span>
-                            <span class="price-annually hidden">R$ 41,58<span>/mês</span></span>
-                            <p class="billing-info price-annually hidden">R$ 499,00/ano; economize 16%</p>
+                            <div class="price-amount price-monthly">R$ 49,90<span class="price-period">/mês</span></div>
+                            <div class="price-amount price-annually hidden">R$ 41,58<span class="price-period">/mês</span></div>
+                            <div class="billing-info price-annually hidden">
+                                <span class="billing-total">R$ 499,00/ano</span>
+                                <span class="billing-save">−16%</span>
+                            </div>
                         </div>
                         <button class="btn btn-primary" data-checkout="profissional" data-plan="profissional">Assinar Agora</button>
                         <ul class="features-list">
@@ -195,14 +201,17 @@
                         </ul>
                     </div>
 
-                    <div class="pricing-card fade-in featured-plan">
+                    <div class="pricing-card featured-plan">
                         <span class="plan-tag">Mais Popular</span>
                         <h3>Equipes (Startup)</h3>
                         <p class="plan-description">Para startups e pequenas equipes.</p>
                         <div class="price-display">
-                            <span class="price-monthly">R$ 45,00<span>/usuário/mês</span></span>
-                            <span class="price-annually hidden">R$ 37,50<span>/usuário/mês</span></span>
-                            <p class="billing-info price-annually hidden">R$ 450,00/usuário/ano; economize 16%</p>
+                            <div class="price-amount price-monthly">R$ 45,00<span class="price-period">/usuário/mês</span></div>
+                            <div class="price-amount price-annually hidden">R$ 37,50<span class="price-period">/usuário/mês</span></div>
+                            <div class="billing-info price-annually hidden">
+                                <span class="billing-total">R$ 450,00/usuário/ano</span>
+                                <span class="billing-save">−16%</span>
+                            </div>
                         </div>
                         <button class="btn btn-primary" data-checkout="equipes" data-plan="equipes">Assinar Agora</button>
                         <ul class="features-list">
@@ -215,14 +224,17 @@
                         </ul>
                     </div>
 
-                    <div class="pricing-card fade-in">
+                    <div class="pricing-card">
                         <span class="plan-tag">Empresas</span>
                         <h3>Negócios</h3>
                         <p class="plan-description">Para empresas que precisam de gestão avançada.</p>
                         <div class="price-display">
-                            <span class="price-monthly">R$ 65,00<span>/usuário/mês</span></span>
-                            <span class="price-annually hidden">R$ 54,17<span>/usuário/mês</span></span>
-                            <p class="billing-info price-annually hidden">R$ 650,00/usuário/ano; economize 16%</p>
+                            <div class="price-amount price-monthly">R$ 65,00<span class="price-period">/usuário/mês</span></div>
+                            <div class="price-amount price-annually hidden">R$ 54,17<span class="price-period">/usuário/mês</span></div>
+                            <div class="billing-info price-annually hidden">
+                                <span class="billing-total">R$ 650,00/usuário/ano</span>
+                                <span class="billing-save">−16%</span>
+                            </div>
                         </div>
                         <button class="btn btn-primary" data-checkout="negocios" data-plan="negocios">Assinar Agora</button>
                         <ul class="features-list">
