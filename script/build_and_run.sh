@@ -108,6 +108,12 @@ cat >"$INFO_PLIST" <<PLIST
   <string>NSApplication</string>
   <key>CFBundleIconFile</key>
   <string>AppIcon</string>
+  <key>SUFeedURL</key>
+  <string>https://luum-app.vercel.app/appcast.xml</string>
+  <key>SUPublicEDKey</key>
+  <string>${SPARKLE_PUBLIC_KEY:-}</string>
+  <key>SUEnableAutomaticChecks</key>
+  <true/>
   <key>CFBundleURLTypes</key>
   <array>
     <dict>
