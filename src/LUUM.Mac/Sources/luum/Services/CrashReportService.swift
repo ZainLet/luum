@@ -36,6 +36,13 @@ final class CrashReportService {
         await shared.uploadPending(idToken: idToken)
     }
 
+    static func sendFeedback(message: String, idToken: String) async throws {
+        try await shared.upload(
+            CrashReport(errorType: "manual_feedback", message: message),
+            idToken: idToken
+        )
+    }
+
     private init() {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let dir = support.appendingPathComponent("luum", isDirectory: true)

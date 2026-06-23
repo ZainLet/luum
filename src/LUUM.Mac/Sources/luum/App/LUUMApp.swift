@@ -84,8 +84,16 @@ struct LUUMApp: App {
     @NSApplicationDelegateAdaptor(LUUMAppDelegate.self) private var appDelegate
     @State private var store = ActivityStore()
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
+        WindowGroup("Reportar Problema", id: "feedback") {
+            FeedbackView(store: store)
+                .fixedSize()
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
+
         WindowGroup(id: "main") {
             Group {
                 if hasCompletedOnboarding {
@@ -120,6 +128,11 @@ struct LUUMApp: App {
             }
             CommandGroup(after: .appInfo) {
                 CheckForUpdatesView(updater: appDelegate.updater)
+            }
+            CommandGroup(replacing: .help) {
+                Button("Reportar problema...") {
+                    openWindow(id: "feedback")
+                }
             }
         }
 
