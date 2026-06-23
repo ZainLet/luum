@@ -17,18 +17,17 @@ final class ActivityStore {
     private(set) var focusShieldStatusMessage: String?
     private(set) var currentFocusBlockMatch: FocusBlockMatch?
     private(set) var exportStatusMessage: String?
-    private(set) var authSession: LuumAuthSession?
-    private(set) var authStatusMessage: String?
-    private(set) var isCheckingAuth = false
+    var authSession: LuumAuthSession?
+    var authStatusMessage: String?
+    var isCheckingAuth = false
 
-    private(set) var monitoringPreferences: MonitoringPreferencesSnapshot
+    var monitoringPreferences: MonitoringPreferencesSnapshot
 
     var googleCalendarClientID: String
     var googleCalendarClientSecret: String
-    private(set) var googleCalendarConnections: [GoogleCalendarConnectionSnapshot]
-    private(set) var googleCalendarStatusMessage: String?
-    private(set) var isConnectingGoogleCalendar = false
-    private(set) var isSyncingGoogleCalendar = false
+    var googleCalendarConnections: [GoogleCalendarConnectionSnapshot]
+    var googleCalendarStatusMessage: String?
+    var publicIntegrationConfig: PublicIntegrationConfig?
     private(set) var notionCalendarStatusMessage: String?
     private(set) var notionAgendaItems: [CalendarAgendaItem] = []
     private(set) var isSyncingNotionCalendar = false
@@ -58,11 +57,20 @@ final class ActivityStore {
     private(set) var isSendingWeeklyReportEmail = false
     private(set) var weeklyReportEmailHealthMessage: String?
     private(set) var isCheckingWeeklyReportEmailHealth = false
-    private(set) var publicIntegrationConfig: PublicIntegrationConfig?
     private(set) var publicIntegrationStatusMessage: String?
     private(set) var isLoadingPublicIntegrationConfig = false
 
     let classifier = ClassificationEngine()
+
+    @ObservationIgnored private(set) lazy var authCoordinator = AuthCoordinator(
+        store: self, authService: authService, keychainService: keychainService
+    )
+
+    @ObservationIgnored private(set) lazy var calendarCoordinator = CalendarCoordinator(
+        store: self, googleCalendarService: googleCalendarService,
+        googleCalendarPersistence: googleCalendarPersistence, keychainService: keychainService,
+        publicIntegrationConfigService: publicIntegrationConfigService
+    )
 
     @ObservationIgnored private let persistence: ActivityPersistence
     @ObservationIgnored private let monitor: ActivityMonitor
@@ -84,7 +92,6 @@ final class ActivityStore {
     @ObservationIgnored private let weeklyReportEmailService: WeeklyReportEmailService
     @ObservationIgnored private let publicIntegrationConfigService: PublicIntegrationConfigService
     @ObservationIgnored private let sessionGapTolerance: TimeInterval = 15
-    @ObservationIgnored private var calendarTokensByConnectionID: [String: GoogleCalendarTokens] = [:]
     @ObservationIgnored private var summaryCache: [Date: DailySummary] = [:]
     @ObservationIgnored private var focusModeDeliveries: [UUID: Date] = [:]
     @ObservationIgnored private var focusBlockDeliveries: [String: Date] = [:]
@@ -93,8 +100,6 @@ final class ActivityStore {
     @ObservationIgnored private var preferencesWriteTask: Task<Void, Never>?
     @ObservationIgnored private var reminderEvaluationTask: Task<Void, Never>?
     @ObservationIgnored private var lastReminderEvaluationRequestAt: Date?
-    @ObservationIgnored private var authRefreshTask: Task<Void, Never>?
-    @ObservationIgnored private var authRefreshGeneration = 0
     @ObservationIgnored private var cloudSyncTask: Task<Void, Never>?
     @ObservationIgnored private var cloudSyncPendingAfterCurrent = false
     @ObservationIgnored private var workspaceSyncTask: Task<Void, Never>?
@@ -103,10 +108,7 @@ final class ActivityStore {
     @ObservationIgnored private var weeklyReportEmailTask: Task<Void, Never>?
     @ObservationIgnored private var weeklyReportEmailHealthTask: Task<Void, Never>?
     @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
-    @ObservationIgnored private var lastAuthCallbackSignature: String?
-    @ObservationIgnored private var lastCompletedAuthState: String?
-    @ObservationIgnored private var pendingAuthRequest: LuumAuthRequest?
-    @ObservationIgnored private let calendarRefreshInterval: TimeInterval = 900
+    @ObservationIgnored let calendarRefreshInterval: TimeInterval = 900
     @ObservationIgnored private let cloudSyncInterval: TimeInterval = 900
     @ObservationIgnored private let reminderEvaluationMinimumInterval: TimeInterval = 30
     @ObservationIgnored private let activityPersistenceDebounce: Duration
@@ -203,14 +205,8 @@ final class ActivityStore {
         self.cloudSyncStatusMessage = nil
         self.workspaceSyncStatusMessage = nil
         self.aiClassificationStatusMessage = nil
-        self.authSession = keychainService.codable(LuumAuthSession.self, for: Self.firebaseAuthSessionKey)
+        self.authSession = keychainService.codable(LuumAuthSession.self, for: AuthCoordinator.firebaseAuthSessionKey)
         self.authStatusMessage = self.authSession.map { "Conectado como \($0.accountLabel) • plano \($0.plan.title)" }
-        if let pendingRequest = keychainService.codable(LuumAuthRequest.self, for: Self.firebaseAuthRequestKey),
-           pendingRequest.isValid() {
-            self.pendingAuthRequest = pendingRequest
-        } else {
-            keychainService.removeValue(for: Self.firebaseAuthRequestKey)
-        }
 
         migrateCalendarSecretsIfNeeded(snapshot: calendarSnapshot)
 
@@ -381,15 +377,15 @@ final class ActivityStore {
         }
 
         do {
-            try keychainService.setCodable(request, for: Self.firebaseAuthRequestKey)
-            pendingAuthRequest = request
+            try keychainService.setCodable(request, for: AuthCoordinator.firebaseAuthRequestKey)
+            authCoordinator.pendingAuthRequest = request
         } catch {
             authStatusMessage = "Não foi possível proteger esta solicitação de login."
             return
         }
 
         guard NSWorkspace.shared.open(url) else {
-            clearPendingAuthRequest()
+            authCoordinator.clearPendingAuthRequest()
             authStatusMessage = "Nao foi possivel abrir o navegador para entrar no Luum."
             return
         }
@@ -397,116 +393,15 @@ final class ActivityStore {
     }
 
     func handleAuthCallbackURL(_ url: URL) {
-        let callbackState = FirebaseAuthService.callbackState(from: url)
-        guard let pendingAuthRequest, pendingAuthRequest.isValid() else {
-            if Self.isDuplicateCompletedAuthCallback(callbackState: callbackState, completedState: lastCompletedAuthState) {
-                return
-            }
-            clearPendingAuthRequest()
-            authStatusMessage = "Esta solicitacao de login expirou. Clique em Entrar e tente novamente."
-            return
-        }
-
-        do {
-            let session = try authService.session(from: url, expectedState: pendingAuthRequest.state)
-            let callbackSignature = Self.authCallbackSignature(for: session)
-            if callbackSignature == lastAuthCallbackSignature,
-               isCheckingAuth || authSession?.idToken == session.idToken {
-                authStatusMessage = "Login recebido. Validação já está em andamento..."
-                return
-            }
-
-            lastAuthCallbackSignature = callbackSignature
-            lastCompletedAuthState = pendingAuthRequest.state
-            clearPendingAuthRequest()
-            applyAuthSession(session, message: "Login recebido. Validando plano no Firebase...")
-            refreshAccountStatus(restartInFlight: true)
-        } catch {
-            authStatusMessage = error.localizedDescription
-        }
+        authCoordinator.handleAuthCallbackURL(url)
     }
 
     func refreshAccountStatus() {
-        refreshAccountStatus(restartInFlight: false)
-    }
-
-    private func refreshAccountStatus(restartInFlight: Bool) {
-        guard let authSession else {
-            authStatusMessage = "Entre com sua conta Luum para validar o plano."
-            return
-        }
-
-        if isCheckingAuth {
-            guard restartInFlight else { return }
-            authRefreshTask?.cancel()
-        }
-
-        authRefreshGeneration += 1
-        let generation = authRefreshGeneration
-        let sessionToValidate = authSession
-        isCheckingAuth = true
-        authRefreshTask = Task { [weak self] in
-            guard let self else { return }
-            do {
-                let verified = try await authService.verifiedSession(
-                    sessionToValidate,
-                    deviceID: keychainService.installationID()
-                )
-                let (shouldSyncWorkspace, idToken) = await MainActor.run {
-                    guard self.isCurrentAuthRefresh(generation, for: sessionToValidate) else { return (false, "") }
-                    self.applyAuthSession(verified, message: "Plano \(verified.plan.title) validado.")
-                    self.isCheckingAuth = false
-                    self.authRefreshTask = nil
-                    let sync = self.teamSettings.automaticallySyncWorkspace &&
-                        self.teamWorkspaceConfigured
-                    return (sync, verified.idToken)
-                }
-                if !idToken.isEmpty {
-                    await CrashReportService.sendPending(idToken: idToken)
-                }
-                if shouldSyncWorkspace {
-                    self.syncWorkspaceRankingNow()
-                }
-            } catch {
-                let wasCancelled = Task.isCancelled
-                await MainActor.run {
-                    guard self.isCurrentAuthRefresh(generation, for: sessionToValidate) else { return }
-                    if wasCancelled {
-                        self.isCheckingAuth = false
-                        self.authRefreshTask = nil
-                        return
-                    }
-
-                    if error is URLError {
-                        let offline = sessionToValidate
-                        let message = offline.isLocked
-                            ? "Conecte-se a internet e valide seu plano para liberar o app."
-                            : "Sem conexao com a API. Usando sessao local validada por ate 24 horas."
-                        self.applyAuthSession(offline, message: message)
-                    } else if Self.isExplicitAuthRejection(error) {
-                        self.rejectAuthSession(sessionToValidate)
-                    } else {
-                        let offline = sessionToValidate
-                        let message = offline.isLocked
-                            ? "Nao foi possivel validar o plano agora. Tente novamente em instantes."
-                            : "A API de assinatura respondeu de forma temporaria. Usando sessao local validada por ate 24 horas."
-                        self.applyAuthSession(offline, message: message)
-                    }
-                    self.isCheckingAuth = false
-                    self.authRefreshTask = nil
-                }
-            }
-        }
+        authCoordinator.refreshAccountStatus()
     }
 
     func signOut() {
-        authRefreshTask?.cancel()
-        authRefreshTask = nil
-        authRefreshGeneration += 1
-        lastAuthCallbackSignature = nil
-        lastCompletedAuthState = nil
-        clearPendingAuthRequest()
-        isCheckingAuth = false
+        authCoordinator.signOut()
         cloudSyncTask?.cancel()
         cloudSyncTask = nil
         cloudSyncPendingAfterCurrent = false
@@ -524,9 +419,6 @@ final class ActivityStore {
         isSendingWeeklyReportEmail = false
         isCheckingWeeklyReportEmailHealth = false
         stopMonitoring()
-        authSession = nil
-        authStatusMessage = "Conta desconectada deste Mac."
-        keychainService.removeValue(for: Self.firebaseAuthSessionKey)
         keychainService.removeValue(for: Self.teamWorkspaceSecretKey)
         monitoringPreferences.teamSettings.sharesAnonymousMetrics = false
         monitoringPreferences.teamSettings.automaticallySyncWorkspace = false
@@ -539,101 +431,20 @@ final class ActivityStore {
         persistMonitoringPreferences()
     }
 
-    private func applyAuthSession(_ session: LuumAuthSession, message: String) {
-        persistAuthSession(session, message: message, scheduleCloudSync: true)
+    func verifiedAuthSessionForProtectedRequest() async throws -> LuumAuthSession {
+        try await authCoordinator.verifiedAuthSessionForProtectedRequest()
     }
 
-    private func persistAuthSession(_ session: LuumAuthSession, message: String, scheduleCloudSync: Bool) {
-        authSession = session
-        authStatusMessage = message
-        do {
-            try keychainService.setCodable(session, for: Self.firebaseAuthSessionKey)
-        } catch {
-            authStatusMessage = error.localizedDescription
-        }
-
-        let currentCloudSyncSettings = monitoringPreferences.cloudSyncSettings
-        monitoringPreferences.teamSettings.workspaceEndpointURL = FirebaseAuthService.defaultBaseURL
-        monitoringPreferences.cloudSyncSettings = Self.cloudSyncSettings(
-            currentCloudSyncSettings,
-            sanitizedFor: session
-        )
-
-        persistMonitoringPreferences()
-        if scheduleCloudSync {
-            scheduleCloudSyncIfNeeded(reason: "auth-session")
-        }
-
-        if canUse(.coreTracking) {
-            startMonitoring()
-        } else {
-            stopMonitoring()
-        }
-    }
-
-    private func verifiedAuthSessionForProtectedRequest() async throws -> LuumAuthSession {
-        guard let sessionToValidate = authSession else {
-            throw FirebaseAuthServiceError.statusRejected("missing_session")
-        }
-
-        do {
-            let verified = try await authService.verifiedSession(
-                sessionToValidate,
-                deviceID: keychainService.installationID()
-            )
-            guard isCurrentAuthSession(sessionToValidate) else { throw CancellationError() }
-            persistAuthSession(verified, message: "Plano \(verified.plan.title) validado.", scheduleCloudSync: false)
-            return verified
-        } catch {
-            if Self.isExplicitAuthRejection(error) {
-                rejectAuthSession(sessionToValidate)
-            }
-            throw error
-        }
-    }
-
-    private static func isExplicitAuthRejection(_ error: Error) -> Bool {
-        (error as? FirebaseAuthServiceError)?.isExplicitAuthRejection ?? false
-    }
-
-    private func isCurrentAuthRefresh(_ generation: Int, for session: LuumAuthSession) -> Bool {
-        guard generation == authRefreshGeneration else { return false }
-        return isCurrentAuthSession(session)
-    }
-
-    private func isCurrentAuthSession(_ session: LuumAuthSession) -> Bool {
-        guard let current = authSession else { return false }
-        return current.uid == session.uid && current.idToken == session.idToken
-    }
-
-    private func isCurrentVerifiedSession(_ verified: LuumAuthSession) -> Bool {
-        guard let current = authSession else { return false }
-        return current.uid == verified.uid && current.idToken == verified.idToken
+    func isCurrentVerifiedSession(_ verified: LuumAuthSession) -> Bool {
+        authCoordinator.isCurrentVerifiedSession(verified)
     }
 
     nonisolated static func authCallbackSignature(for session: LuumAuthSession) -> String {
-        "\(session.uid):\(session.idToken.suffix(16))"
+        AuthCoordinator.authCallbackSignature(for: session)
     }
 
     nonisolated static func isDuplicateCompletedAuthCallback(callbackState: String?, completedState: String?) -> Bool {
-        guard let callbackState, !callbackState.isEmpty else { return false }
-        return callbackState == completedState
-    }
-
-    private func clearPendingAuthRequest() {
-        pendingAuthRequest = nil
-        keychainService.removeValue(for: Self.firebaseAuthRequestKey)
-    }
-
-    private func rejectAuthSession(_ session: LuumAuthSession) {
-        var rejected = session
-        rejected.lockedReason = "auth_validation_failed"
-        rejected.lastVerifiedAt = nil
-        persistAuthSession(
-            rejected,
-            message: "A sessão não foi aceita pela API. Entre novamente para liberar o app.",
-            scheduleCloudSync: false
-        )
+        AuthCoordinator.isDuplicateCompletedAuthCallback(callbackState: callbackState, completedState: completedState)
     }
 
     static func cloudSyncSettings(
@@ -757,6 +568,14 @@ final class ActivityStore {
     var isGoogleCalendarConfigured: Bool {
         !googleCalendarClientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
             (publicIntegrationConfig?.googleCalendar.configured ?? false)
+    }
+
+    var isConnectingGoogleCalendar: Bool {
+        calendarCoordinator.isConnectingGoogleCalendar
+    }
+
+    var isSyncingGoogleCalendar: Bool {
+        calendarCoordinator.isSyncingGoogleCalendar
     }
 
     var isGoogleCalendarConnected: Bool {
@@ -918,11 +737,7 @@ final class ActivityStore {
     }
 
     func connectGoogleCalendar(for day: Date = Date()) {
-        guard !isConnectingGoogleCalendar else { return }
-
-        Task { [weak self] in
-            await self?.runCalendarConnect(for: day)
-        }
+        calendarCoordinator.connectGoogleCalendar(for: day)
     }
 
     func refreshPublicIntegrationConfig(force: Bool = false) {
@@ -935,38 +750,16 @@ final class ActivityStore {
     }
 
     func refreshGoogleCalendar(for day: Date = Date()) {
-        guard !isConnectingGoogleCalendar, !isSyncingGoogleCalendar else { return }
-
-        Task { [weak self] in
-            await self?.runCalendarSync(for: day, force: true)
-        }
+        calendarCoordinator.refreshGoogleCalendar(for: day)
     }
 
     func refreshIntegratedCalendars(for day: Date = Date()) {
-        if isGoogleCalendarConnected {
-            refreshGoogleCalendar(for: day)
-        }
-
-        if notionCalendarSettings.isEnabled {
-            refreshNotionCalendar(for: day)
-        }
-
-        if outlookCalendarSettings.isEnabled {
-            refreshOutlookCalendar(for: day)
-        }
-
-        if clickUpSettings.isEnabled {
-            refreshClickUp(for: day)
-        }
-
-        if linearSettings.isEnabled {
-            refreshLinear(for: day)
-        }
+        calendarCoordinator.refreshIntegratedCalendars(for: day)
     }
 
     func disconnectGoogleCalendar(connectionID: String) {
         googleCalendarConnections.removeAll { $0.id == connectionID }
-        calendarTokensByConnectionID.removeValue(forKey: connectionID)
+        calendarCoordinator.removeCalendarTokens(connectionID: connectionID)
         keychainService.removeValue(for: Self.googleCalendarTokenKey(connectionID))
         googleCalendarStatusMessage = googleCalendarConnections.isEmpty ? "Todas as contas Google foram desconectadas." : "Conta removida do luum."
         persistGoogleCalendar()
@@ -982,7 +775,7 @@ final class ActivityStore {
         guard isEnabled else { return }
         let syncDay = googleCalendarConnections[index].agendaDay ?? Date()
         Task { [weak self] in
-            await self?.runCalendarSync(for: syncDay, force: true)
+            await self?.calendarCoordinator.runCalendarSync(for: syncDay, force: true)
         }
     }
 
@@ -999,7 +792,7 @@ final class ActivityStore {
         guard isSelected else { return }
         let syncDay = googleCalendarConnections[connectionIndex].agendaDay ?? Date()
         Task { [weak self] in
-            await self?.runCalendarSync(for: syncDay, force: true)
+            await self?.calendarCoordinator.runCalendarSync(for: syncDay, force: true)
         }
     }
 
@@ -1008,7 +801,7 @@ final class ActivityStore {
             keychainService.removeValue(for: Self.googleCalendarTokenKey(connection.id))
         }
         googleCalendarConnections = []
-        calendarTokensByConnectionID.removeAll()
+        calendarCoordinator.removeAllCalendarTokens()
         googleCalendarStatusMessage = "Google Agenda desconectada deste Mac."
         persistGoogleCalendar()
         scheduleCloudSyncIfNeeded(reason: "calendar-disconnect-all")
@@ -2139,7 +1932,7 @@ final class ActivityStore {
     }
 
     func ensureAgenda(for day: Date) async {
-        await runCalendarSync(for: day, force: false)
+        await calendarCoordinator.runCalendarSync(for: day, force: false)
         await runNotionCalendarSync(for: day, force: false)
         await runOutlookCalendarSync(for: day, force: false)
         await runClickUpSync(for: day, force: false)
@@ -2959,79 +2752,6 @@ final class ActivityStore {
         }
     }
 
-    private func runCalendarConnect(for day: Date) async {
-        guard canUse(.agendaIntegrations) else {
-            googleCalendarStatusMessage = lockMessage(for: .agendaIntegrations)
-            return
-        }
-
-        var clientID = googleCalendarClientID.trimmingCharacters(in: .whitespacesAndNewlines)
-        let clientSecret = googleCalendarClientSecret.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if clientID.isEmpty {
-            do {
-                googleCalendarStatusMessage = "Carregando configuração gerenciada do Google Calendar..."
-                let config = try await publicIntegrationConfigService.fetch()
-                publicIntegrationConfig = config
-                clientID = config.googleCalendar.clientID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                if !clientID.isEmpty {
-                    googleCalendarClientID = clientID
-                    persistGoogleCalendar()
-                }
-            } catch {
-                googleCalendarStatusMessage = error.localizedDescription
-                return
-            }
-        }
-
-        guard !clientID.isEmpty else {
-            googleCalendarStatusMessage = "Google Calendar ainda não foi configurado no admin do Luum. Configure GOOGLE_CALENDAR_CLIENT_ID uma vez para liberar conexão com um clique."
-            return
-        }
-
-        isConnectingGoogleCalendar = true
-        defer { isConnectingGoogleCalendar = false }
-
-        do {
-            let result = try await googleCalendarService.connect(
-                clientID: clientID,
-                clientSecret: clientSecret,
-                day: day
-            )
-
-            guard let profile = result.profile else {
-                googleCalendarStatusMessage = "Nao foi possivel identificar a conta Google conectada."
-                return
-            }
-
-            let connectionID = slugify(profile.email)
-            try storeCalendarTokens(result.tokens, connectionID: connectionID)
-
-            let connection = GoogleCalendarConnectionSnapshot(
-                id: connectionID,
-                profile: profile,
-                calendars: result.calendars,
-                agendaDay: Calendar.autoupdatingCurrent.startOfDay(for: day),
-                agendaItems: result.events,
-                lastSyncAt: result.syncedAt,
-                isEnabled: true
-            )
-
-            if let existingIndex = googleCalendarConnections.firstIndex(where: { $0.id == connectionID }) {
-                googleCalendarConnections[existingIndex] = connection
-            } else {
-                googleCalendarConnections.append(connection)
-                googleCalendarConnections.sort { $0.profile.email < $1.profile.email }
-            }
-
-            googleCalendarStatusMessage = "Conta \(profile.email) conectada com sucesso."
-            persistGoogleCalendar()
-            scheduleCloudSyncIfNeeded(reason: "calendar-connect")
-        } catch {
-            googleCalendarStatusMessage = error.localizedDescription
-        }
-    }
-
     private func runPublicIntegrationConfigRefresh() async {
         isLoadingPublicIntegrationConfig = true
         publicIntegrationStatusMessage = "Verificando conexões disponíveis no Luum..."
@@ -3069,111 +2789,6 @@ final class ActivityStore {
             }
         } catch {
             publicIntegrationStatusMessage = error.localizedDescription
-        }
-    }
-
-    private func runCalendarSync(for day: Date, force: Bool) async {
-        guard canUse(.agendaIntegrations) else {
-            if force {
-                googleCalendarStatusMessage = lockMessage(for: .agendaIntegrations)
-            }
-            return
-        }
-
-        let clientID = googleCalendarClientID.trimmingCharacters(in: .whitespacesAndNewlines)
-        let clientSecret = googleCalendarClientSecret.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !googleCalendarConnections.isEmpty else {
-            if force, isGoogleCalendarConfigured {
-                googleCalendarStatusMessage = "Conecte pelo menos uma conta Google para sincronizar a agenda."
-            }
-            return
-        }
-
-        isSyncingGoogleCalendar = true
-        defer { isSyncingGoogleCalendar = false }
-
-        let normalizedDay = Calendar.autoupdatingCurrent.startOfDay(for: day)
-        var updatedConnections = googleCalendarConnections
-        var syncMessages: [String] = []
-
-        await withTaskGroup(of: (String, Result<GoogleCalendarSyncResult, Error>).self) { group in
-            for connection in googleCalendarConnections where connection.isEnabled {
-                guard let tokens = loadCalendarTokens(connectionID: connection.id) else {
-                    syncMessages.append("A conta \(connection.profile.email) precisa ser conectada novamente.")
-                    continue
-                }
-
-                let storedDay = connection.agendaDay.map { Calendar.autoupdatingCurrent.startOfDay(for: $0) }
-                let isToday = normalizedDay == Calendar.autoupdatingCurrent.startOfDay(for: Date())
-                let lastSyncAge = connection.lastSyncAt.map { Date().timeIntervalSince($0) } ?? .infinity
-                let shouldReuseCurrentAgenda = !force &&
-                    storedDay == normalizedDay &&
-                    !connection.agendaItems.isEmpty &&
-                    (!isToday || lastSyncAge < calendarRefreshInterval) &&
-                    !tokens.needsRefresh
-
-                guard !shouldReuseCurrentAgenda else { continue }
-
-                group.addTask { [googleCalendarService] in
-                    do {
-                        let result = try await googleCalendarService.refresh(
-                            day: day,
-                            clientID: clientID,
-                            clientSecret: clientSecret,
-                            existingTokens: tokens,
-                            connectionID: connection.id,
-                            connectionProfile: connection.profile,
-                            existingCalendars: connection.calendars
-                        )
-                        return (connection.id, .success(result))
-                    } catch {
-                        return (connection.id, .failure(error))
-                    }
-                }
-            }
-
-            for await item in group {
-                let connectionID = item.0
-                let result = item.1
-
-                guard let index = updatedConnections.firstIndex(where: { $0.id == connectionID }) else { continue }
-
-                switch result {
-                case let .success(syncResult):
-                    updatedConnections[index].profile = syncResult.profile ?? updatedConnections[index].profile
-                    updatedConnections[index].calendars = syncResult.calendars
-                    updatedConnections[index].agendaItems = syncResult.events
-                    updatedConnections[index].agendaDay = normalizedDay
-                    updatedConnections[index].lastSyncAt = syncResult.syncedAt
-
-                    do {
-                        try storeCalendarTokens(syncResult.tokens, connectionID: connectionID)
-                    } catch {
-                        syncMessages.append(error.localizedDescription)
-                    }
-                case let .failure(error):
-                    syncMessages.append(error.localizedDescription)
-                }
-            }
-        }
-
-            googleCalendarConnections = updatedConnections
-        persistGoogleCalendar()
-        scheduleCloudSyncIfNeeded(reason: "calendar-sync")
-
-        if !syncMessages.isEmpty {
-            googleCalendarStatusMessage = syncMessages.joined(separator: "\n")
-        } else if force {
-            googleCalendarStatusMessage = "Agenda sincronizada em \(googleCalendarConnections.count) conta(s)."
-        }
-
-        if syncMessages.isEmpty {
-            let totalEvents = googleCalendarConnections
-                .filter(\.isEnabled)
-                .flatMap(\.agendaItems)
-                .count
-            await sendZapierCalendarSyncEventIfNeeded(source: "google", itemCount: totalEvents)
         }
     }
 
@@ -3778,7 +3393,7 @@ final class ActivityStore {
         return merged.normalized()
     }
 
-    private func persistGoogleCalendar() {
+    func persistGoogleCalendar() {
         do {
             try googleCalendarPersistence.save(
                 snapshot: GoogleCalendarSnapshot(
@@ -3792,7 +3407,7 @@ final class ActivityStore {
         }
     }
 
-    private func persistMonitoringPreferences() {
+    func persistMonitoringPreferences() {
         monitoringPreferences = monitoringPreferences.normalized()
         invalidateSummaries()
 
@@ -3948,7 +3563,7 @@ final class ActivityStore {
         }
     }
 
-    private func scheduleCloudSyncIfNeeded(reason _: String) {
+    func scheduleCloudSyncIfNeeded(reason _: String) {
         guard monitoringPreferences.cloudSyncSettings.isEnabled else { return }
         guard cloudSyncConfigured else { return }
         if isSyncingCloud {
@@ -3980,9 +3595,9 @@ final class ActivityStore {
         await reminderEngine.refreshAuthorizationStatus()
 
         if googleCalendarConnections.contains(where: \.isEnabled),
-           !isConnectingGoogleCalendar,
-           !isSyncingGoogleCalendar {
-            await runCalendarSync(for: Date(), force: false)
+           !calendarCoordinator.isConnectingGoogleCalendar,
+           !calendarCoordinator.isSyncingGoogleCalendar {
+            await calendarCoordinator.runCalendarSync(for: Date(), force: false)
         }
 
         if notionCalendarSettings.isEnabled,
@@ -4388,7 +4003,7 @@ final class ActivityStore {
         monitoringPreferences.privacySettings.storesPageTitles ? rawTitle : nil
     }
 
-    private func slugify(_ value: String) -> String {
+    func slugify(_ value: String) -> String {
         let folded = value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
         let characters = folded.unicodeScalars.map { scalar -> Character in
             CharacterSet.alphanumerics.contains(scalar) ? Character(String(scalar)) : "-"
@@ -4424,9 +4039,7 @@ final class ActivityStore {
                 try? keychainService.setCodable(legacyTokens, for: Self.googleCalendarTokenKey(connection.id))
             }
 
-            if let tokens = loadCalendarTokens(connectionID: connection.id) {
-                calendarTokensByConnectionID[connection.id] = tokens
-            }
+            _ = calendarCoordinator.loadCalendarTokens(connectionID: connection.id)
         }
 
         if let connectionsNeedingCleanup = googleCalendarConnections.firstIndex(where: { $0.legacyTokens != nil }) {
@@ -4436,23 +4049,6 @@ final class ActivityStore {
             _ = connectionsNeedingCleanup
             persistGoogleCalendar()
         }
-    }
-
-    private func storeCalendarTokens(_ tokens: GoogleCalendarTokens, connectionID: String) throws {
-        calendarTokensByConnectionID[connectionID] = tokens
-        try keychainService.setCodable(tokens, for: Self.googleCalendarTokenKey(connectionID))
-    }
-
-    private func loadCalendarTokens(connectionID: String) -> GoogleCalendarTokens? {
-        if let cached = calendarTokensByConnectionID[connectionID] {
-            return cached
-        }
-
-        let stored = keychainService.codable(GoogleCalendarTokens.self, for: Self.googleCalendarTokenKey(connectionID))
-        if let stored {
-            calendarTokensByConnectionID[connectionID] = stored
-        }
-        return stored
     }
 
     private func sortSamples() {
@@ -4531,7 +4127,7 @@ final class ActivityStore {
         await sendZapierEvent(type: type, details: payloadDetails)
     }
 
-    private func sendZapierCalendarSyncEventIfNeeded(source: String, itemCount: Int) async {
+    func sendZapierCalendarSyncEventIfNeeded(source: String, itemCount: Int) async {
         guard zapierSettings.isEnabled,
               zapierSettings.sendsCalendarSyncEvents,
               zapierConfigured
@@ -4592,8 +4188,6 @@ final class ActivityStore {
         keychainService.string(for: Self.teamWorkspaceSecretKey)
     }
 
-    private static let firebaseAuthSessionKey = "firebase-auth-session"
-    private static let firebaseAuthRequestKey = "firebase-auth-request"
     private static let googleCalendarClientSecretKey = "google-calendar-client-secret"
     private static let notionCalendarTokenKey = "notion-calendar-token"
     private static let outlookCalendarTokenKey = "outlook-calendar-token"
@@ -4602,7 +4196,7 @@ final class ActivityStore {
     private static let aiClassificationAPIKeyKey = "ai-classification-api-key"
     private static let teamWorkspaceSecretKey = "team-workspace-secret"
 
-    private static func googleCalendarTokenKey(_ connectionID: String) -> String {
+    static func googleCalendarTokenKey(_ connectionID: String) -> String {
         "google-calendar-token-\(connectionID)"
     }
 }
