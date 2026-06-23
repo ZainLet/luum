@@ -6,8 +6,8 @@ MODE="${1:-run}"
 APP_NAME="luum"
 APP_DISPLAY_NAME="Luum"
 BUNDLE_ID="com.luum.apple"
-APP_VERSION="${LUUM_APP_VERSION:-0.1.0}"
-APP_BUILD="${LUUM_APP_BUILD:-1}"
+APP_VERSION="${LUUM_APP_VERSION:-0.1.1}"
+APP_BUILD="${LUUM_APP_BUILD:-2}"
 APP_CATEGORY="public.app-category.productivity"
 MIN_SYSTEM_VERSION="26.0"
 PKG_ID="${BUNDLE_ID}.installer"
@@ -108,6 +108,12 @@ cat >"$INFO_PLIST" <<PLIST
   <string>NSApplication</string>
   <key>CFBundleIconFile</key>
   <string>AppIcon</string>
+  <key>SUFeedURL</key>
+  <string>https://luum-app.vercel.app/appcast.xml</string>
+  <key>SUPublicEDKey</key>
+  <string>${SPARKLE_PUBLIC_KEY:-4fA063E0837LWH8mqIAcgS6R3+h+UNPTtfiHKS9eAm8=}</string>
+  <key>SUEnableAutomaticChecks</key>
+  <true/>
   <key>CFBundleURLTypes</key>
   <array>
     <dict>
@@ -122,6 +128,30 @@ cat >"$INFO_PLIST" <<PLIST
 </dict>
 </plist>
 PLIST
+
+# Embedar frameworks dinâmicos (Sparkle e outros binários SPM)
+FRAMEWORKS_DIR="$APP_CONTENTS/Frameworks"
+mkdir -p "$FRAMEWORKS_DIR"
+BUILD_DIR="src/LUUM.Mac/.build/arm64-apple-macosx/debug"
+APP_BINARY="$APP_CONTENTS/MacOS/$APP_NAME"
+for fw in "$BUILD_DIR"/*.framework; do
+  [ -d "$fw" ] || continue
+  fw_name="$(basename "$fw")"
+  rm -rf "$FRAMEWORKS_DIR/$fw_name"
+  cp -R "$fw" "$FRAMEWORKS_DIR/$fw_name"
+done
+
+# Garantir que o binário tem @executable_path/../Frameworks no rpath
+existing_rpaths=$(otool -l "$APP_BINARY" | awk '/LC_RPATH/{found=1} found && /path /{print $2; found=0}')
+if ! echo "$existing_rpaths" | grep -q "@executable_path/../Frameworks"; then
+  install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP_BINARY"
+fi
+
+# Assinar frameworks antes do app
+for fw in "$FRAMEWORKS_DIR"/*.framework; do
+  [ -d "$fw" ] || continue
+  codesign --force --sign "$CODESIGN_IDENTITY" --timestamp=none "$fw"
+done
 
 codesign --force --deep --sign "$CODESIGN_IDENTITY" --timestamp=none "$APP_BUNDLE"
 clean_macos_metadata "$APP_BUNDLE"

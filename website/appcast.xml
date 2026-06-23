@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+    <channel>
+        <title>Luum</title>
+        <link>https://luum-app.vercel.app/appcast.xml</link>
+        <description>Atualizações do Luum para macOS</description>
+        <language>pt-BR</language>
+
+        <item>
+            <title>Luum 0.1.0</title>
+            <pubDate>Mon, 23 Jun 2026 18:00:00 +0000</pubDate>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:releaseNotesLink>https://github.com/ZainLet/luum/releases/tag/v0.1.0</sparkle:releaseNotesLink>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/ZainLet/luum/releases/download/v0.1.0/Luum-0.1.0-alpha.zip"
+                sparkle:edSignature="7G6ufpP+8G8KxXImDX5X+V2evmw8WMUUu1z3PyGEow0fQ4vORKU+NmjpLlL8YLz1K4WqblY/J6bKov5KexryBg=="
+                length="4693876"
+                type="application/octet-stream"
+            />
+        </item>
+
+    </channel>
+</rss>

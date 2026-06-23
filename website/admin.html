@@ -57,6 +57,41 @@
             .admin-grid { grid-template-columns: 1fr; }
             .vault-grid { grid-template-columns: 1fr; }
         }
+
+        /* Crash Reports */
+        .crash-section { margin-top: 20px; }
+        .crash-section h2 { margin-bottom: 8px; }
+        .crash-section .admin-note { margin-top: 0; margin-bottom: 18px; }
+        .crash-filters { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 18px; }
+        .crash-filters .form-group { margin-bottom: 0; flex: 1; min-width: 160px; }
+        .crash-table-wrap { overflow-x: auto; }
+        .crash-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+        .crash-table th { text-align: left; color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; border-bottom: 1px solid var(--border-subtle); padding: 0 12px 10px; white-space: nowrap; }
+        .crash-table td { padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); color: var(--text-primary); vertical-align: top; }
+        .crash-table tr:last-child td { border-bottom: none; }
+        .crash-table tr:hover td { background: rgba(255,255,255,0.03); cursor: pointer; }
+        .crash-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .crash-badge.novo { background: rgba(248,113,113,0.15); color: #fca5a5; }
+        .crash-badge.em-analise { background: rgba(251,191,36,0.15); color: #fcd34d; }
+        .crash-badge.resolvido { background: rgba(52,211,153,0.15); color: #6ee7b7; }
+        .crash-badge.ignorado { background: rgba(148,163,184,0.1); color: var(--text-muted); }
+        .crash-status { margin-top: 12px; min-height: 20px; font-size: 0.86rem; color: var(--text-secondary); }
+        .crash-status.error { color: #fca5a5; }
+        .crash-status.ok { color: var(--green-400); }
+        .crash-empty { padding: 32px; text-align: center; color: var(--text-muted); font-size: 0.9rem; }
+
+        /* Crash detail modal */
+        .crash-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 24px; }
+        .crash-modal { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 28px; max-width: 760px; width: 100%; max-height: 80vh; overflow-y: auto; position: relative; }
+        .crash-modal h3 { margin-bottom: 18px; font-size: 1.05rem; }
+        .crash-modal dl { display: grid; grid-template-columns: 140px 1fr; gap: 8px 16px; font-size: 0.88rem; }
+        .crash-modal dt { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.07em; padding-top: 2px; }
+        .crash-modal dd { overflow-wrap: anywhere; }
+        .crash-modal pre { margin-top: 18px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px; font-size: 0.76rem; line-height: 1.5; overflow-x: auto; white-space: pre-wrap; color: var(--text-secondary); }
+        .crash-modal .modal-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; align-items: center; }
+        .crash-modal .modal-close { position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--text-muted); font-size: 1.4rem; cursor: pointer; line-height: 1; padding: 4px; }
+        .crash-modal .modal-close:hover { color: var(--text-primary); }
+        .crash-modal select { background: var(--bg-primary); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 10px; color: var(--text-primary); font-size: 0.86rem; }
     </style>
 </head>
 <body>
@@ -174,6 +209,67 @@
                         <div class="vault-status" id="vaultStatus"></div>
                     </form>
                 </section>
+
+                <section class="admin-card crash-section">
+                    <h2>Relatórios de erro (Crash Reports)</h2>
+                    <p class="admin-note">Crashes detectados pelo app e enviados automaticamente. Clique em uma linha para ver detalhes e alterar o status.</p>
+                    <div class="crash-filters">
+                        <div class="form-group">
+                            <label for="crashFilterStatus">Status</label>
+                            <select id="crashFilterStatus">
+                                <option value="">Todos</option>
+                                <option value="novo">Novo</option>
+                                <option value="em análise">Em análise</option>
+                                <option value="resolvido">Resolvido</option>
+                                <option value="ignorado">Ignorado</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="crashFilterUID">UID do usuário (opcional)</label>
+                            <input id="crashFilterUID" type="text" placeholder="Filtrar por UID">
+                        </div>
+                        <button class="btn btn-secondary" type="button" id="loadCrashBtn">Atualizar</button>
+                        <button class="btn btn-secondary" type="button" id="exportCrashBtn">Exportar CSV</button>
+                    </div>
+                    <div class="crash-table-wrap">
+                        <table class="crash-table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Usuário (UID)</th>
+                                    <th>Versão</th>
+                                    <th>Tipo</th>
+                                    <th>Erro</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="crashTableBody">
+                                <tr><td colspan="6" class="crash-empty">Clique em "Atualizar" para carregar os relatórios.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="crash-status" id="crashStatus"></div>
+                </section>
+
+                <div id="crashModalBackdrop" class="crash-modal-backdrop" style="display:none;">
+                    <div class="crash-modal" role="dialog" aria-modal="true" aria-label="Detalhe do crash">
+                        <button class="modal-close" id="crashModalClose" aria-label="Fechar">&times;</button>
+                        <h3>Detalhe do crash</h3>
+                        <dl id="crashModalDl"></dl>
+                        <pre id="crashModalStack" style="display:none;"></pre>
+                        <div class="modal-actions">
+                            <label for="crashModalStatus" style="font-size:0.86rem;color:var(--text-muted);">Status:</label>
+                            <select id="crashModalStatus">
+                                <option value="novo">Novo</option>
+                                <option value="em análise">Em análise</option>
+                                <option value="resolvido">Resolvido</option>
+                                <option value="ignorado">Ignorado</option>
+                            </select>
+                            <button class="btn btn-primary btn-sm" type="button" id="crashSaveStatusBtn">Salvar status</button>
+                            <span id="crashModalStatusMsg" style="font-size:0.84rem;color:var(--text-muted);"></span>
+                        </div>
+                    </div>
+                </div>
             </section>
         </div>
     </main>
@@ -490,6 +586,150 @@
 
         document.getElementById('reloadIntegrationsBtn').addEventListener('click', () => {
             loadIntegrations().catch((err) => setVaultStatus(err.message, 'error'));
+        });
+
+        // ── Crash Reports ──────────────────────────────────────────────────────
+        const crashStatusEl = document.getElementById('crashStatus');
+        const crashTableBody = document.getElementById('crashTableBody');
+        const crashModalBackdrop = document.getElementById('crashModalBackdrop');
+        let crashReports = [];
+        let activeCrash = null;
+
+        function setCrashStatus(message, type = '') {
+            crashStatusEl.textContent = message || '';
+            crashStatusEl.className = `crash-status ${type}`;
+        }
+
+        function crashBadgeClass(status) {
+            if (status === 'novo') return 'novo';
+            if (status === 'em análise') return 'em-analise';
+            if (status === 'resolvido') return 'resolvido';
+            return 'ignorado';
+        }
+
+        function formatDatetime(ts) {
+            if (!ts) return '-';
+            return new Intl.DateTimeFormat('pt-BR', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            }).format(new Date(typeof ts === 'number' ? ts : String(ts)));
+        }
+
+        function renderCrashTable(reports) {
+            if (!reports.length) {
+                crashTableBody.innerHTML = '<tr><td colspan="6" class="crash-empty">Nenhum relatório encontrado.</td></tr>';
+                return;
+            }
+            crashTableBody.innerHTML = reports.map((r, i) => `
+                <tr data-idx="${i}">
+                    <td>${escapeHTML(formatDatetime(r.timestamp))}</td>
+                    <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHTML(r.uid)}">${escapeHTML((r.uid || '').substring(0, 12))}…</td>
+                    <td>${escapeHTML(r.appVersion || '-')} (${escapeHTML(r.build || '-')})</td>
+                    <td>${escapeHTML(r.errorType || '-')}</td>
+                    <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHTML(r.exceptionName || r.message || r.signal || '-')}">${escapeHTML(r.exceptionName || r.message || r.signal || '-')}</td>
+                    <td><span class="crash-badge ${crashBadgeClass(r.status)}">${escapeHTML(r.status || 'novo')}</span></td>
+                </tr>
+            `).join('');
+            crashTableBody.querySelectorAll('tr[data-idx]').forEach((row) => {
+                row.addEventListener('click', () => openCrashModal(reports[parseInt(row.dataset.idx, 10)]));
+            });
+        }
+
+        async function loadCrashReports() {
+            setCrashStatus('Carregando relatórios...');
+            const uid = document.getElementById('crashFilterUID').value.trim();
+            const status = document.getElementById('crashFilterStatus').value;
+            const qs = new URLSearchParams();
+            if (uid) qs.set('uid', uid);
+            if (status) qs.set('status', status);
+            const response = await fetch(luumApiUrl(`/api/admin/crash-reports?${qs}`), {
+                headers: await authHeaders()
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || 'Não foi possível carregar os crash reports.');
+            crashReports = data.reports || [];
+            renderCrashTable(crashReports);
+            setCrashStatus(`${crashReports.length} relatório(s) carregado(s).`, 'ok');
+        }
+
+        function openCrashModal(report) {
+            activeCrash = report;
+            const dl = document.getElementById('crashModalDl');
+            const stackEl = document.getElementById('crashModalStack');
+            const fields = [
+                ['UID', report.uid],
+                ['Data', formatDatetime(report.timestamp)],
+                ['Versão', `${report.appVersion} (build ${report.build})`],
+                ['macOS', report.macOSVersion],
+                ['Tipo', report.errorType],
+                ['Exceção', report.exceptionName],
+                ['Sinal', report.signal],
+                ['Mensagem', report.message],
+                ['Status', report.status],
+                ['Atualizado em', report.updatedAt],
+            ];
+            dl.innerHTML = fields
+                .filter(([, v]) => v != null && v !== '')
+                .map(([k, v]) => `<dt>${escapeHTML(k)}</dt><dd>${escapeHTML(String(v))}</dd>`)
+                .join('');
+            if (report.stack) {
+                stackEl.textContent = report.stack;
+                stackEl.style.display = 'block';
+            } else {
+                stackEl.style.display = 'none';
+            }
+            document.getElementById('crashModalStatus').value = report.status || 'novo';
+            document.getElementById('crashModalStatusMsg').textContent = '';
+            crashModalBackdrop.style.display = 'flex';
+        }
+
+        function closeCrashModal() {
+            crashModalBackdrop.style.display = 'none';
+            activeCrash = null;
+        }
+
+        async function saveCrashStatus() {
+            if (!activeCrash) return;
+            const status = document.getElementById('crashModalStatus').value;
+            const msgEl = document.getElementById('crashModalStatusMsg');
+            msgEl.textContent = 'Salvando...';
+            const response = await fetch(luumApiUrl('/api/admin/crash-reports'), {
+                method: 'PATCH',
+                headers: await authHeaders(),
+                body: JSON.stringify({ uid: activeCrash.uid, reportId: activeCrash.id, status })
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) { msgEl.textContent = data.error || 'Erro ao salvar.'; return; }
+            activeCrash.status = status;
+            msgEl.textContent = 'Salvo!';
+            const idx = crashReports.findIndex((r) => r.id === activeCrash.id && r.uid === activeCrash.uid);
+            if (idx !== -1) { crashReports[idx].status = status; renderCrashTable(crashReports); }
+        }
+
+        function exportCrashCSV() {
+            if (!crashReports.length) { setCrashStatus('Nenhum dado para exportar.', 'error'); return; }
+            const cols = ['timestamp', 'uid', 'appVersion', 'build', 'macOSVersion', 'errorType', 'exceptionName', 'signal', 'message', 'status'];
+            const rows = [cols.join(',')];
+            crashReports.forEach((r) => {
+                rows.push(cols.map((c) => `"${String(r[c] ?? '').replace(/"/g, '""')}"`).join(','));
+            });
+            const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `crash-reports-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+        }
+
+        document.getElementById('loadCrashBtn').addEventListener('click', () => {
+            loadCrashReports().catch((err) => setCrashStatus(err.message, 'error'));
+        });
+        document.getElementById('exportCrashBtn').addEventListener('click', exportCrashCSV);
+        document.getElementById('crashModalClose').addEventListener('click', closeCrashModal);
+        crashModalBackdrop.addEventListener('click', (e) => { if (e.target === crashModalBackdrop) closeCrashModal(); });
+        document.getElementById('crashSaveStatusBtn').addEventListener('click', () => {
+            saveCrashStatus().catch((err) => {
+                document.getElementById('crashModalStatusMsg').textContent = err.message;
+            });
         });
     </script>
     <script src="auth.js?v=10"></script>

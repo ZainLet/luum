@@ -1,12 +1,23 @@
 import AppKit
+import Sparkle
 import SwiftUI
 import UserNotifications
 
 final class LUUMAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+    private var updaterController: SPUStandardUpdaterController?
+
+    @MainActor var updater: SPUUpdater? { updaterController?.updater }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         UNUserNotificationCenter.current().delegate = self
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
+        CrashReportService.install()
         NSAppleEventManager.shared().setEventHandler(
             self,
             andSelector: #selector(handleURLEvent(_:withReplyEvent:)),
@@ -97,6 +108,9 @@ struct LUUMApp: App {
                 }
                 .keyboardShortcut("m", modifiers: [.command, .shift])
             }
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesView(updater: appDelegate.updater)
+            }
         }
 
         Settings {
@@ -140,7 +154,7 @@ private struct MenuBarPanel: View {
                 .font(.caption)
                 .foregroundStyle(store.currentActivityCategory?.tint ?? LuumTheme.textSecondary)
 
-            Text("Sessao atual: \(LuumFormatters.duration(store.currentActivityDuration))")
+            Text("Sessão atual: \(LuumFormatters.duration(store.currentActivityDuration))")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textSecondary)
 
