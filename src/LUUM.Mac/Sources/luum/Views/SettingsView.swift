@@ -670,7 +670,7 @@ struct SettingsView: View {
                 .frame(width: 24, height: 24)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(isConnected ? "\(name) conectado" : (isAvailable ? "Conectar \(name)" : "\(name) em breve"))
+                Text(isConnected ? "\(name) conectado" : name)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white)
                 Text(isConnected
@@ -685,6 +685,11 @@ struct SettingsView: View {
             if isConnected {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(LuumTheme.emerald)
+            } else {
+                Button("Conectar \(name)") {}
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(!isAvailable)
             }
         }
         .padding(12)

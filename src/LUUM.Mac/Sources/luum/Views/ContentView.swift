@@ -475,11 +475,11 @@ private struct SidebarHero: View {
                 // Dot + categoria
                 HStack(spacing: 7) {
                     Circle()
-                        .fill(store.currentActivityCategory?.tint ?? Color(red: 0.725, green: 0.651, blue: 1.0))
+                        .fill(store.currentActivityCategory?.tint ?? LuumTheme.accentLight)
                         .frame(width: 7, height: 7)
                     Text(store.currentActivityCategory?.title ?? "Aguardando classificação")
                         .font(.system(size: 12.5, weight: .medium))
-                        .foregroundStyle(store.currentActivityCategory?.tint ?? Color(red: 0.725, green: 0.651, blue: 1.0))
+                        .foregroundStyle(store.currentActivityCategory?.tint ?? LuumTheme.accentLight)
                 }
                 .animation(.easeInOut(duration: 0.2), value: store.currentActivityCategory?.title)
 
@@ -553,7 +553,7 @@ private struct SidebarButtonRow: View {
                 .frame(width: 19)
                 .foregroundStyle(
                     isSelected
-                        ? Color(red: 0.725, green: 0.651, blue: 1.0)
+                        ? LuumTheme.accentLight
                         : (isHovered ? Color.white.opacity(0.9) : Color(red: 0.604, green: 0.604, blue: 0.635)) // #9a9aa2
                 )
 
@@ -561,7 +561,7 @@ private struct SidebarButtonRow: View {
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(
                     isSelected
-                        ? Color(red: 0.725, green: 0.651, blue: 1.0)          // color:#b9a6ff
+                        ? LuumTheme.accentLight          // color:#b9a6ff
                         : (isHovered ? Color(red: 0.961, green: 0.961, blue: 0.969) : Color(red: 0.604, green: 0.604, blue: 0.635)) // #f5f5f7 / #9a9aa2
                 )
 

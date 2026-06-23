@@ -380,7 +380,7 @@ struct DashboardView: View {
             } else {
                 Image(systemName: "sparkles")
                     .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(Color(red: 0.725, green: 0.651, blue: 1.0))
+                    .foregroundStyle(LuumTheme.accentLight)
             }
 
             TextField(
@@ -559,7 +559,7 @@ struct DashboardView: View {
                 }
                 .buttonStyle(.borderless)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Color(red: 0.725, green: 0.651, blue: 1.0))
+                .foregroundStyle(LuumTheme.accentLight)
             }
 
             // Conteudo da agenda
@@ -650,7 +650,7 @@ struct DashboardView: View {
                 HomeActionChip(
                     title: "Equipe e ranking",
                     detail: "ao vivo",
-                    tint: Color(red: 0.208, green: 0.902, blue: 0.639), // #35e6a3
+                    tint: LuumTheme.emerald, // #35e6a3
                     symbol: "person.2.fill",
                     action: openTeam
                 )
@@ -680,7 +680,7 @@ struct DashboardView: View {
                     Spacer()
                     Text("Editar")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color(red: 0.725, green: 0.651, blue: 1.0)) // #b9a6ff
+                        .foregroundStyle(LuumTheme.accentLight) // #b9a6ff
                 }
 
                 if summary.categoryBreakdown.isEmpty {
@@ -1248,7 +1248,7 @@ private struct DashboardDatePanel: View {
             }
             .buttonStyle(.plain)
             .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(isToday ? Color(red: 0.725, green: 0.651, blue: 1.0) : Color.white.opacity(0.6))
+            .foregroundStyle(isToday ? LuumTheme.accentLight : Color.white.opacity(0.6))
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
             .background(
