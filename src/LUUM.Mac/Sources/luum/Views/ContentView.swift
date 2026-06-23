@@ -27,7 +27,7 @@ private enum LUUMSection: String, CaseIterable, Identifiable {
         case .categories: "Categorias"
         case .focus:      "Foco"
         case .reminders:  "Lembretes"
-        case .reports:    "Relatorios"
+        case .reports:    "Relatórios"
         }
     }
 
@@ -47,17 +47,17 @@ private enum LUUMSection: String, CaseIterable, Identifiable {
 
     var systemImage: String {
         switch self {
-        case .overview:   "rectangle.stack.fill"
+        case .overview:   "rectangle.grid.2x2"           // grid dashboard como no HTML
         case .search:     "magnifyingglass"
-        case .agenda:     "calendar.badge.clock"
-        case .clients:    "briefcase.fill"
-        case .apps:       "app.connected.to.app.below.fill"
+        case .agenda:     "calendar"
+        case .clients:    "briefcase"
+        case .apps:       "square.grid.2x2"              // 4 squares como no HTML
         case .websites:   "globe"
-        case .team:       "person.3.fill"
-        case .categories: "square.grid.2x2.fill"
-        case .focus:      "target"
-        case .reminders:  "bell.badge.fill"
-        case .reports:    "chart.xyaxis.line"
+        case .team:       "person.2"
+        case .categories: "tag"                           // tag/label como no HTML (diamond)
+        case .focus:      "scope"                         // concentric circles como no HTML
+        case .reminders:  "bell"
+        case .reports:    "chart.line.uptrend.xyaxis"    // line chart como no HTML
         }
     }
 }
@@ -236,8 +236,8 @@ struct ContentView: View {
                     store: store,
                     kind: .websites,
                     title: "Tempo por site",
-                    subtitle: "Os dominios ficam organizados de forma compacta para voce classificar ou ignorar cada site sem bagunca.",
-                    emptyState: "Nenhum site rastreado neste dia. Abra um navegador suportado e permita Automacao.",
+                    subtitle: "Os domínios ficam organizados de forma compacta para você classificar ou ignorar cada site sem bagunça.",
+                    emptyState: "Nenhum site rastreado neste dia. Abra um navegador suportado e permita Automação.",
                     selectedDay: selectedDay
                 )
             case .team:
@@ -267,7 +267,7 @@ struct ContentView: View {
                         .padding(.bottom, 6)
 
                     // VISAO GERAL
-                    SidebarGroupLabel("Visao geral")
+                    SidebarGroupLabel("Visão geral")
                     ForEach(primarySections) { section in
                         Button {
                             withAnimation(.spring(duration: 0.28, bounce: 0.14)) {
@@ -312,7 +312,7 @@ struct ContentView: View {
                         .font(.system(size: 16, weight: .light))
                         .frame(width: 19)
                         .foregroundStyle(LuumTheme.textSecondary)
-                    Text("Abrir Preferencias")
+                    Text("Abrir Preferências")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(LuumTheme.textSecondary)
                     Spacer()
@@ -345,7 +345,7 @@ private struct LoginRequiredView: View {
                     .font(.largeTitle.weight(.bold))
                     .foregroundStyle(.white)
 
-                Text("Use a mesma conta Firebase do site para liberar seu plano, backup e integracoes neste Mac.")
+                Text("Use a mesma conta Firebase do site para liberar seu plano, backup e integrações neste Mac.")
                     .font(.body)
                     .foregroundStyle(LuumTheme.textSecondary)
                     .multilineTextAlignment(.center)
@@ -477,7 +477,7 @@ private struct SidebarHero: View {
                     Circle()
                         .fill(store.currentActivityCategory?.tint ?? Color(red: 0.725, green: 0.651, blue: 1.0))
                         .frame(width: 7, height: 7)
-                    Text(store.currentActivityCategory?.title ?? "Aguardando classificacao")
+                    Text(store.currentActivityCategory?.title ?? "Aguardando classificação")
                         .font(.system(size: 12.5, weight: .medium))
                         .foregroundStyle(store.currentActivityCategory?.tint ?? Color(red: 0.725, green: 0.651, blue: 1.0))
                 }

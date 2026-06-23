@@ -19,7 +19,7 @@ struct SearchView: View {
                 LuumSectionHeader(
                     eyebrow: "Busca",
                     title: "Encontre qualquer contexto",
-                    subtitle: "Pesquise por apps, sites, notas, buscas no navegador e compromissos da agenda a partir de uma unica caixa."
+                    subtitle: "Pesquise por apps, sites, notas, buscas no navegador e compromissos da agenda a partir de uma única caixa."
                 )
 
                 searchCard(resultsCount: visibleResults.count)
@@ -32,7 +32,7 @@ struct SearchView: View {
                 } else if visibleResults.isEmpty {
                     helperCard(
                         title: "Nenhum resultado",
-                        message: "O luum nao encontrou nada nesse historico local ou na janela de agenda sincronizada."
+                        message: "O luum não encontrou nada nesse histórico local ou na janela de agenda sincronizada."
                     )
                 } else {
                     VStack(spacing: 12) {

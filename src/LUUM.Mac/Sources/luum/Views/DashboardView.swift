@@ -72,7 +72,7 @@ struct DashboardView: View {
         if let categoryTitle = store.currentActivityCategory?.title {
             return categoryTitle
         }
-        return store.isMonitoring ? "Aguardando classificacao · captura local ligada" : "Monitoramento pausado"
+        return store.isMonitoring ? "Aguardando classificação · captura local ligada" : "Monitoramento pausado"
     }
 
     var body: some View {
@@ -202,7 +202,7 @@ struct DashboardView: View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 6) {
                 // Eyebrow: 11px weight:600 tracking:.09em color:#6e6e76
-                Text("VISAO GERAL")
+                Text("VISÃO GERAL")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.463)) // #6e6e76
                     .tracking(0.99) // ~.09em at 11px
@@ -215,7 +215,7 @@ struct DashboardView: View {
                     .animation(.easeInOut(duration: 0.4), value: greetingTitle)
 
                 // Subtitulo: 15px color:#9a9aa2
-                Text("Aqui esta o que importa agora.")
+                Text("Aqui está o que importa agora.")
                     .font(.system(size: 15))
                     .foregroundStyle(Color(red: 0.604, green: 0.604, blue: 0.635)) // #9a9aa2
             }
@@ -315,9 +315,9 @@ struct DashboardView: View {
                 .fill(Color.white.opacity(0.08))
                 .frame(width: 1)
 
-            // Proxima agenda: width:300
+            // Próxima agenda: width:300
             VStack(alignment: .leading, spacing: 10) {
-                Text("Proxima agenda".uppercased())
+                Text("Próxima agenda".uppercased())
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.463)) // #6e6e76
                     .tracking(0.72)
@@ -344,7 +344,7 @@ struct DashboardView: View {
                         .padding(.top, 4)
 
                     Text(agenda.isConnected
-                        ? "Nenhum evento nas proximas horas."
+                        ? "Nenhum evento nas próximas horas."
                         : "Conecte Google, Notion ou Outlook para o Luum comparar o plano com o uso real.")
                         .font(.system(size: 13))
                         .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.463))
@@ -384,7 +384,7 @@ struct DashboardView: View {
             }
 
             TextField(
-                "Pergunte ao Luum... \"O que fiz hoje?\" ou \"Qual projeto esta em risco?\"",
+                "Pergunte ao Luum... \"O que fiz hoje?\" ou \"Qual projeto está em risco?\"",
                 text: $aiQuery
             )
             .font(.system(size: 15))
@@ -526,7 +526,7 @@ struct DashboardView: View {
             OverviewMetricCard(
                 title: "Tempo capturado",
                 value: LuumFormatters.duration(summary.totalTrackedTime),
-                detail: "historico do dia →",
+                detail: "histórico do dia →",
                 tint: LuumTheme.accent,
                 action: openReports
             )
@@ -576,31 +576,31 @@ struct DashboardView: View {
             // Conteudo da agenda
             Group {
                 if !agenda.isConfigured {
-                    Text("Adicione Google e/ou Notion nas preferencias para liberar a comparacao com a agenda.")
+                    Text("Adicione Google e/ou Notion nas preferências para liberar a comparação com a agenda.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 10)
                 } else if !agenda.isConnected {
-                    Text("A configuracao esta pronta. Falta sincronizar pelo menos uma fonte para puxar os compromissos.")
+                    Text("A configuração está pronta. Falta sincronizar pelo menos uma fonte para puxar os compromissos.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 10)
                 } else if agenda.events.isEmpty {
-                    Text("Nenhum compromisso encontrado entre a data escolhida e os proximos 3 dias.")
+                    Text("Nenhum compromisso encontrado entre a data escolhida e os próximos 3 dias.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 10)
                 } else {
                     VStack(alignment: .leading, spacing: 10) {
                         if !agenda.hasEventsInFocusDay {
-                            Text("Sem eventos no dia selecionado. Mostrando apenas os proximos compromissos dentro de 3 dias.")
+                            Text("Sem eventos no dia selecionado. Mostrando apenas os próximos compromissos dentro de 3 dias.")
                                 .foregroundStyle(LuumTheme.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
 
                         if let nextEvent = agenda.nextEvent {
                             VStack(alignment: .leading, spacing: 6) {
-                                Text("Proximo bloco")
+                                Text("Próximo bloco")
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(LuumTheme.textMuted)
                                 Text(nextEvent.title)
@@ -652,7 +652,7 @@ struct DashboardView: View {
             // Chips de acao — fixados ao fundo do card como no design HTML
             HStack(spacing: 10) {
                 HomeActionChip(
-                    title: "Relatorio semanal",
+                    title: "Relatório semanal",
                     detail: "tendencias e export",
                     tint: LuumTheme.accent,
                     symbol: "chart.xyaxis.line",
@@ -803,7 +803,7 @@ private struct TimelineScene: View {
             TimelineColumnCard(title: "Atividade real", icon: "waveform.path.ecg.rectangle.fill", tint: LuumTheme.accent) {
                 if activities.isEmpty {
                     TimelineEmptyState(
-                        text: "Nenhuma atividade capturada neste dia. Certifique-se de que o monitoramento esta ativo.",
+                        text: "Nenhuma atividade capturada neste dia. Certifique-se de que o monitoramento está ativo.",
                         actionTitle: openApps != nil ? "Ver apps e sites" : nil,
                         action: openApps
                     )
@@ -832,7 +832,7 @@ private struct TimelineScene: View {
             TimelineColumnCard(title: "Agenda", icon: "calendar.badge.clock", tint: LuumTheme.electricBlue) {
                 if agendaItems.isEmpty {
                     TimelineEmptyState(
-                        text: "Nenhum compromisso das fontes integradas para o dia selecionado ou para os proximos 3 dias.",
+                        text: "Nenhum compromisso das fontes integradas para o dia selecionado ou para os próximos 3 dias.",
                         actionTitle: openAgenda != nil ? "Conectar agenda" : nil,
                         action: openAgenda
                     )

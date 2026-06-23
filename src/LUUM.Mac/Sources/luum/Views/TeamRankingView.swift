@@ -18,7 +18,7 @@ struct TeamRankingView: View {
                 LuumSectionHeader(
                     eyebrow: "Equipe",
                     title: "Ranking e comparativos",
-                    subtitle: "Uma visao inspirada em vendas B2B: acompanhe ranking, foco, cobertura e trocas de contexto entre pessoas da mesma empresa."
+                    subtitle: "Uma visão inspirada em vendas B2B: acompanhe ranking, foco, cobertura e trocas de contexto entre pessoas da mesma empresa."
                 )
 
                 overviewStrip
@@ -109,12 +109,12 @@ struct TeamRankingView: View {
                 .foregroundStyle(.white)
 
             Text(store.teamRankingUsesPreviewData
-                 ? "Esta tela ainda esta em modo preview. Conecte o workspace nas preferencias para publicar seu snapshot semanal e receber o ranking real da equipe."
-                 : "A comparacao esta usando dados reais compartilhados do workspace corporativo.")
+                 ? "Esta tela ainda está em modo preview. Conecte o workspace nas preferências para publicar seu snapshot semanal e receber o ranking real da equipe."
+                 : "A comparação está usando dados reais compartilhados do workspace corporativo.")
                 .foregroundStyle(LuumTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Use este painel para discutir foco, previsibilidade, distribuicao de carga e sinais de burnout sem depender apenas de horas brutas.")
+            Text("Use este painel para discutir foco, previsibilidade, distribuição de carga e sinais de burnout sem depender apenas de horas brutas.")
                 .foregroundStyle(LuumTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 

@@ -106,7 +106,7 @@ struct ActivityCategory: Codable, Hashable, Identifiable, Sendable {
 
     static let communication = ActivityCategory(
         id: "communication",
-        title: "Comunicacao",
+        title: "Comunicação",
         systemImage: "bubble.left.and.bubble.right.fill",
         colorToken: .mint,
         isBuiltIn: true

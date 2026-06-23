@@ -122,10 +122,10 @@ struct TimelineActivityEditor: View {
                 .foregroundStyle(.white)
 
             if canSplit {
-                DatePicker("Momento da divisao", selection: $splitDate, in: splitRange, displayedComponents: .hourAndMinute)
+                DatePicker("Momento da divisão", selection: $splitDate, in: splitRange, displayedComponents: .hourAndMinute)
                     .datePickerStyle(.compact)
             } else {
-                Text("Esse bloco ainda esta curto demais para ser dividido com seguranca.")
+                Text("Esse bloco ainda está curto demais para ser dividido com segurança.")
                     .foregroundStyle(LuumTheme.textSecondary)
             }
 
@@ -138,7 +138,7 @@ struct TimelineActivityEditor: View {
                 .buttonStyle(.bordered)
                 .disabled(!canSplit)
 
-                Button("Aplicar divisao") {
+                Button("Aplicar divisão") {
                     store.splitActivity(sampleID: activity.id, at: splitDate)
                     dismiss()
                 }
@@ -164,7 +164,7 @@ struct TimelineActivityEditor: View {
                 .buttonStyle(.bordered)
                 .disabled(!store.canMergeActivity(sampleID: activity.id, direction: .previous))
 
-                Button("Juntar com proximo") {
+                Button("Juntar com próximo") {
                     store.mergeActivity(sampleID: activity.id, direction: .next)
                     dismiss()
                 }

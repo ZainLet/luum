@@ -49,7 +49,7 @@ enum LuumAccountPlan: String, Codable, CaseIterable, Sendable {
         case .essencial: "Essencial"
         case .profissional: "Profissional"
         case .equipes: "Equipes"
-        case .negocios: "Negocios"
+        case .negocios: "Negócios"
         }
     }
 
@@ -97,15 +97,15 @@ enum LuumFeature: String, Codable, Sendable {
         switch self {
         case .coreTracking: "Monitoramento"
         case .search: "Busca"
-        case .classification: "Classificacao"
+        case .classification: "Classificação"
         case .agendaIntegrations: "Agenda integrada"
         case .focusModes: "Modos de foco"
         case .reminders: "Lembretes"
-        case .reports: "Relatorios"
+        case .reports: "Relatórios"
         case .weeklyReportEmail: "PDF semanal por email"
         case .cloudBackup: "Backup Firebase"
         case .rawActivityBackup: "Backup de atividades brutas"
-        case .advancedIntegrations: "Integracoes avancadas"
+        case .advancedIntegrations: "Integrações avançadas"
         case .teamWorkspace: "Workspace de equipe"
         }
     }
@@ -149,7 +149,7 @@ struct LuumAuthSession: Codable, Equatable, Sendable {
             if lockedReason == "device_limit_exceeded" {
                 return "Esta conta atingiu o limite de Macs autorizados. Remova um dispositivo no admin do Luum ou valide com outra conta."
             }
-            return "Sua assinatura esta bloqueada: \(lockedReason)."
+            return "Sua assinatura está bloqueada: \(lockedReason)."
         }
 
         if ["canceled", "expired", "trial_expired"].contains(subscriptionStatus) {
@@ -157,7 +157,7 @@ struct LuumAuthSession: Codable, Equatable, Sendable {
         }
 
         if subscriptionStatus == "past_due" {
-            return "Seu pagamento esta pendente. Atualize a assinatura pelo site para liberar o app."
+            return "Seu pagamento está pendente. Atualize a assinatura pelo site para liberar o app."
         }
 
         if ["active", "canceling"].contains(subscriptionStatus), let expiresAt, expiresAt < Date() {

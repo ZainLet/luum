@@ -39,7 +39,7 @@ struct FocusModesView: View {
                 LuumSectionHeader(
                     eyebrow: "Foco",
                     title: "Metas, foco e anti-distracao",
-                    subtitle: "Configure limites, janelas de foco e metas por categoria para o luum ajudar voce a manter o dia alinhado com a sua intencao."
+                    subtitle: "Configure limites, janelas de foco e metas por categoria para o luum ajudar você a manter o dia alinhado com a sua intenção."
                 )
 
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 340), spacing: 18)], spacing: 18) {
@@ -155,7 +155,7 @@ struct FocusModesView: View {
                     .foregroundStyle(LuumTheme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                Text("Adicione apps e sites dentro dos perfis para o luum reagir na hora quando alguma distracao entrar em cena.")
+                Text("Adicione apps e sites dentro dos perfis para o luum reagir na hora quando alguma distração entrar em cena.")
                     .foregroundStyle(LuumTheme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

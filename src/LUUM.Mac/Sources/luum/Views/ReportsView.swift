@@ -10,8 +10,8 @@ struct ReportsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 LuumSectionHeader(
-                    eyebrow: "Relatorios",
-                    title: "Visao semanal pronta para decisao",
+                    eyebrow: "Relatórios",
+                    title: "Visão semanal pronta para decisão",
                     subtitle: "Acompanhe o ritmo da semana, o foco real, as trocas de contexto e exporte um retrato do uso do luum em CSV ou JSON."
                 )
 
@@ -40,7 +40,7 @@ struct ReportsView: View {
 
             HStack(spacing: 14) {
                 ReportMetricCard(title: "Tempo total", value: LuumFormatters.duration(report.totalTrackedTime), tint: LuumTheme.accent)
-                ReportMetricCard(title: "Media diaria", value: LuumFormatters.duration(report.averageDailyTrackedTime), tint: LuumTheme.electricBlue)
+                ReportMetricCard(title: "Média diária", value: LuumFormatters.duration(report.averageDailyTrackedTime), tint: LuumTheme.electricBlue)
                 ReportMetricCard(title: "Trocas", value: "\(report.contextSwitches)", tint: LuumTheme.hotPink)
                 ReportMetricCard(title: "Foco", value: LuumFormatters.duration(report.focusTime), tint: LuumTheme.secondaryAccent)
             }
@@ -149,11 +149,11 @@ struct ReportsView: View {
 
     private var exportCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Exportacao")
+            Text("Exportação")
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.white)
 
-            Text("Os arquivos saem em `Downloads/luum-exports` para voce usar em backup, analise externa ou IA.")
+            Text("Os arquivos saem em `Downloads/luum-exports` para você usar em backup, análise externa ou IA.")
                 .foregroundStyle(LuumTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 

@@ -9,9 +9,9 @@ struct SettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 LuumSectionHeader(
-                    eyebrow: "Preferencias",
-                    title: "Conexoes do Luum",
-                    subtitle: "Conecte calendario, tarefas, automacoes, backup e IA sem lidar com chaves tecnicas no app."
+                    eyebrow: "Preferências",
+                    title: "Conexões do Luum",
+                    subtitle: "Conecte calendário, tarefas, automações, backup e IA sem lidar com chaves técnicas no app."
                 )
 
                 appVersionCard
@@ -28,7 +28,7 @@ struct SettingsView: View {
                     title: "Permissoes de navegador",
                     lines: [
                         "Permite classificar sites pela aba ativa dos navegadores suportados.",
-                        store.automationStatusMessage ?? "Tudo certo com a Automacao do macOS.",
+                        store.automationStatusMessage ?? "Tudo certo com a Automação do macOS.",
                     ],
                     tint: ActivityCategory.communication.glassTint
                 )
@@ -46,7 +46,7 @@ struct SettingsView: View {
                     title: "Estado da captura",
                     lines: [
                         store.isMonitoring ? "Captura ativa em background." : "Captura pausada.",
-                        "\(store.trackedAppsCount) apps e \(store.trackedSitesCount) sites no historico.",
+                        "\(store.trackedAppsCount) apps e \(store.trackedSitesCount) sites no histórico.",
                     ],
                     tint: ActivityCategory.work.glassTint
                 )
@@ -64,7 +64,7 @@ struct SettingsView: View {
 
     private var appVersionCard: some View {
         settingsCard(
-            title: "Versao do app",
+            title: "Versão do app",
             lines: [
                 "Luum \(AppVersionInfo.current.displayVersion)",
                 "Build \(AppVersionInfo.current.build) • \(AppVersionInfo.current.channel)",
@@ -77,11 +77,11 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Mapa de integracoes")
+                    Text("Mapa de integrações")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
-                    Text("Veja rapidamente quais conexoes estao prontas neste Mac.")
+                    Text("Veja rapidamente quais conexões estão prontas neste Mac.")
                         .foregroundStyle(LuumTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -121,7 +121,7 @@ struct SettingsView: View {
                 .foregroundStyle(LuumTheme.textSecondary)
             Text("Armazenamento: \(store.secretStorageDescription)")
                 .foregroundStyle(LuumTheme.textSecondary)
-            Text(store.authStatusMessage ?? "Sessao local ainda nao validada.")
+            Text(store.authStatusMessage ?? "Sessão local ainda não validada.")
                 .foregroundStyle(LuumTheme.textSecondary)
 
             if store.isSignedIn {
@@ -146,7 +146,7 @@ struct SettingsView: View {
             }
             Button("Cancelar", role: .cancel) {}
         } message: {
-            Text("A sessao local sera removida. Seus dados da conta no Firebase nao serao apagados.")
+            Text("A sessão local será removida. Seus dados da conta no Firebase não serão apagados.")
         }
     }
 
@@ -300,7 +300,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("IA de classificacao")
+                    Text("IA de classificação")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
 
@@ -317,7 +317,7 @@ struct SettingsView: View {
                 )
             }
 
-            Toggle("Ativar sugestoes por IA", isOn: Binding(
+            Toggle("Ativar sugestões por IA", isOn: Binding(
                 get: { store.aiClassificationSettings.isEnabled },
                 set: { store.updateAIClassificationEnabled($0) }
             ))
@@ -330,7 +330,7 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("A IA usa a configuracao segura da sua conta Luum.")
+            Text("A IA usa a configuração segura da sua conta Luum.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -450,7 +450,7 @@ struct SettingsView: View {
                 get: { store.privacySettings.retentionDays },
                 set: { store.updatePrivacyRetentionDays($0) }
             ), in: 7 ... 365, step: 1) {
-                Text("Retencao local: \(store.privacySettings.retentionDays) dias")
+                Text("Retenção local: \(store.privacySettings.retentionDays) dias")
                     .foregroundStyle(.white)
             }
 
@@ -494,7 +494,7 @@ struct SettingsView: View {
             simpleInfoRow(
                 systemImage: "person.crop.circle",
                 title: store.accountEmail.isEmpty ? "Entre com sua conta Luum" : store.accountEmail,
-                subtitle: store.cloudSyncConfigured ? "Backup pronto" : "Aguardando login e plano compativel"
+                subtitle: store.cloudSyncConfigured ? "Backup pronto" : "Aguardando login e plano compatível"
             )
 
             HStack(spacing: 10) {
@@ -546,7 +546,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.borderedProminent)
 
-            Button("Abrir pasta do historico") {
+            Button("Abrir pasta do histórico") {
                 SystemSettings.openActivityLogFolder()
             }
             .buttonStyle(.bordered)
@@ -555,7 +555,7 @@ struct SettingsView: View {
 
     private var classificationCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Classificacao inicial")
+            Text("Classificação inicial")
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.white)
 
@@ -644,7 +644,7 @@ struct SettingsView: View {
                     status: "Parcial",
                     detail: AIClassificationService.isLuumBackendEndpoint(store.aiClassificationSettings.endpointURL)
                         ? "Entre no Luum para liberar"
-                        : "Configuracao pendente",
+                        : "Configuração pendente",
                     tint: LuumTheme.hotPink
                 )
             }
@@ -652,7 +652,7 @@ struct SettingsView: View {
             return IntegrationSnapshot(
                 kind: kind,
                 status: "Desativado",
-                detail: "Sugestoes opcionais",
+                detail: "Sugestões opcionais",
                 tint: LuumTheme.textMuted
             )
         case .googleCalendar:
@@ -677,7 +677,7 @@ struct SettingsView: View {
             return IntegrationSnapshot(
                 kind: kind,
                 status: "Pendente",
-                detail: "Conexao pendente",
+                detail: "Conexão pendente",
                 tint: LuumTheme.textMuted
             )
         case .notionCalendar:
@@ -694,7 +694,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Pronto",
-                    detail: "Conexao guiada preparada",
+                    detail: "Conexão guiada preparada",
                     tint: LuumTheme.secondaryAccent
                 )
             }
@@ -703,7 +703,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Parcial",
-                    detail: "Conexao pendente",
+                    detail: "Conexão pendente",
                     tint: LuumTheme.hotPink
                 )
             }
@@ -711,7 +711,7 @@ struct SettingsView: View {
             return IntegrationSnapshot(
                 kind: kind,
                 status: "Desativado",
-                detail: "Integracao opcional",
+                detail: "Integração opcional",
                 tint: LuumTheme.textMuted
             )
         case .outlookCalendar:
@@ -719,7 +719,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Ativo",
-                    detail: "\(store.outlookCalendarSettings.calendars.filter(\.isSelected).count) calendario(s) sincronizados",
+                    detail: "\(store.outlookCalendarSettings.calendars.filter(\.isSelected).count) calendário(s) sincronizados",
                     tint: LuumTheme.electricBlue
                 )
             }
@@ -728,7 +728,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Pronto",
-                    detail: "Conexao guiada preparada",
+                    detail: "Conexão guiada preparada",
                     tint: LuumTheme.electricBlue
                 )
             }
@@ -737,7 +737,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Parcial",
-                    detail: "Conexao pendente",
+                    detail: "Conexão pendente",
                     tint: LuumTheme.hotPink
                 )
             }
@@ -745,7 +745,7 @@ struct SettingsView: View {
             return IntegrationSnapshot(
                 kind: kind,
                 status: "Desativado",
-                detail: "Integracao opcional",
+                detail: "Integração opcional",
                 tint: LuumTheme.textMuted
             )
         case .clickUp:
@@ -762,7 +762,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Pronto",
-                    detail: "Conexao guiada preparada",
+                    detail: "Conexão guiada preparada",
                     tint: LuumTheme.secondaryAccent
                 )
             }
@@ -771,7 +771,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Parcial",
-                    detail: "Conexao pendente",
+                    detail: "Conexão pendente",
                     tint: LuumTheme.secondaryAccent
                 )
             }
@@ -779,7 +779,7 @@ struct SettingsView: View {
             return IntegrationSnapshot(
                 kind: kind,
                 status: "Desativado",
-                detail: "Integracao opcional",
+                detail: "Integração opcional",
                 tint: LuumTheme.textMuted
             )
         case .linear:
@@ -796,7 +796,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Pronto",
-                    detail: "Conexao guiada preparada",
+                    detail: "Conexão guiada preparada",
                     tint: LuumTheme.secondaryAccent
                 )
             }
@@ -805,7 +805,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Parcial",
-                    detail: "Conexao pendente",
+                    detail: "Conexão pendente",
                     tint: LuumTheme.hotPink
                 )
             }
@@ -813,7 +813,7 @@ struct SettingsView: View {
             return IntegrationSnapshot(
                 kind: kind,
                 status: "Desativado",
-                detail: "Integracao opcional",
+                detail: "Integração opcional",
                 tint: LuumTheme.textMuted
             )
         case .zapier:
@@ -821,7 +821,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Ativo",
-                    detail: "Automacoes prontas",
+                    detail: "Automações prontas",
                     tint: ActivityCategory.work.tint
                 )
             }
@@ -830,7 +830,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Pronto",
-                    detail: "Conexao guiada preparada",
+                    detail: "Conexão guiada preparada",
                     tint: ActivityCategory.work.tint
                 )
             }
@@ -839,7 +839,7 @@ struct SettingsView: View {
                 return IntegrationSnapshot(
                     kind: kind,
                     status: "Parcial",
-                    detail: "Conexao pendente",
+                    detail: "Conexão pendente",
                     tint: LuumTheme.hotPink
                 )
             }
@@ -847,7 +847,7 @@ struct SettingsView: View {
             return IntegrationSnapshot(
                 kind: kind,
                 status: "Desativado",
-                detail: "Integracao opcional",
+                detail: "Integração opcional",
                 tint: LuumTheme.textMuted
             )
         case .firebaseSync:
@@ -890,8 +890,8 @@ struct SettingsView: View {
             return connected
         }
         return isAvailable
-            ? "Conexao guiada disponivel pela conta Luum."
-            : "Login guiado sera liberado pelo Luum, sem token manual."
+            ? "Conexão guiada disponível pela conta Luum."
+            : "Login guiado será liberado pelo Luum, sem token manual."
     }
 
     private func settingsCard(title: String, lines: [String], tint: Color) -> some View {
@@ -1120,7 +1120,7 @@ private struct GoogleConnectionCard: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("Calendarios incluidos")
+                Text("Calendários incluídos")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.72))
 

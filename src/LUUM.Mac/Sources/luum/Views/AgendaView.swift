@@ -28,7 +28,7 @@ struct AgendaView: View {
                 LuumSectionHeader(
                     eyebrow: "Agenda",
                     title: "Agenda integrada",
-                    subtitle: "Cruze Google, Notion, Outlook, ClickUp e Linear numa mesma linha do tempo para comparar melhor plano, contexto e execucao."
+                    subtitle: "Cruze Google, Notion, Outlook, ClickUp e Linear numa mesma linha do tempo para comparar melhor plano, contexto e execução."
                 )
 
                 agendaStatusCard
@@ -165,7 +165,7 @@ struct AgendaView: View {
                             .foregroundStyle(LuumTheme.textSecondary)
                             .font(.caption)
 
-                        Text("\(connection.selectedCalendars.count) calendario(s) selecionado(s)")
+                        Text("\(connection.selectedCalendars.count) calendário(s) selecionado(s)")
                             .foregroundStyle(LuumTheme.electricBlue)
                             .font(.caption.weight(.semibold))
                     }
@@ -216,7 +216,7 @@ struct AgendaView: View {
                         label: "Outlook",
                         title: source.workspaceLabel,
                         subtitle: source.accountEmail,
-                        detail: "\(source.selectedCalendars.count) calendario(s) selecionado(s)",
+                        detail: "\(source.selectedCalendars.count) calendário(s) selecionado(s)",
                         detailTint: LuumTheme.electricBlue,
                         lastSyncAt: source.lastSyncAt
                     )
@@ -261,7 +261,7 @@ struct AgendaView: View {
                 .foregroundStyle(LuumTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Abra Preferencias > Conexoes para conectar uma fonte de agenda.")
+            Text("Abra Preferências > Conexões para conectar uma fonte de agenda.")
                 .font(.caption)
                 .foregroundStyle(LuumTheme.textMuted)
         }
@@ -271,7 +271,7 @@ struct AgendaView: View {
 
     private var upcomingCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Proximo compromisso")
+            Text("Próximo compromisso")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.64))
 
@@ -294,23 +294,23 @@ struct AgendaView: View {
 
     private var statusDescription: String {
         if agenda.isConnected {
-            return "\(agenda.connectedAccountCount) fonte(s) conectada(s) e \(agenda.selectedCalendarCount) calendarios/listas/fontes ativos neste Mac. O luum mostra o dia selecionado e os proximos 3 dias."
+            return "\(agenda.connectedAccountCount) fonte(s) conectada(s) e \(agenda.selectedCalendarCount) calendários/listas/fontes ativos neste Mac. O luum mostra o dia selecionado e os próximos 3 dias."
         }
 
         if store.isGoogleCalendarConfigured || store.notionCalendarSettings.isEnabled || store.outlookCalendarSettings.isEnabled || store.clickUpSettings.isEnabled || store.linearSettings.isEnabled {
-            return "O setup comecou. Falta concluir pelo menos uma das fontes para puxar eventos reais para a agenda integrada."
+            return "O setup começou. Falta concluir pelo menos uma das fontes para puxar eventos reais para a agenda integrada."
         }
 
-        return "Adicione Google, Notion, Outlook, ClickUp e/ou Linear nas preferencias para liberar a comparacao entre o planejado e o tempo real."
+        return "Adicione Google, Notion, Outlook, ClickUp e/ou Linear nas preferências para liberar a comparação entre o planejado e o tempo real."
     }
 
     private var emptyStateTitle: String {
         if !agenda.isConfigured {
-            return "A agenda integrada ainda nao foi configurada."
+            return "A agenda integrada ainda não foi configurada."
         }
 
         if !agenda.isConnected {
-            return "A configuracao esta pronta, falta conectar."
+            return "A configuração está pronta, falta conectar."
         }
 
         return "Sem compromissos na janela atual."
@@ -318,14 +318,14 @@ struct AgendaView: View {
 
     private var emptyStateDescription: String {
         if !agenda.isConfigured {
-            return "Conecte Google, Notion, Outlook, ClickUp ou Linear nas preferencias para montar sua linha do tempo planejada."
+            return "Conecte Google, Notion, Outlook, ClickUp ou Linear nas preferências para montar sua linha do tempo planejada."
         }
 
         if !agenda.isConnected {
-            return "Depois de conectar, o luum lista calendarios e fontes para voce decidir o que entra na timeline integrada."
+            return "Depois de conectar, o luum lista calendários e fontes para você decidir o que entra na timeline integrada."
         }
 
-        return "Troque a data no painel principal ou sincronize novamente para verificar o dia escolhido e os proximos 3 dias."
+        return "Troque a data no painel principal ou sincronize novamente para verificar o dia escolhido e os próximos 3 dias."
     }
 }
 
