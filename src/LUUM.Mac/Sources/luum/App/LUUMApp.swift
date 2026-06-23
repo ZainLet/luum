@@ -6,7 +6,7 @@ import UserNotifications
 final class LUUMAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var updaterController: SPUStandardUpdaterController?
 
-    var updater: SPUUpdater? { updaterController?.updater }
+    @MainActor var updater: SPUUpdater? { updaterController?.updater }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -17,6 +17,7 @@ final class LUUMAppDelegate: NSObject, NSApplicationDelegate, UNUserNotification
             updaterDelegate: nil,
             userDriverDelegate: nil
         )
+        CrashReportService.install()
         NSAppleEventManager.shared().setEventHandler(
             self,
             andSelector: #selector(handleURLEvent(_:withReplyEvent:)),

@@ -111,7 +111,7 @@ cat >"$INFO_PLIST" <<PLIST
   <key>SUFeedURL</key>
   <string>https://luum-app.vercel.app/appcast.xml</string>
   <key>SUPublicEDKey</key>
-  <string>${SPARKLE_PUBLIC_KEY:-}</string>
+  <string>${SPARKLE_PUBLIC_KEY:-4fA063E0837LWH8mqIAcgS6R3+h+UNPTtfiHKS9eAm8=}</string>
   <key>SUEnableAutomaticChecks</key>
   <true/>
   <key>CFBundleURLTypes</key>

@@ -452,13 +452,17 @@ final class ActivityStore {
                     sessionToValidate,
                     deviceID: keychainService.installationID()
                 )
-                let shouldSyncWorkspace = await MainActor.run {
-                    guard self.isCurrentAuthRefresh(generation, for: sessionToValidate) else { return false }
+                let (shouldSyncWorkspace, idToken) = await MainActor.run {
+                    guard self.isCurrentAuthRefresh(generation, for: sessionToValidate) else { return (false, "") }
                     self.applyAuthSession(verified, message: "Plano \(verified.plan.title) validado.")
                     self.isCheckingAuth = false
                     self.authRefreshTask = nil
-                    return self.teamSettings.automaticallySyncWorkspace &&
+                    let sync = self.teamSettings.automaticallySyncWorkspace &&
                         self.teamWorkspaceConfigured
+                    return (sync, verified.idToken)
+                }
+                if !idToken.isEmpty {
+                    await CrashReportService.sendPending(idToken: idToken)
                 }
                 if shouldSyncWorkspace {
                     self.syncWorkspaceRankingNow()
