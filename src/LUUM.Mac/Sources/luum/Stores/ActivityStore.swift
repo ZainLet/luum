@@ -434,6 +434,8 @@ final class ActivityStore {
         monitoringPreferences.teamSettings.workspaceEndpointURL = FirebaseAuthService.defaultBaseURL
         workspaceRankingEntries = []
         workspaceSyncLastSyncAt = nil
+        isCurrentUserWorkspaceAdmin = false
+        workspaceAdminEntries = []
         workspaceSyncStatusMessage = "Workspace desconectado deste Mac."
         persistMonitoringPreferences()
     }
