@@ -410,6 +410,24 @@ struct TeamRankingEntry: Identifiable, Codable, Hashable, Sendable {
     }
 }
 
+struct OutlookCalendarTokens: Codable, Sendable {
+    let accessToken: String
+    let refreshToken: String?
+    let expiresAt: Date
+
+    var isExpired: Bool {
+        Date() >= expiresAt.addingTimeInterval(-120)
+    }
+
+    static func make(accessToken: String, refreshToken: String?, expiresIn: TimeInterval) -> OutlookCalendarTokens {
+        OutlookCalendarTokens(
+            accessToken: accessToken,
+            refreshToken: refreshToken.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 },
+            expiresAt: Date().addingTimeInterval(expiresIn)
+        )
+    }
+}
+
 struct WorkspaceAdminEntry: Identifiable, Codable, Hashable, Sendable {
     let id: String
     let displayName: String

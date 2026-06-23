@@ -186,7 +186,7 @@ final class ActivityStore {
         self.googleCalendarConnections = calendarSnapshot.connections
         self.googleCalendarStatusMessage = googleCalendarConnections.isEmpty ? nil : "Google Agenda pronta para sincronizar."
         let hasStoredNotionToken = keychainService.string(for: Self.notionCalendarTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-        let hasStoredOutlookToken = keychainService.string(for: Self.outlookCalendarTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        let hasStoredOutlookToken = keychainService.codable(OutlookCalendarTokens.self, for: Self.outlookCalendarSessionKey) != nil
         let hasStoredClickUpToken = keychainService.string(for: Self.clickUpTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
         let hasStoredLinearToken = keychainService.string(for: Self.linearTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
         let hasStoredZapierWebhook = monitoringPreferences.zapierSettings.webhookURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
@@ -400,6 +400,10 @@ final class ActivityStore {
             handleNotionOAuthCallback(url)
             return
         }
+        if url.scheme == "luum", url.host == "outlook" {
+            handleOutlookOAuthCallback(url)
+            return
+        }
         authCoordinator.handleAuthCallbackURL(url)
     }
 
@@ -426,6 +430,7 @@ final class ActivityStore {
         isSendingWeeklyReportEmail = false
         isCheckingWeeklyReportEmailHealth = false
         stopMonitoring()
+        keychainService.removeValue(for: Self.outlookCalendarSessionKey)
         keychainService.removeValue(for: Self.teamWorkspaceSecretKey)
         monitoringPreferences.teamSettings.sharesAnonymousMetrics = false
         monitoringPreferences.teamSettings.automaticallySyncWorkspace = false
@@ -620,7 +625,7 @@ final class ActivityStore {
     }
 
     var hasOutlookToken: Bool {
-        !(keychainService.string(for: Self.outlookCalendarTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        keychainService.codable(OutlookCalendarTokens.self, for: Self.outlookCalendarSessionKey) != nil
     }
 
     var outlookCalendarLastSyncAt: Date? {
@@ -981,6 +986,22 @@ final class ActivityStore {
         } catch {
             outlookCalendarStatusMessage = error.localizedDescription
         }
+    }
+
+    func connectOutlookCalendar() {
+        Task { await runOutlookConnect() }
+    }
+
+    func disconnectOutlookCalendar() {
+        keychainService.removeValue(for: Self.outlookCalendarSessionKey)
+        keychainService.removeValue(for: Self.outlookCalendarTokenKey)
+        monitoringPreferences.outlookCalendarSettings.isEnabled = false
+        monitoringPreferences.outlookCalendarSettings.accountEmail = ""
+        monitoringPreferences.outlookCalendarSettings.calendars = []
+        outlookAgendaItems = []
+        outlookAgendaDay = nil
+        outlookCalendarStatusMessage = "Outlook desconectado."
+        persistMonitoringPreferences()
     }
 
     func setOutlookCalendarSelection(calendarID: String, isSelected: Bool) {
@@ -2949,6 +2970,125 @@ final class ActivityStore {
         }
     }
 
+    private func runOutlookConnect() async {
+        guard canUse(.agendaIntegrations) else {
+            outlookCalendarStatusMessage = lockMessage(for: .agendaIntegrations)
+            return
+        }
+        guard let verified = try? await authCoordinator.verifiedAuthSessionForProtectedRequest() else {
+            outlookCalendarStatusMessage = "Entre na sua conta Luum antes de conectar o Outlook."
+            return
+        }
+        outlookCalendarStatusMessage = "Carregando autorização do Outlook..."
+
+        let backendURL = FirebaseAuthService.defaultBaseURL
+        guard let url = URL(string: "\(backendURL)/api/integrations?action=outlook-auth") else {
+            outlookCalendarStatusMessage = "Erro ao montar URL de autenticação do Outlook."
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(verified.idToken)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
+            guard (200 ..< 300).contains(statusCode) else {
+                struct ErrorBody: Decodable { let error: String }
+                let msg = (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error ?? "Outlook não configurado no servidor."
+                outlookCalendarStatusMessage = msg
+                return
+            }
+            struct AuthResponse: Decodable { let url: String }
+            let authResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
+            guard let authURL = URL(string: authResponse.url) else {
+                outlookCalendarStatusMessage = "URL OAuth do Outlook inválida."
+                return
+            }
+            NSWorkspace.shared.open(authURL)
+            outlookCalendarStatusMessage = "Autorizando no Outlook... Conclua no navegador e volte ao Luum."
+        } catch {
+            outlookCalendarStatusMessage = "Erro ao iniciar conexão com Outlook."
+        }
+    }
+
+    private func handleOutlookOAuthCallback(_ url: URL) {
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+
+        if let error = items.first(where: { $0.name == "error" })?.value {
+            outlookCalendarStatusMessage = "Conexão com Outlook cancelada: \(error)"
+            return
+        }
+
+        guard let accessToken = items.first(where: { $0.name == "access_token" })?.value,
+              !accessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            outlookCalendarStatusMessage = "Token do Outlook não recebido. Tente reconectar."
+            return
+        }
+
+        let refreshToken = items.first(where: { $0.name == "refresh_token" })?.value
+        let expiresIn = TimeInterval(items.first(where: { $0.name == "expires_in" })?.value ?? "3600") ?? 3600
+        let tokens = OutlookCalendarTokens.make(accessToken: accessToken, refreshToken: refreshToken, expiresIn: expiresIn)
+
+        do {
+            try keychainService.setCodable(tokens, for: Self.outlookCalendarSessionKey)
+            monitoringPreferences.outlookCalendarSettings.isEnabled = true
+            outlookCalendarStatusMessage = "Outlook conectado. Sincronizando calendários..."
+            persistMonitoringPreferences()
+            refreshOutlookCalendar()
+        } catch {
+            outlookCalendarStatusMessage = "Erro ao salvar token do Outlook no Keychain."
+        }
+    }
+
+    private func loadValidOutlookTokens() async -> OutlookCalendarTokens? {
+        guard var tokens = keychainService.codable(OutlookCalendarTokens.self, for: Self.outlookCalendarSessionKey) else {
+            return nil
+        }
+
+        guard tokens.isExpired else { return tokens }
+        guard let refreshToken = tokens.refreshToken else {
+            outlookCalendarStatusMessage = "Token Microsoft expirado. Reconecte o Outlook."
+            return nil
+        }
+
+        guard let verified = try? await authCoordinator.verifiedAuthSessionForProtectedRequest() else {
+            return nil
+        }
+
+        let backendURL = FirebaseAuthService.defaultBaseURL
+        guard let url = URL(string: "\(backendURL)/api/integrations?action=outlook-refresh") else { return nil }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(verified.idToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try? JSONEncoder().encode(["refresh_token": refreshToken])
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+                outlookCalendarStatusMessage = "Token Microsoft expirado. Reconecte o Outlook."
+                return nil
+            }
+            struct RefreshResponse: Decodable {
+                let access_token: String
+                let refresh_token: String?
+                let expires_in: TimeInterval
+            }
+            let refreshed = try JSONDecoder().decode(RefreshResponse.self, from: data)
+            tokens = OutlookCalendarTokens.make(
+                accessToken: refreshed.access_token,
+                refreshToken: refreshed.refresh_token ?? refreshToken,
+                expiresIn: refreshed.expires_in
+            )
+            try? keychainService.setCodable(tokens, for: Self.outlookCalendarSessionKey)
+            return tokens
+        } catch {
+            return nil
+        }
+    }
+
     private func runOutlookCalendarSync(for day: Date, force: Bool) async {
         guard canUse(.agendaIntegrations) else {
             if force {
@@ -2973,10 +3113,10 @@ final class ActivityStore {
             return
         }
 
-        guard let token = keychainService.string(for: Self.outlookCalendarTokenKey),
-              !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else {
-            outlookCalendarStatusMessage = OutlookCalendarIssue.missingToken.errorDescription
+        guard let tokens = await loadValidOutlookTokens() else {
+            if outlookCalendarStatusMessage == nil {
+                outlookCalendarStatusMessage = OutlookCalendarIssue.missingToken.errorDescription
+            }
             return
         }
 
@@ -2995,7 +3135,7 @@ final class ActivityStore {
             let result = try await outlookCalendarService.sync(
                 day: normalizedDay,
                 settings: settings,
-                accessToken: token
+                accessToken: tokens.accessToken
             )
             outlookAgendaItems = result.events
             outlookAgendaDay = normalizedDay
@@ -4344,6 +4484,7 @@ final class ActivityStore {
     private static let googleCalendarClientSecretKey = "google-calendar-client-secret"
     private static let notionCalendarTokenKey = "notion-calendar-token"
     private static let outlookCalendarTokenKey = "outlook-calendar-token"
+    private static let outlookCalendarSessionKey = "outlook-calendar-session"
     private static let clickUpTokenKey = "clickup-api-token"
     private static let linearTokenKey = "linear-api-key"
     private static let aiClassificationAPIKeyKey = "ai-classification-api-key"

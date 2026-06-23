@@ -64,7 +64,7 @@ test('public integrations endpoint exposes only non-secret connection bootstrap 
     assert.equal(res.body.outlookCalendar.configured, true);
     assert.equal(res.body.outlookCalendar.clientID, 'outlook-client-id');
     assert.equal(res.body.managedOAuth.googleCalendar, true);
-    assert.equal(res.body.managedOAuth.outlookCalendar, false);
+    assert.equal(res.body.managedOAuth.outlookCalendar, true);
     assert.equal(JSON.stringify(res.body).includes('sk_live_should_not_leak'), false);
     assert.equal(JSON.stringify(res.body).includes('secret_should_not_leak'), false);
     assert.equal(res.headers['Cache-Control'], 'no-store, max-age=0');

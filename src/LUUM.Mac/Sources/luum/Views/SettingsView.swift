@@ -165,6 +165,11 @@ struct SettingsView: View {
 
         Divider().opacity(0.08)
 
+        // Outlook Calendar
+        outlookCalendarSection
+
+        Divider().opacity(0.08)
+
         // Pending (coming soon)
         pendingIntegrationsSection
 
@@ -338,6 +343,111 @@ struct SettingsView: View {
         }
     }
 
+    private var outlookCalendarSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label("Outlook Calendar", systemImage: "calendar")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                Spacer()
+                if store.hasOutlookToken {
+                    Text("Conectado")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LuumTheme.electricBlue)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(LuumTheme.electricBlue.opacity(0.12)))
+                } else if store.outlookManagedOAuthAvailable {
+                    Text("Pronto para conectar")
+                        .font(.caption)
+                        .foregroundStyle(LuumTheme.textMuted)
+                }
+            }
+
+            if let message = store.outlookCalendarStatusMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textSecondary)
+            }
+
+            Toggle("Ativar Outlook Calendar", isOn: Binding(
+                get: { store.outlookCalendarSettings.isEnabled },
+                set: { store.updateOutlookCalendarEnabled($0) }
+            ))
+            .toggleStyle(.switch)
+            .disabled(!store.hasOutlookToken)
+
+            HStack(spacing: 10) {
+                if store.outlookManagedOAuthAvailable {
+                    Button(store.hasOutlookToken ? "Reconectar" : "Conectar Outlook") {
+                        store.connectOutlookCalendar()
+                    }
+                    .buttonStyle(.glassProminent)
+                }
+
+                Button("Sincronizar") { store.refreshOutlookCalendar() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!store.hasOutlookToken || store.isSyncingOutlookCalendar)
+
+                if store.hasOutlookToken {
+                    Button("Desconectar") { store.disconnectOutlookCalendar() }
+                        .buttonStyle(.bordered)
+                }
+            }
+
+            if store.hasOutlookToken && store.outlookCalendarSettings.isEnabled {
+                let email = store.outlookCalendarSettings.accountEmail
+                if !email.isEmpty {
+                    HStack(spacing: 10) {
+                        Image(systemName: "person.crop.circle")
+                            .foregroundStyle(LuumTheme.electricBlue)
+                        Text(email)
+                            .font(.subheadline)
+                            .foregroundStyle(.white)
+                    }
+                    .padding(12)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(.white.opacity(0.03)))
+                }
+
+                if !store.outlookCalendarSettings.calendars.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Calendários")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.6))
+
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 8)], spacing: 8) {
+                            ForEach(store.outlookCalendarSettings.calendars) { calendar in
+                                Toggle(isOn: Binding(
+                                    get: { calendar.isSelected },
+                                    set: { store.setOutlookCalendarSelection(calendarID: calendar.id, isSelected: $0) }
+                                )) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(calendar.title)
+                                            .foregroundStyle(.white)
+                                            .font(.caption.weight(.semibold))
+                                            .lineLimit(1)
+                                        Text(calendar.isPrimary ? "Principal" : "Calendário")
+                                            .foregroundStyle(LuumTheme.textSecondary)
+                                            .font(.caption2)
+                                    }
+                                }
+                                .toggleStyle(.checkbox)
+                                .padding(10)
+                                .background(RoundedRectangle(cornerRadius: 12).fill(.white.opacity(0.02)))
+                            }
+                        }
+                    }
+                }
+            }
+
+            if !store.outlookManagedOAuthAvailable {
+                Text("Outlook OAuth não configurado no servidor. Configure OUTLOOK_CLIENT_ID e OUTLOOK_CLIENT_SECRET na Vercel.")
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textMuted)
+            }
+        }
+    }
+
     private var pendingIntegrationsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -351,12 +461,6 @@ struct SettingsView: View {
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 10)], spacing: 10) {
-                pendingIntegrationRow(
-                    name: "Outlook",
-                    systemImage: "calendar",
-                    isConnected: store.hasOutlookToken,
-                    isAvailable: store.outlookManagedOAuthAvailable
-                )
                 pendingIntegrationRow(
                     name: "ClickUp",
                     systemImage: "checklist",

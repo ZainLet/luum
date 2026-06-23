@@ -24,7 +24,7 @@ async function publicIntegrationsHandler(req, res) {
         },
         managedOAuth: {
             googleCalendar: Boolean(googleCalendarClientID),
-            outlookCalendar: false,
+            outlookCalendar: Boolean(outlookClientID),
             notion: Boolean(notionClientID),
             clickUp: true,
             linear: true,

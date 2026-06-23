@@ -6,6 +6,9 @@ const linearIssues  = require('./_linear-issues');
 const notionAuth     = require('./_notion-auth');
 const notionCallback = require('./_notion-callback');
 const notionPages    = require('./_notion-pages');
+const outlookAuth    = require('./_outlook-auth');
+const outlookCallback = require('./_outlook-callback');
+const outlookRefresh = require('./_outlook-refresh');
 const zapierAction  = require('./_zapier-action');
 const zapierTrigger = require('./_zapier-trigger');
 
@@ -16,6 +19,9 @@ const ROUTES = {
     'notion-auth':     notionAuth,
     'notion-callback': notionCallback,
     'notion-pages':    notionPages,
+    'outlook-auth':    outlookAuth,
+    'outlook-callback': outlookCallback,
+    'outlook-refresh': outlookRefresh,
     'zapier-action':   zapierAction,
     'zapier-trigger':  zapierTrigger,
 };
