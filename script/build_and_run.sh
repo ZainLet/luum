@@ -129,6 +129,30 @@ cat >"$INFO_PLIST" <<PLIST
 </plist>
 PLIST
 
+# Embedar frameworks dinâmicos (Sparkle e outros binários SPM)
+FRAMEWORKS_DIR="$APP_CONTENTS/Frameworks"
+mkdir -p "$FRAMEWORKS_DIR"
+BUILD_DIR="src/LUUM.Mac/.build/arm64-apple-macosx/debug"
+APP_BINARY="$APP_CONTENTS/MacOS/$APP_NAME"
+for fw in "$BUILD_DIR"/*.framework; do
+  [ -d "$fw" ] || continue
+  fw_name="$(basename "$fw")"
+  rm -rf "$FRAMEWORKS_DIR/$fw_name"
+  cp -R "$fw" "$FRAMEWORKS_DIR/$fw_name"
+done
+
+# Garantir que o binário tem @executable_path/../Frameworks no rpath
+existing_rpaths=$(otool -l "$APP_BINARY" | awk '/LC_RPATH/{found=1} found && /path /{print $2; found=0}')
+if ! echo "$existing_rpaths" | grep -q "@executable_path/../Frameworks"; then
+  install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP_BINARY"
+fi
+
+# Assinar frameworks antes do app
+for fw in "$FRAMEWORKS_DIR"/*.framework; do
+  [ -d "$fw" ] || continue
+  codesign --force --sign "$CODESIGN_IDENTITY" --timestamp=none "$fw"
+done
+
 codesign --force --deep --sign "$CODESIGN_IDENTITY" --timestamp=none "$APP_BUNDLE"
 clean_macos_metadata "$APP_BUNDLE"
 
