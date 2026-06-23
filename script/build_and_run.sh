@@ -414,6 +414,12 @@ APPLESCRIPT
   shasum -a 256 "$dmg_path" >"$dmg_path.sha256"
   shasum -a 256 "$stable_dmg_path" >"$stable_dmg_path.sha256"
 
+  # Copia para website/downloads/ para deploy direto no Vercel
+  local website_downloads="$ROOT_DIR/website/downloads"
+  mkdir -p "$website_downloads"
+  cp "$dmg_path" "$website_downloads/Luum.dmg"
+  echo "→ DMG copiado para website/downloads/Luum.dmg"
+
   echo "$dmg_path"
 }
 

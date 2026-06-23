@@ -1,16 +1,4 @@
 {
-  "redirects": [
-    {
-      "source": "/download",
-      "destination": "https://github.com/ZainLet/luum/releases/download/v0.1.1/Luum-0.1.1-alpha.zip",
-      "permanent": false
-    },
-    {
-      "source": "/download/dmg",
-      "destination": "https://github.com/ZainLet/luum/releases/download/v0.1.1/Luum-0.1.1-alpha.dmg",
-      "permanent": false
-    }
-  ],
   "rewrites": [
     {
       "source": "/((?!api/).*)",
