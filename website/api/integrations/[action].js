@@ -1,12 +1,12 @@
 'use strict';
 
-const clickupWebhook = require('./clickup-webhook');
-const linearAuth    = require('./linear-auth');
-const linearIssues  = require('./linear-issues');
-const notionAuth    = require('./notion-auth');
-const notionPages   = require('./notion-pages');
-const zapierAction  = require('./zapier-action');
-const zapierTrigger = require('./zapier-trigger');
+const clickupWebhook = require('./_clickup-webhook');
+const linearAuth    = require('./_linear-auth');
+const linearIssues  = require('./_linear-issues');
+const notionAuth    = require('./_notion-auth');
+const notionPages   = require('./_notion-pages');
+const zapierAction  = require('./_zapier-action');
+const zapierTrigger = require('./_zapier-trigger');
 
 const ROUTES = {
     'clickup-webhook': clickupWebhook,
