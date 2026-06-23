@@ -198,7 +198,7 @@ private struct TeamRankingRow: View {
                         .foregroundStyle(.white)
                         .font(.headline)
 
-                    Text(entry.roleLabel + (entry.isCurrentUser ? " • voce" : ""))
+                    Text(entry.roleLabel + (entry.isCurrentUser ? " • você" : ""))
                         .foregroundStyle(LuumTheme.textSecondary)
                         .font(.caption)
                 }
