@@ -11,189 +11,588 @@
     <script src="firebase-config.js?v=10"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0a0a12; color: #ffffff;
-            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            background: #070711;
+            background-image:
+                radial-gradient(ellipse 70% 50% at 50% -10%, rgba(108,92,231,0.18) 0%, transparent 65%),
+                radial-gradient(ellipse 40% 30% at 80% 90%, rgba(139,92,246,0.08) 0%, transparent 60%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             padding: 24px;
         }
+
         .card {
-            background: #12121e; border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 32px; padding: 36px 32px; max-width: 440px; width: 100%;
+            background: rgba(13, 12, 26, 0.92);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 28px;
+            padding: 36px 32px 32px;
+            max-width: 440px;
+            width: 100%;
+            backdrop-filter: blur(32px);
+            box-shadow:
+                0 32px 80px rgba(0,0,0,0.55),
+                0 0 0 1px rgba(108,92,231,0.1),
+                inset 0 1px 0 rgba(255,255,255,0.05);
         }
-        .logo { width: 64px; height: 64px; margin-bottom: 10px; border-radius: 16px; display: block; }
-        h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
-        p.subtitle { color: #8888aa; font-size: 14px; margin-bottom: 24px; }
 
-        .progress-track { height: 3px; background: rgba(255,255,255,0.06); border-radius: 100px; margin-bottom: 24px; overflow: hidden; }
-        .progress-fill { height: 100%; background: #6c5ce7; border-radius: 100px; transition: width 0.4s ease; width: 0%; }
+        /* Progress */
+        .progress-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+        .progress-track {
+            flex: 1;
+            height: 3px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 100px;
+            overflow: visible;
+            position: relative;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #6c5ce7, #a78bfa);
+            border-radius: 100px;
+            transition: width 0.45s cubic-bezier(.4,0,.2,1);
+            width: 0%;
+            box-shadow: 0 0 10px rgba(108,92,231,0.5);
+            position: relative;
+        }
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            right: -1px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 7px;
+            height: 7px;
+            background: #a78bfa;
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(167,139,250,0.8);
+            opacity: 0;
+            transition: opacity 0.3s 0.2s;
+        }
+        .progress-fill.visible::after { opacity: 1; }
+        .progress-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #5a5880;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+            min-width: 36px;
+            text-align: right;
+        }
 
-        .step { display: none; }
+        /* Steps */
+        .step { display: none; animation: fadeUp 0.28s cubic-bezier(.4,0,.2,1); }
         .step.active { display: block; }
-        .step h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
-        .step .desc { color: #8888aa; font-size: 14px; margin-bottom: 18px; }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
 
-        .options { display: flex; flex-direction: column; gap: 6px; }
+        /* Welcome step */
+        .welcome-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            display: block;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+        .welcome-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(108,92,231,0.12);
+            border: 1px solid rgba(108,92,231,0.25);
+            border-radius: 100px;
+            padding: 4px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #a78bfa;
+            letter-spacing: 0.05em;
+            margin-bottom: 16px;
+        }
+        .welcome-badge span {
+            width: 6px;
+            height: 6px;
+            background: #7c5ce7;
+            border-radius: 50%;
+            display: block;
+        }
+        h1 { font-size: 26px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.02em; }
+        p.subtitle { color: #6a6888; font-size: 14px; line-height: 1.6; margin-bottom: 28px; }
+        .welcome-features {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 28px;
+        }
+        .welcome-feature {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #8888aa;
+        }
+        .feature-dot {
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
+            background: rgba(108,92,231,0.12);
+            border: 1px solid rgba(108,92,231,0.18);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 11px;
+        }
+
+        /* Question steps */
+        .step-meta { margin-bottom: 6px; }
+        .step-num {
+            font-size: 10px;
+            font-weight: 700;
+            color: #6c5ce7;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .step h2 { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 4px; }
+        .step .desc { color: #6a6888; font-size: 13px; margin-bottom: 16px; }
+
+        /* Options */
+        .options { display: flex; flex-direction: column; gap: 5px; }
         .option {
-            display: flex; align-items: center; gap: 12px;
-            padding: 13px 16px; border-radius: 12px;
-            border: 1px solid rgba(255,255,255,0.06); cursor: pointer;
-            background: transparent; color: #ffffff;
-            font-size: 14px; font-family: inherit; text-align: left;
-            transition: all 0.2s; width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 11px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.06);
+            cursor: pointer;
+            background: rgba(255,255,255,0.018);
+            color: #ccccdd;
+            font-size: 13.5px;
+            font-weight: 500;
+            font-family: inherit;
+            text-align: left;
+            transition: all 0.18s ease;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
         }
-        .option:hover { border-color: rgba(108,92,231,0.3); background: rgba(255,255,255,0.02); }
-        .option.selected { border-color: #6c5ce7; background: rgba(108,92,231,0.08); }
-        .option .emoji { font-size: 16px; flex-shrink: 0; }
-        .option .check {
-            width: 18px; height: 18px; border-radius: 50%;
-            border: 2px solid rgba(255,255,255,0.1); flex-shrink: 0;
-            margin-left: auto; display: flex; align-items: center; justify-content: center;
-            transition: all 0.2s;
+        .option::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(108,92,231,0.07), transparent 60%);
+            opacity: 0;
+            transition: opacity 0.18s;
+            pointer-events: none;
         }
-        .option.selected .check { border-color: #6c5ce7; background: #6c5ce7; }
-        .option.selected .check::after { content: ''; width: 6px; height: 3px; border-left: 2px solid white; border-bottom: 2px solid white; rotate: -45deg; margin-top: -1px; }
-        .option.multi .check { border-radius: 4px; }
+        .option:hover {
+            border-color: rgba(108,92,231,0.28);
+            background: rgba(108,92,231,0.06);
+            color: #ffffff;
+        }
+        .option:hover::before { opacity: 1; }
+        .option.selected {
+            border-color: rgba(108,92,231,0.55);
+            background: rgba(108,92,231,0.1);
+            color: #ffffff;
+            box-shadow: 0 0 0 1px rgba(108,92,231,0.15), inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+        .option.selected::before { opacity: 1; }
 
-        .nav-btns { display: flex; gap: 10px; margin-top: 20px; }
-        .nav-btns .btn { padding: 12px 24px; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; border: none; font-family: inherit; transition: all 0.2s; }
-        .btn-primary { background: #6c5ce7; color: white; flex: 1; }
-        .btn-primary:hover { background: #5a4bd1; }
-        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-        .btn-back { background: rgba(255,255,255,0.04); color: #aaaacc; border: 1px solid rgba(255,255,255,0.06); }
-        .btn-back:hover { background: rgba(255,255,255,0.08); }
-        .btn-skip { background: none; color: #555577; font-size: 13px; cursor: pointer; padding: 12px 8px; font-family: inherit; border: none; }
-        .btn-skip:hover { color: #8888aa; }
+        .option-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.06);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+            transition: all 0.18s;
+        }
+        .option.selected .option-icon {
+            background: rgba(108,92,231,0.2);
+            border-color: rgba(108,92,231,0.3);
+        }
 
-        .form-group { margin-bottom: 16px; text-align: left; }
-        .form-group label { display: block; font-size: 13px; font-weight: 600; color: #aaaacc; margin-bottom: 6px; }
+        .option-label { flex: 1; }
+
+        .check {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 1.5px solid rgba(255,255,255,0.12);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.18s;
+        }
+        .option.selected .check {
+            border-color: #7c5ce7;
+            background: #7c5ce7;
+        }
+        .option.selected .check::after {
+            content: '';
+            width: 5px;
+            height: 3px;
+            border-left: 1.5px solid white;
+            border-bottom: 1.5px solid white;
+            transform: rotate(-45deg) translateY(-0.5px);
+            display: block;
+        }
+        .option.multi .check { border-radius: 5px; }
+
+        /* Outro input */
+        .outro-input { display: none; margin-top: 10px; }
+        .outro-input.visible { display: block; animation: fadeUp 0.22s ease; }
+        .outro-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #8888aa;
+            letter-spacing: 0.03em;
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        /* Nav buttons */
+        .nav-btns { display: flex; gap: 8px; margin-top: 18px; align-items: center; }
+        .btn {
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+            transition: all 0.18s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #7c5ce7, #6c5ce7);
+            color: white;
+            flex: 1;
+            box-shadow: 0 4px 16px rgba(108,92,231,0.3);
+        }
+        .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #8b6cf0, #7c5ce7);
+            box-shadow: 0 6px 20px rgba(108,92,231,0.4);
+            transform: translateY(-1px);
+        }
+        .btn-primary:active:not(:disabled) { transform: translateY(0); }
+        .btn-primary:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; }
+        .btn-back {
+            background: rgba(255,255,255,0.04);
+            color: #8888aa;
+            border: 1px solid rgba(255,255,255,0.07);
+            padding: 12px 16px;
+        }
+        .btn-back:hover { background: rgba(255,255,255,0.07); color: #aaaacc; }
+        .btn-skip {
+            background: none;
+            color: #44446a;
+            font-size: 13px;
+            cursor: pointer;
+            padding: 10px 8px;
+            font-family: inherit;
+            border: none;
+            font-weight: 500;
+        }
+        .btn-skip:hover { color: #6a6888; }
+
+        /* Form */
+        .form-group { margin-bottom: 14px; }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #8888aa;
+            margin-bottom: 6px;
+            letter-spacing: 0.03em;
+        }
         .form-group input {
-            width: 100%; padding: 12px 14px; border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 10px; background: #0e0e1a; color: #ffffff; font-size: 14px; outline: none;
-            transition: border-color 0.2s;
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.03);
+            color: #ffffff;
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
         }
-        .form-group input:focus { border-color: #6c5ce7; }
+        .form-group input::placeholder { color: #44446a; }
+        .form-group input:hover {
+            border-color: rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.045);
+        }
+        .form-group input:focus {
+            border-color: rgba(108,92,231,0.5);
+            background: rgba(108,92,231,0.05);
+            box-shadow: 0 0 0 3px rgba(108,92,231,0.12);
+        }
 
-        .error { color: #ff4757; font-size: 13px; margin-top: 12px; display: none; }
-        .success { color: #2ed573; font-size: 13px; margin-top: 12px; display: none; }
+        /* Status */
+        .error { color: #f87171; font-size: 13px; margin-top: 12px; display: none; }
+        .success { color: #34d399; font-size: 13px; margin-top: 12px; display: none; }
         .loading { display: none; align-items: center; gap: 10px; margin-top: 16px; color: #8888aa; font-size: 14px; }
-        .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.1); border-top-color: #6c5ce7; border-radius: 50%; animation: spin 0.6s linear infinite; }
+        .spinner {
+            width: 18px; height: 18px;
+            border: 2px solid rgba(255,255,255,0.08);
+            border-top-color: #7c5ce7;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .info { margin-top: 20px; font-size: 12px; color: #555577; }
-        .info a { color: #6c5ce7; text-decoration: none; }
 
-        .outro-input { display: none; margin-top: 12px; }
-        .outro-input.visible { display: block; }
-        .signup-form { animation: fadeUp 0.3s ease-out; }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .info { margin-top: 20px; font-size: 12px; color: #44446a; line-height: 1.8; }
+        .info a { color: #7c5ce7; text-decoration: none; }
+        .info a:hover { color: #a78bfa; }
 
-        .fallback-link { margin-top: 16px; font-size: 13px; }
-        .fallback-link a { color: #6c5ce7; }
+        .signup-form h1 { margin-bottom: 4px; }
+        .fallback-link { margin-top: 14px; font-size: 13px; color: #6a6888; }
+        .fallback-link a { color: #7c5ce7; }
+
+        .form-divider {
+            height: 1px;
+            background: rgba(255,255,255,0.05);
+            margin: 16px 0;
+        }
     </style>
 </head>
 <body>
     <div class="card">
-        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-
-        <div class="step active" id="step0">
-            <img class="logo" src="favicon.png" alt="Luum">
-            <h1>Bem-vindo ao Luum</h1>
-            <p class="subtitle">Algumas perguntas rápidas para entendermos você.</p>
-            <button class="btn btn-primary" onclick="go(1)" style="width:100%;">Começar</button>
+        <div class="progress-header" id="progressHeader" style="display:none;">
+            <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+            <span class="progress-label" id="progressLabel">1 / 4</span>
         </div>
 
+        <!-- Step 0: Welcome -->
+        <div class="step active" id="step0">
+            <img class="welcome-icon" src="favicon.png" alt="Luum">
+            <div class="welcome-badge"><span></span>CONFIGURAÇÃO RÁPIDA</div>
+            <h1>Bem-vindo ao Luum</h1>
+            <p class="subtitle">4 perguntas rápidas para personalizar sua experiência.</p>
+            <div class="welcome-features">
+                <div class="welcome-feature">
+                    <div class="feature-dot">⏱</div>
+                    <span>Rastreamento automático de foco</span>
+                </div>
+                <div class="welcome-feature">
+                    <div class="feature-dot">📊</div>
+                    <span>Ranking de produtividade do time</span>
+                </div>
+                <div class="welcome-feature">
+                    <div class="feature-dot">🔗</div>
+                    <span>Integração com Calendar, Notion e mais</span>
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="go(1)" style="width:100%;">Começar →</button>
+        </div>
+
+        <!-- Step 1: Cargo -->
         <div class="step" id="step1">
-            <h2>Qual seu cargo?</h2>
-            <p class="desc">Selecione ou digite sua função.</p>
+            <div class="step-meta"><span class="step-num">Passo 1 de 4</span></div>
+            <h2>Qual é o seu cargo?</h2>
+            <p class="desc">Selecione a opção que mais se encaixa.</p>
             <div class="options" id="s1">
-                <button class="option" data-v="desenvolvedor" onclick="pick(this,'s1')"><span class="emoji">💻</span> Desenvolvedor(a)<span class="check"></span></button>
-                <button class="option" data-v="designer" onclick="pick(this,'s1')"><span class="emoji">🎨</span> Designer<span class="check"></span></button>
-                <button class="option" data-v="gestor" onclick="pick(this,'s1')"><span class="emoji">📊</span> Gestor(a)<span class="check"></span></button>
-                <button class="option" data-v="ceo" onclick="pick(this,'s1')"><span class="emoji">🏢</span> CEO / Founder<span class="check"></span></button>
-                <button class="option" data-v="freelancer" onclick="pick(this,'s1')"><span class="emoji">✨</span> Freelancer<span class="check"></span></button>
-                <button class="option" data-v="outro" onclick="pick(this,'s1')"><span class="emoji">🗂️</span> Outro<span class="check"></span></button>
+                <button class="option" data-v="desenvolvedor" onclick="pick(this,'s1')">
+                    <div class="option-icon">💻</div>
+                    <span class="option-label">Desenvolvedor(a)</span>
+                    <div class="check"></div>
+                </button>
+                <button class="option" data-v="designer" onclick="pick(this,'s1')">
+                    <div class="option-icon">🎨</div>
+                    <span class="option-label">Designer</span>
+                    <div class="check"></div>
+                </button>
+                <button class="option" data-v="gestor" onclick="pick(this,'s1')">
+                    <div class="option-icon">📊</div>
+                    <span class="option-label">Gestor(a) / PM</span>
+                    <div class="check"></div>
+                </button>
+                <button class="option" data-v="ceo" onclick="pick(this,'s1')">
+                    <div class="option-icon">🏢</div>
+                    <span class="option-label">CEO / Founder</span>
+                    <div class="check"></div>
+                </button>
+                <button class="option" data-v="freelancer" onclick="pick(this,'s1')">
+                    <div class="option-icon">✨</div>
+                    <span class="option-label">Freelancer</span>
+                    <div class="check"></div>
+                </button>
+                <button class="option" data-v="outro" onclick="pick(this,'s1')">
+                    <div class="option-icon" style="font-size:11px;letter-spacing:-1px;">•••</div>
+                    <span class="option-label">Outro</span>
+                    <div class="check"></div>
+                </button>
             </div>
             <div class="outro-input" id="outroBox">
-                <label style="font-size:13px;color:#aaaacc;font-weight:600;display:block;margin-bottom:6px;">Qual sua profissão?</label>
+                <label class="outro-label">Qual sua profissão?</label>
                 <input type="text" id="outroField" placeholder="Ex: Advogado, Médico, Professor..." oninput="state.answers.cargo = this.value || 'outro'">
             </div>
             <div class="nav-btns">
-                <button class="btn btn-back" onclick="go(0)">Voltar</button>
+                <button class="btn btn-back" onclick="go(0)">←</button>
                 <button class="btn btn-primary" id="n1" onclick="go(2)" disabled>Avançar</button>
             </div>
         </div>
 
+        <!-- Step 2: Tamanho do time -->
         <div class="step" id="step2">
-            <h2>Quantas pessoas no seu time?</h2>
+            <div class="step-meta"><span class="step-num">Passo 2 de 4</span></div>
+            <h2>Quantas pessoas no time?</h2>
             <p class="desc">Isso ajuda a recomendar o plano ideal.</p>
             <div class="options" id="s2">
-                <button class="option" data-v="solo" onclick="pick(this,'s2')"><span class="emoji">👤</span> Apenas eu<span class="check"></span></button>
-                <button class="option" data-v="2-5" onclick="pick(this,'s2')"><span class="emoji">👥</span> 2 a 5<span class="check"></span></button>
-                <button class="option" data-v="6-20" onclick="pick(this,'s2')"><span class="emoji">👨‍👩‍👧‍👦</span> 6 a 20<span class="check"></span></button>
-                <button class="option" data-v="20+" onclick="pick(this,'s2')"><span class="emoji">🏢</span> Mais de 20<span class="check"></span></button>
+                <button class="option" data-v="solo" onclick="pick(this,'s2')">
+                    <div class="option-icon">🙋</div>
+                    <span class="option-label">Só eu</span>
+                    <div class="check"></div>
+                </button>
+                <button class="option" data-v="2-5" onclick="pick(this,'s2')">
+                    <div class="option-icon">👥</div>
+                    <span class="option-label">2 a 5 pessoas</span>
+                    <div class="check"></div>
+                </button>
+                <button class="option" data-v="6-20" onclick="pick(this,'s2')">
+                    <div class="option-icon">🏛</div>
+                    <span class="option-label">6 a 20 pessoas</span>
+                    <div class="check"></div>
+                </button>
+                <button class="option" data-v="20+" onclick="pick(this,'s2')">
+                    <div class="option-icon">🏢</div>
+                    <span class="option-label">Mais de 20</span>
+                    <div class="check"></div>
+                </button>
             </div>
             <div class="nav-btns">
-                <button class="btn btn-back" onclick="go(1)">Voltar</button>
+                <button class="btn btn-back" onclick="go(1)">←</button>
                 <button class="btn btn-primary" id="n2" onclick="go(3)" disabled>Avançar</button>
             </div>
         </div>
 
+        <!-- Step 3: Ferramentas (opcional) -->
         <div class="step" id="step3">
-            <h2>Ferramentas que mais usa?</h2>
-            <p class="desc">Selecione as que seu time utiliza.</p>
+            <div class="step-meta"><span class="step-num">Passo 3 de 4</span></div>
+            <h2>Quais ferramentas usa?</h2>
+            <p class="desc">Selecione as que seu time utiliza. Você pode conectá-las depois.</p>
             <div class="options" id="s3">
-                <button class="option multi" data-v="gcal" onclick="tmulti(this)"><span class="emoji">📅</span> Google Calendar<span class="check"></span></button>
-                <button class="option multi" data-v="notion" onclick="tmulti(this)"><span class="emoji">📝</span> Notion<span class="check"></span></button>
-                <button class="option multi" data-v="clickup" onclick="tmulti(this)"><span class="emoji">✅</span> ClickUp<span class="check"></span></button>
-                <button class="option multi" data-v="linear" onclick="tmulti(this)"><span class="emoji">⬆️</span> Linear<span class="check"></span></button>
-                <button class="option multi" data-v="slack" onclick="tmulti(this)"><span class="emoji">💬</span> Slack<span class="check"></span></button>
-                <button class="option multi" data-v="asana" onclick="tmulti(this)"><span class="emoji">📋</span> Asana<span class="check"></span></button>
+                <button class="option multi" data-v="gcal" onclick="tmulti(this)">
+                    <div class="option-icon">📅</div>
+                    <span class="option-label">Google Calendar</span>
+                    <div class="check"></div>
+                </button>
+                <button class="option multi" data-v="notion" onclick="tmulti(this)">
+                    <div class="option-icon">📝</div>
+                    <span class="option-label">Notion</span>
+                    <div class="check"></div>
+                </button>
+                <button class="option multi" data-v="clickup" onclick="tmulti(this)">
+                    <div class="option-icon">✅</div>
+                    <span class="option-label">ClickUp</span>
+                    <div class="check"></div>
+                </button>
+                <button class="option multi" data-v="linear" onclick="tmulti(this)">
+                    <div class="option-icon" style="font-size:13px;">◈</div>
+                    <span class="option-label">Linear</span>
+                    <div class="check"></div>
+                </button>
+                <button class="option multi" data-v="slack" onclick="tmulti(this)">
+                    <div class="option-icon">💬</div>
+                    <span class="option-label">Slack</span>
+                    <div class="check"></div>
+                </button>
+                <button class="option multi" data-v="asana" onclick="tmulti(this)">
+                    <div class="option-icon">📋</div>
+                    <span class="option-label">Asana</span>
+                    <div class="check"></div>
+                </button>
             </div>
             <div class="nav-btns">
-                <button class="btn btn-back" onclick="go(2)">Voltar</button>
+                <button class="btn btn-back" onclick="go(2)">←</button>
                 <button class="btn btn-primary" onclick="go(4)">Avançar</button>
                 <button class="btn-skip" onclick="go(4)">Pular</button>
             </div>
         </div>
 
+        <!-- Step 4: Objetivo -->
         <div class="step" id="step4">
+            <div class="step-meta"><span class="step-num">Passo 4 de 4</span></div>
             <h2>Principal objetivo?</h2>
             <p class="desc">O que você quer alcançar com o Luum?</p>
             <div class="options" id="s4">
-                <button class="option" data-v="faturar" onclick="pick(this,'s4')"><span class="emoji">💰</span> Faturar mais horas<span class="check"></span></button>
-                <button class="option" data-v="foco" onclick="pick(this,'s4')"><span class="emoji">🧠</span> Reduzir distrações<span class="check"></span></button>
-                <button class="option" data-v="estimar" onclick="pick(this,'s4')"><span class="emoji">📈</span> Melhorar estimativas<span class="check"></span></button>
-                <button class="option" data-v="perf" onclick="pick(this,'s4')"><span class="emoji">🚀</span> Performance do time<span class="check"></span></button>
-                <button class="option" data-v="burnout" onclick="pick(this,'s4')"><span class="emoji">⚖️</span> Evitar burnout<span class="check"></span></button>
+                <button class="option" data-v="faturar" onclick="pick(this,'s4')">
+                    <div class="option-icon">💰</div>
+                    <span class="option-label">Faturar mais horas</span>
+                    <div class="check"></div>
+                </button>
+                <button class="option" data-v="foco" onclick="pick(this,'s4')">
+                    <div class="option-icon">🧠</div>
+                    <span class="option-label">Reduzir distrações</span>
+                    <div class="check"></div>
+                </button>
+                <button class="option" data-v="estimar" onclick="pick(this,'s4')">
+                    <div class="option-icon">📈</div>
+                    <span class="option-label">Melhorar estimativas</span>
+                    <div class="check"></div>
+                </button>
+                <button class="option" data-v="perf" onclick="pick(this,'s4')">
+                    <div class="option-icon">🚀</div>
+                    <span class="option-label">Performance do time</span>
+                    <div class="check"></div>
+                </button>
+                <button class="option" data-v="burnout" onclick="pick(this,'s4')">
+                    <div class="option-icon">⚖️</div>
+                    <span class="option-label">Evitar burnout</span>
+                    <div class="check"></div>
+                </button>
             </div>
             <div class="nav-btns">
-                <button class="btn btn-back" onclick="go(3)">Voltar</button>
-                <button class="btn btn-primary" id="n4" onclick="go(5)" disabled>Criar conta</button>
+                <button class="btn btn-back" onclick="go(3)">←</button>
+                <button class="btn btn-primary" id="n4" onclick="go(5)" disabled>Criar conta →</button>
             </div>
         </div>
 
+        <!-- Step 5: Cadastro -->
         <div class="step" id="step5">
             <div class="signup-form">
-                <h1>Criar Conta</h1>
-                <p class="subtitle">Cadastre-se para usar o Luum</p>
+                <h1>Criar conta</h1>
+                <p class="subtitle">Quase lá — preencha seus dados.</p>
                 <form id="signupForm">
                     <div class="form-group">
                         <label for="name">Nome</label>
-                        <input type="text" id="name" placeholder="Seu nome" required>
+                        <input type="text" id="name" placeholder="Seu nome completo" required>
                     </div>
                     <div class="form-group">
                         <label for="email">Email</label>
                         <input type="email" id="email" placeholder="seu@email.com" required>
                     </div>
+                    <div class="form-divider"></div>
                     <div class="form-group">
                         <label for="password">Senha</label>
                         <input type="password" id="password" placeholder="Mínimo 6 caracteres" minlength="6" required>
                     </div>
                     <div class="form-group">
-                        <label for="confirmPassword">Confirmar Senha</label>
+                        <label for="confirmPassword">Confirmar senha</label>
                         <input type="password" id="confirmPassword" placeholder="Repita a senha" required>
                     </div>
-                    <button type="submit" class="btn btn-primary" id="signupBtn" style="width:100%;padding:14px;">Criar Conta</button>
+                    <button type="submit" class="btn btn-primary" id="signupBtn" style="width:100%;padding:13px;margin-top:4px;">Criar conta</button>
                 </form>
                 <div class="error" id="errorMsg"></div>
                 <div class="success" id="successMsg"></div>
@@ -202,8 +601,8 @@
                     <span>Criando conta...</span>
                 </div>
                 <div class="info">
-                    <p>Já tem conta? <a href="login.html?redirect=account.html" id="loginLink">Faça login</a></p>
-                    <p style="margin-top:4px;">Ao criar conta, você aceita os <a href="termos.html">Termos</a>.</p>
+                    <p>Já tem conta? <a href="login.html?redirect=account.html" id="loginLink">Fazer login</a></p>
+                    <p>Ao criar conta você aceita os <a href="termos.html">Termos de uso</a>.</p>
                 </div>
                 <div class="fallback-link" id="fallbackLink" style="display:none;">
                     <p>Se o aplicativo não abrir, <a href="account.html">clique aqui</a>.</p>
@@ -214,13 +613,27 @@
 
     <script>
         const state = { step: 0, answers: { cargo: null, time: null, tools: [], objetivo: null } };
-        let signingUp = false; // evita conflito com onAuthStateChanged
+        let signingUp = false;
         let redirecting = false;
 
         function go(n) {
             document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
             document.getElementById('step' + n).classList.add('active');
-            document.getElementById('progressFill').style.width = (n / 5) * 100 + '%';
+            const fill = document.getElementById('progressFill');
+            const header = document.getElementById('progressHeader');
+            const label = document.getElementById('progressLabel');
+            if (n === 0) {
+                header.style.display = 'none';
+                fill.style.width = '0%';
+                fill.classList.remove('visible');
+            } else {
+                header.style.display = 'flex';
+                const pct = ((n - 1) / 4) * 100;
+                fill.style.width = pct + '%';
+                fill.classList.toggle('visible', pct > 0);
+                const stepNum = Math.min(n, 4);
+                label.textContent = stepNum + ' / 4';
+            }
             state.step = n;
         }
 
@@ -265,7 +678,6 @@
             const params = new URLSearchParams(window.location.search);
             const redirect = params.get('redirect');
             if (!redirect) return null;
-
             const target = new URL(redirect, window.location.href);
             if (target.origin !== window.location.origin) return null;
             return `${target.pathname.replace(/^\//, '')}${target.search}${target.hash}`;
@@ -333,8 +745,6 @@
                 const redirectUrl = `luum://auth?${callbackParams.toString()}`;
 
                 showSuccess('Conta criada! Redirecionando...');
-
-                // Tenta abrir o app. Se falhar, mostra fallback.
                 document.getElementById('fallbackLink').style.display = 'block';
                 window.location.href = redirectUrl;
             } catch (error) {
@@ -379,13 +789,12 @@
                 const email = document.getElementById('email').value.trim();
                 const password = document.getElementById('password').value;
                 const confirm = document.getElementById('confirmPassword').value;
-                if (password !== confirm) { showError('Senhas não conferem'); signingUp = false; return; }
+                if (password !== confirm) { showError('Senhas não conferem.'); signingUp = false; return; }
                 setLoading(true);
 
                 try {
                     const result = await firebase.auth().createUserWithEmailAndPassword(email, password);
                     await result.user.updateProfile({ displayName: name });
-
                     await exchangeTokenAndRedirect(result.user);
                 } catch (error) {
                     showError(authErrorMessage(error));
@@ -394,7 +803,6 @@
                 }
             });
 
-            // Só redireciona se não estiver no meio do cadastro
             firebase.auth().onAuthStateChanged(async user => {
                 if (user && !signingUp) {
                     if (shouldOpenApp()) {

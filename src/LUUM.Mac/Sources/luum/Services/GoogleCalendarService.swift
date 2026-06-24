@@ -357,8 +357,14 @@ struct GoogleCalendarService: Sendable {
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
 
         guard (200 ..< 300).contains(statusCode) else {
+            // Google Calendar API error: {"error": {"code": 400, "message": "..."}}
             if let apiError = try? JSONDecoder().decode(GoogleAPIErrorEnvelope.self, from: data) {
                 throw GoogleCalendarIssue.apiError(apiError.error.message)
+            }
+            // OAuth token endpoint error: {"error": "invalid_client", "error_description": "..."}
+            if let oauthError = try? JSONDecoder().decode(OAuthErrorEnvelope.self, from: data) {
+                let detail = oauthError.errorDescription ?? oauthError.error
+                throw GoogleCalendarIssue.apiError(Self.friendlyOAuthError(oauthError.error, detail: detail))
             }
 
             throw GoogleCalendarIssue.apiError("A Google Agenda respondeu com status \(statusCode).")
@@ -368,6 +374,21 @@ struct GoogleCalendarService: Sendable {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
             throw GoogleCalendarIssue.apiError("Nao foi possivel interpretar a resposta da Google Agenda.")
+        }
+    }
+
+    private static func friendlyOAuthError(_ error: String, detail: String) -> String {
+        switch error {
+        case "invalid_client":
+            return "Client ID do Google inválido ou configurado como 'Aplicativo Web'. Use um client ID do tipo 'App para computador' no Google Cloud Console."
+        case "invalid_grant":
+            return "Sessão Google expirada ou revogada. Conecte novamente."
+        case "access_denied":
+            return "Acesso negado pelo usuário."
+        case "redirect_uri_mismatch":
+            return "URI de redirecionamento não autorizada no Google Cloud Console. Verifique se 'http://127.0.0.1' está nos URIs permitidos."
+        default:
+            return "Erro de autenticação Google (\(error)): \(detail)"
         }
     }
 
@@ -530,6 +551,16 @@ private struct GoogleAPIErrorEnvelope: Decodable {
 
 private struct GoogleAPIError: Decodable {
     let message: String
+}
+
+private struct OAuthErrorEnvelope: Decodable {
+    let error: String
+    let errorDescription: String?
+
+    enum CodingKeys: String, CodingKey {
+        case error
+        case errorDescription = "error_description"
+    }
 }
 
 private struct EventsResponse: Decodable {
