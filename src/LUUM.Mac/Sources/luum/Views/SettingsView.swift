@@ -175,6 +175,11 @@ struct SettingsView: View {
 
         Divider().opacity(0.08)
 
+        // Linear
+        linearSection
+
+        Divider().opacity(0.08)
+
         // Zapier
         zapierSection
 
@@ -547,6 +552,95 @@ struct SettingsView: View {
         }
     }
 
+    private var linearSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label("Linear", systemImage: "arrow.up.right.square")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                Spacer()
+                if store.hasLinearToken {
+                    Text("Conectado")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LuumTheme.secondaryAccent)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(LuumTheme.secondaryAccent.opacity(0.12)))
+                } else if store.linearManagedOAuthAvailable {
+                    Text("Pronto para conectar")
+                        .font(.caption)
+                        .foregroundStyle(LuumTheme.textMuted)
+                }
+            }
+
+            if let message = store.linearStatusMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textSecondary)
+            }
+
+            Toggle("Ativar Linear", isOn: Binding(
+                get: { store.linearSettings.isEnabled },
+                set: { store.updateLinearEnabled($0) }
+            ))
+            .toggleStyle(.switch)
+            .disabled(!store.hasLinearToken)
+
+            HStack(spacing: 10) {
+                if store.linearManagedOAuthAvailable {
+                    Button(store.hasLinearToken ? "Reconectar" : "Conectar Linear") {
+                        store.connectLinear()
+                    }
+                    .buttonStyle(.glassProminent)
+                }
+
+                Button("Sincronizar") { store.refreshLinear() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!store.hasLinearToken || store.isSyncingLinear)
+
+                if store.hasLinearToken {
+                    Button("Desconectar") { store.disconnectLinear() }
+                        .buttonStyle(.bordered)
+                }
+            }
+
+            if store.hasLinearToken && store.linearSettings.isEnabled {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("IDs de times (Team IDs)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.6))
+
+                    ForEach(store.linearSettings.teamIDs, id: \.self) { teamID in
+                        HStack {
+                            Text(teamID)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(LuumTheme.textSecondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer()
+                            Button(action: { store.removeLinearTeamID(teamID) }) {
+                                Image(systemName: "minus.circle")
+                                    .foregroundStyle(LuumTheme.hotPink)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    LinearTeamIDField(store: store)
+                }
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 14).fill(.white.opacity(0.03)))
+                .overlay { RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.05)) }
+            }
+
+            if !store.linearManagedOAuthAvailable {
+                Text("Linear OAuth não configurado no servidor. Configure LINEAR_CLIENT_ID e LINEAR_CLIENT_SECRET na Vercel.")
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textMuted)
+            }
+        }
+    }
+
     private var zapierSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -607,34 +701,13 @@ struct SettingsView: View {
     }
 
     private var pendingIntegrationsSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("Em breve")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                Spacer()
-                Text("Sem token manual")
-                    .font(.caption)
-                    .foregroundStyle(LuumTheme.textMuted)
-            }
-
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 10)], spacing: 10) {
-                pendingIntegrationRow(
-                    name: "Linear",
-                    systemImage: "arrow.up.right.square",
-                    isConnected: store.hasLinearToken,
-                    isAvailable: store.linearManagedOAuthAvailable
-                )
-            }
-
-            let messages = pendingConnectionMessages
+        let messages = pendingConnectionMessages
+        return VStack(alignment: .leading, spacing: 8) {
             if !messages.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(messages, id: \.self) { msg in
-                        Text(msg)
-                            .font(.caption)
-                            .foregroundStyle(LuumTheme.textSecondary)
-                    }
+                ForEach(messages, id: \.self) { msg in
+                    Text(msg)
+                        .font(.caption)
+                        .foregroundStyle(LuumTheme.textSecondary)
                 }
             }
         }
@@ -1258,6 +1331,38 @@ private struct NotionDatabaseIDField: View {
         let value = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty else { return }
         store.addNotionDataSourceID(value)
+        draft = ""
+    }
+}
+
+// MARK: - LinearTeamIDField
+
+private struct LinearTeamIDField: View {
+    @Bindable var store: ActivityStore
+    @State private var draft = ""
+
+    var body: some View {
+        HStack(spacing: 8) {
+            TextField("Team ID do Linear", text: $draft)
+                .textFieldStyle(.plain)
+                .font(.caption.monospaced())
+                .foregroundStyle(.white)
+                .onSubmit { addDraft() }
+
+            Button(action: addDraft) {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundStyle(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? LuumTheme.textMuted : LuumTheme.secondaryAccent)
+            }
+            .buttonStyle(.plain)
+            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+    }
+
+    private func addDraft() {
+        let value = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return }
+        store.addLinearTeamID(value)
         draft = ""
     }
 }

@@ -3097,6 +3097,75 @@ final class ActivityStore {
         }
     }
 
+    private func runLinearConnect() async {
+        guard canUse(.agendaIntegrations) else {
+            linearStatusMessage = lockMessage(for: .agendaIntegrations)
+            return
+        }
+        guard let verified = try? await authCoordinator.verifiedAuthSessionForProtectedRequest() else {
+            linearStatusMessage = "Entre na sua conta Luum antes de conectar o Linear."
+            return
+        }
+        linearStatusMessage = "Carregando autorização do Linear..."
+
+        let backendURL = FirebaseAuthService.defaultBaseURL
+        guard let url = URL(string: "\(backendURL)/api/integrations?action=linear-auth") else {
+            linearStatusMessage = "Erro ao montar URL de autenticação do Linear."
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(verified.idToken)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
+            guard (200 ..< 300).contains(statusCode) else {
+                struct ErrorBody: Decodable { let error: String }
+                let msg = (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error ?? "Linear não configurado no servidor."
+                linearStatusMessage = msg
+                return
+            }
+            struct AuthResponse: Decodable { let url: String }
+            let authResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
+            guard let authURL = URL(string: authResponse.url) else {
+                linearStatusMessage = "URL OAuth do Linear inválida."
+                return
+            }
+            NSWorkspace.shared.open(authURL)
+            linearStatusMessage = "Autorizando no Linear... Conclua no navegador e volte ao Luum."
+        } catch {
+            linearStatusMessage = "Erro ao iniciar conexão com Linear."
+        }
+    }
+
+    private func handleLinearOAuthCallback(_ url: URL) {
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+
+        if let error = items.first(where: { $0.name == "error" })?.value {
+            linearStatusMessage = "Conexão com Linear cancelada: \(error)"
+            return
+        }
+
+        guard let accessToken = items.first(where: { $0.name == "access_token" })?.value,
+              !accessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            linearStatusMessage = "Token do Linear não recebido. Tente reconectar."
+            return
+        }
+
+        let rawTokenType = items.first(where: { $0.name == "token_type" })?.value
+        let tokenType = rawTokenType.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } ?? "Bearer"
+
+        do {
+            try keychainService.setString("\(tokenType) \(accessToken)", for: Self.linearTokenKey)
+            monitoringPreferences.linearSettings.isEnabled = true
+            linearStatusMessage = "Linear conectado. Adicione IDs de times abaixo para sincronizar."
+            persistMonitoringPreferences()
+        } catch {
+            linearStatusMessage = "Erro ao salvar token do Linear no Keychain."
+        }
+    }
+
     private func loadValidOutlookTokens() async -> OutlookCalendarTokens? {
         guard var tokens = keychainService.codable(OutlookCalendarTokens.self, for: Self.outlookCalendarSessionKey) else {
             return nil

@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const { admin } = require('../_firebaseAdmin');
 
 module.exports = async (req, res) => {
@@ -16,11 +17,16 @@ module.exports = async (req, res) => {
     }
 
     const clientID = process.env.LINEAR_CLIENT_ID;
-    if (!clientID) {
+    const clientSecret = process.env.LINEAR_CLIENT_SECRET;
+    if (!clientID || !clientSecret) {
         return res.status(503).json({ error: 'Linear não configurado' });
     }
 
+    const stateVal = crypto.randomBytes(16).toString('hex');
+    const stateHmac = crypto.createHmac('sha256', clientSecret).update(stateVal).digest('hex');
+    const state = `${stateVal}.${stateHmac}`;
+
     const redirectURI = `https://${req.headers.host}/api/integrations?action=linear-callback`;
-    const url = `https://linear.app/oauth/authorize?client_id=${clientID}&redirect_uri=${encodeURIComponent(redirectURI)}&response_type=code&scope=read`;
+    const url = `https://linear.app/oauth/authorize?client_id=${clientID}&redirect_uri=${encodeURIComponent(redirectURI)}&response_type=code&scope=read&state=${encodeURIComponent(state)}`;
     return res.status(200).json({ url });
 };
