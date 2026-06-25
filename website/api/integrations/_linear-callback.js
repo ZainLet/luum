@@ -27,7 +27,6 @@ module.exports = async (req, res) => {
     }
 
     const clientID = process.env.LINEAR_CLIENT_ID;
-    const clientSecret = process.env.LINEAR_CLIENT_SECRET;
     if (!clientID || !clientSecret) {
         return res.redirect('luum://linear?error=server_not_configured');
     }

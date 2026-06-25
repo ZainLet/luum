@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('crypto');
 
 const firebaseAdminPath = require.resolve('../api/_firebaseAdmin');
 
@@ -15,11 +16,22 @@ function response() {
     };
 }
 
-function mockFetch(responseBody, ok = true) {
-    global.fetch = async () => ({ ok, status: ok ? 200 : 400, json: async () => responseBody });
+function makeState(secret, stateVal) {
+    const hmac = crypto.createHmac('sha256', secret).update(stateVal).digest('hex');
+    return `${stateVal}.${hmac}`;
 }
 
-function restoreFetch() { delete global.fetch; }
+function mockFetch(responseBody, ok = true, status = 200) {
+    global.fetch = async () => ({
+        ok,
+        status,
+        json: async () => responseBody,
+    });
+}
+
+function restoreFetch() {
+    delete global.fetch;
+}
 
 const sharedStore = {};
 
@@ -112,6 +124,7 @@ function deleteHandlers() {
         '../api/integrations/_clickup-callback',
         '../api/integrations/_zapier-webhook-config',
         '../api/integrations/_linear-auth',
+        '../api/integrations/_linear-callback',
         '../api/integrations/_linear-issues',
         '../api/integrations/_zapier-trigger',
         '../api/integrations/_zapier-action',
@@ -229,6 +242,69 @@ test('linear-issues rejects unauthenticated Linear', async () => {
         method: 'GET', headers: { authorization: 'Bearer valid-token' }, body: {}
     }, res);
     assert.ok(res.code === 400 || res.code === 403);
+});
+
+test('linear-callback rejeita state com HMAC inválido', async () => {
+    deleteHandlers();
+    process.env.LINEAR_CLIENT_SECRET = 'linear-secret';
+    const handler = require('../api/integrations/_linear-callback');
+    const res = response();
+    await handler({
+        method: 'GET', headers: { host: 'localhost:3000' },
+        query: { code: 'abc123', state: 'validval.badhmacinvalid0000000000000000000000000000000000000000000000' }
+    }, res);
+    assert.ok(res.redirectUrl, 'deve redirecionar');
+    assert.ok(res.redirectUrl.includes('error=invalid_state'), `esperado invalid_state, recebido: ${res.redirectUrl}`);
+    restoreFetch();
+});
+
+test('linear-callback rejeita ausência de state quando secret configurado', async () => {
+    deleteHandlers();
+    process.env.LINEAR_CLIENT_SECRET = 'linear-secret';
+    const handler = require('../api/integrations/_linear-callback');
+    const res = response();
+    await handler({
+        method: 'GET', headers: { host: 'localhost:3000' },
+        query: { code: 'abc123' }
+    }, res);
+    assert.ok(res.redirectUrl);
+    assert.ok(res.redirectUrl.includes('error=missing_state'), `esperado missing_state, recebido: ${res.redirectUrl}`);
+    restoreFetch();
+});
+
+test('linear-callback troca código por token com sucesso', async () => {
+    deleteHandlers();
+    process.env.LINEAR_CLIENT_ID = 'linear-client';
+    process.env.LINEAR_CLIENT_SECRET = 'linear-secret';
+    mockFetch({ access_token: 'tok123', token_type: 'Bearer', scope: 'read' });
+    const handler = require('../api/integrations/_linear-callback');
+    const res = response();
+    const state = makeState('linear-secret', 'randomval123');
+    await handler({
+        method: 'GET', headers: { host: 'localhost:3000' },
+        query: { code: 'auth-code', state }
+    }, res);
+    assert.ok(res.redirectUrl, 'deve redirecionar para luum://');
+    assert.ok(res.redirectUrl.startsWith('luum://linear?'), `esperado luum://linear, recebido: ${res.redirectUrl}`);
+    assert.ok(res.redirectUrl.includes('access_token=tok123'), `deve incluir access_token`);
+    restoreFetch();
+});
+
+test('linear-callback redireciona com erro quando troca de código falha', async () => {
+    deleteHandlers();
+    process.env.LINEAR_CLIENT_ID = 'linear-client';
+    process.env.LINEAR_CLIENT_SECRET = 'linear-secret';
+    mockFetch({ error: 'invalid_grant' }, false, 400);
+    const handler = require('../api/integrations/_linear-callback');
+    const res = response();
+    const state = makeState('linear-secret', 'randomval456');
+    await handler({
+        method: 'GET', headers: { host: 'localhost:3000' },
+        query: { code: 'bad-code', state }
+    }, res);
+    assert.ok(res.redirectUrl);
+    assert.ok(res.redirectUrl.includes('error='), `esperado error na URL, recebido: ${res.redirectUrl}`);
+    restoreFetch();
 });
 
 test('clickup-webhook rejects missing secret with 503', async () => {
