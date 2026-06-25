@@ -1327,15 +1327,20 @@ final class ActivityStore {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONEncoder().encode(Body(webhookUrl: url))
         do {
-            let (_, response) = try await URLSession.shared.data(for: req)
+            let (data, response) = try await URLSession.shared.data(for: req)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                zapierStatusMessage = "Erro ao salvar configuração do Zapier no servidor."
+                if let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let serverError = body["error"] as? String {
+                    zapierStatusMessage = humanReadableOAuthError(serverError, integration: "Zapier")
+                } else {
+                    zapierStatusMessage = humanReadableOAuthError("server_not_configured", integration: "Zapier")
+                }
                 return
             }
             updateZapierWebhookURL(url ?? "")
             zapierStatusMessage = url != nil ? "URL do Zapier salva com sucesso." : "Zapier desconectado."
         } catch {
-            zapierStatusMessage = "Erro de rede: \(error.localizedDescription)"
+            zapierStatusMessage = humanReadableOAuthError("network_error", integration: "Zapier")
         }
     }
 
@@ -3013,7 +3018,7 @@ final class ActivityStore {
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
 
         if let error = items.first(where: { $0.name == "error" })?.value {
-            notionCalendarStatusMessage = "Conexão com Notion cancelada: \(error)"
+            notionCalendarStatusMessage = humanReadableOAuthError(error, integration: "Notion")
             return
         }
 
@@ -3148,7 +3153,7 @@ final class ActivityStore {
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
 
         if let error = items.first(where: { $0.name == "error" })?.value {
-            outlookCalendarStatusMessage = "Conexão com Outlook cancelada: \(error)"
+            outlookCalendarStatusMessage = humanReadableOAuthError(error, integration: "Outlook")
             return
         }
 
@@ -3211,7 +3216,7 @@ final class ActivityStore {
             NSWorkspace.shared.open(authURL)
             linearStatusMessage = "Autorizando no Linear... Conclua no navegador e volte ao Luum."
         } catch {
-            linearStatusMessage = "Erro ao iniciar conexão com Linear."
+            linearStatusMessage = humanReadableOAuthError("network_error", integration: "Linear")
         }
     }
 
@@ -3219,7 +3224,7 @@ final class ActivityStore {
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
 
         if let error = items.first(where: { $0.name == "error" })?.value {
-            linearStatusMessage = "Conexão com Linear cancelada: \(error)"
+            linearStatusMessage = humanReadableOAuthError(error, integration: "Linear")
             return
         }
 
@@ -3387,7 +3392,7 @@ final class ActivityStore {
             return ($0.name, v)
         })
         if let errMsg = params["error"] {
-            clickUpStatusMessage = "Erro ao conectar ClickUp: \(errMsg)"
+            clickUpStatusMessage = humanReadableOAuthError(errMsg, integration: "ClickUp")
             return
         }
         guard let accessToken = params["access_token"], !accessToken.isEmpty else {
@@ -4530,6 +4535,25 @@ final class ActivityStore {
         persistMonitoringPreferences()
     }
 
+    private func humanReadableOAuthError(_ rawError: String, integration: String) -> String {
+        switch rawError {
+        case "invalid_state", "missing_state":
+            return "Sessão expirada. Tente conectar novamente."
+        case "server_not_configured":
+            return "\(integration) não está configurado no servidor."
+        case "access_denied":
+            return "Autorização negada. Permita o acesso para conectar."
+        case "code_missing", "invalid_code":
+            return "Código de autorização inválido. Tente novamente."
+        case "network_error":
+            return "Erro de rede. Verifique sua conexão e tente novamente."
+        case "token_exchange_failed":
+            return "Falha ao trocar código por token. Tente novamente."
+        default:
+            return "Erro ao conectar \(integration). Tente novamente."
+        }
+    }
+
     private func sanitizedURL(from rawURL: String?) -> String? {
         guard let domain = classifier.domain(from: rawURL) else {
             return rawURL
@@ -4593,6 +4617,7 @@ final class ActivityStore {
             persistGoogleCalendar()
         }
     }
+
 
     private func sortSamples() {
         samples.sort(by: Self.sampleSortOrder)
