@@ -3189,7 +3189,7 @@ final class ActivityStore {
                 clickUpStatusMessage = "URL de autorização inválida."
                 return
             }
-            await NSWorkspace.shared.open(oauthURL)
+            NSWorkspace.shared.open(oauthURL)
         } catch {
             clickUpStatusMessage = "Erro ao iniciar conexão com ClickUp: \(error.localizedDescription)"
         }

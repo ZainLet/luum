@@ -28,8 +28,18 @@ module.exports = async (req, res) => {
 
     const { webhookUrl } = req.body || {};
     if (webhookUrl !== null && webhookUrl !== undefined) {
-        if (typeof webhookUrl !== 'string' || !webhookUrl.startsWith('https://')) {
-            return res.status(400).json({ error: 'webhookUrl deve ser uma URL https://' });
+        if (typeof webhookUrl !== 'string') {
+            return res.status(400).json({ error: 'webhookUrl deve ser uma string' });
+        }
+        if (webhookUrl.length === 0 || webhookUrl.length > 2048) {
+            return res.status(400).json({ error: 'webhookUrl deve ter entre 1 e 2048 caracteres' });
+        }
+        let parsedUrl;
+        try { parsedUrl = new URL(webhookUrl); } catch {
+            return res.status(400).json({ error: 'webhookUrl deve ser uma URL https:// válida' });
+        }
+        if (parsedUrl.protocol !== 'https:' || parsedUrl.hostname !== 'hooks.zapier.com') {
+            return res.status(400).json({ error: 'webhookUrl deve apontar para https://hooks.zapier.com' });
         }
         await ref.set({ webhookUrl, updatedAt: new Date().toISOString() }, { merge: true });
     } else {
