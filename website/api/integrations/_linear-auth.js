@@ -3,6 +3,8 @@
 const { admin } = require('../_firebaseAdmin');
 
 module.exports = async (req, res) => {
+    if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
     const authHeader = req.headers.authorization || '';
     if (!authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'Login Firebase obrigatório' });
@@ -18,7 +20,7 @@ module.exports = async (req, res) => {
         return res.status(503).json({ error: 'Linear não configurado' });
     }
 
-    const redirectURI = `https://${req.headers.host}/api/integrations?action=linear-auth`;
+    const redirectURI = `https://${req.headers.host}/api/integrations?action=linear-callback`;
     const url = `https://linear.app/oauth/authorize?client_id=${clientID}&redirect_uri=${encodeURIComponent(redirectURI)}&response_type=code&scope=read`;
     return res.status(200).json({ url });
 };
