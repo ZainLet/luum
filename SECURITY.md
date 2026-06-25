@@ -12,7 +12,7 @@ O Luum está em alpha. Correções de segurança são aplicadas ao branch alpha 
 
 ## Reporting a Vulnerability
 
-Reporte problemas de segurança de forma privada para `oluum.app@gmail.com`. Não abra issues públicas com segredos, tokens, dados de clientes, prints de chaves de API ou detalhes de exploit.
+Reporte problemas de segurança de forma privada para `luum.app@gmail.com`. Não abra issues públicas com segredos, tokens, dados de clientes, prints de chaves de API ou detalhes de exploit.
 
 Inclua:
 
@@ -43,7 +43,7 @@ Valores sensíveis incluem:
 - `OUTLOOK_CLIENT_SECRET`
 - OAuth client secrets, refresh tokens, URLs de webhook do Zapier, workspace secrets e chaves privadas.
 
-A suite de testes do repositório inclui um scan de regressão para padrões comuns de chaves privadas. Se um segredo real for commitado, rotacione-o imediatamente no provedor externo, remova-o do branch ativo e trate qualquer artefato de build a partir desse commit como não confiável.
+A suíte de testes do repositório inclui um scan de regressão para padrões comuns de chaves privadas. Se um segredo real for commitado, rotacione-o imediatamente no provedor externo, remova-o do branch ativo e trate qualquer artefato de build a partir desse commit como não confiável.
 
 Chaves públicas (Firebase web API key, OAuth client IDs públicos como `GOOGLE_CALENDAR_CLIENT_ID`, `NOTION_CLIENT_ID`, `OUTLOOK_CLIENT_ID`) não são segredos, mas devem apontar apenas para o projeto oficial Luum e devem ser protegidas por Firebase Auth, regras do Firestore, origens permitidas e validação no backend.
 
@@ -51,7 +51,7 @@ Chaves públicas (Firebase web API key, OAuth client IDs públicos como `GOOGLE_
 
 O Luum usa dois padrões distintos para OAuth de integrações:
 
-**PKCE sem client_secret (Google Calendar):** O app nativo usa PKCE com loopback em `127.0.0.1` (RFC 8252). O client_secret não está no app nem no servidor. O client ID deve ser do tipo "App para computador" (Desktop app) no GCP — client IDs do tipo "Aplicativo Web" causam `invalid_request: client_secret is missing`.
+**PKCE sem client_secret (Google Calendar):** O app nativo usa PKCE com loopback em `127.0.0.1` (RFC 8252). O Google Calendar usa um client ID do tipo "App para computador" (Desktop app) no GCP, que não possui `client_secret` — esse tipo de credencial é projetado para uso sem segredo. client IDs do tipo "Aplicativo Web" requerem `client_secret` e causariam `invalid_request: client_secret is missing`.
 
 **OAuth gerenciado pelo servidor (Notion, Outlook):** O fluxo passa inteiramente pelo backend Vercel. O `client_secret` fica apenas nas variáveis de ambiente da Vercel e nunca é enviado ao app. O app recebe apenas o `access_token` (e `refresh_token` para Outlook) via redirect `luum://`. Renovação de tokens Outlook é feita server-side via `/api/integrations?action=outlook-refresh`.
 
@@ -75,7 +75,8 @@ Integrações suportadas em produção:
 - **Google Calendar** — PKCE loopback no app, client ID em `/api/public/integrations`
 - **Notion Calendar** — OAuth server-side com `NOTION_CLIENT_ID` + `NOTION_CLIENT_SECRET` na Vercel
 - **Outlook Calendar** — OAuth server-side com `OUTLOOK_CLIENT_ID` + `OUTLOOK_CLIENT_SECRET` na Vercel; refresh token armazenado no Keychain local cifrado
-- **ClickUp / Linear** — API token pessoal inserido pelo usuário em Preferências, armazenado no Keychain
+- **ClickUp** — OAuth server-side com `CLICKUP_CLIENT_ID` + `CLICKUP_CLIENT_SECRET` na Vercel; access token armazenado no Keychain local cifrado
+- **Linear** — OAuth server-side com `LINEAR_CLIENT_ID` + `LINEAR_CLIENT_SECRET` na Vercel; access token armazenado no Keychain local cifrado
 
 ## macOS Alpha Distribution
 

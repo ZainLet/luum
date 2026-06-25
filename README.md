@@ -164,7 +164,7 @@ O pacote sai em `dist/releases/` com instalador `.pkg`, fallback `.zip`, checksu
 
 ## Backend (Vercel)
 
-```
+```text
 https://luum-app.vercel.app
 ```
 
@@ -188,7 +188,7 @@ Funções serverless ativas (11/12 no Hobby plan):
 
 Variáveis de ambiente obrigatórias na Vercel:
 
-```
+```text
 FIREBASE_SERVICE_ACCOUNT_JSON
 STRIPE_SECRET_KEY
 STRIPE_WEBHOOK_SECRET
@@ -211,7 +211,7 @@ cd website && npm test
 
 ## Site estático
 
-```
+```text
 https://luum-app.web.app
 ```
 
