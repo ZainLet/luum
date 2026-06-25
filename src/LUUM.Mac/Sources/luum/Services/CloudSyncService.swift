@@ -108,7 +108,7 @@ struct CloudSyncService {
 
     static func cloudSafePreferences(_ preferences: MonitoringPreferencesSnapshot) -> MonitoringPreferencesSnapshot {
         var sanitized = preferences
-        sanitized.zapierSettings.webhookURL = ""
+        sanitized.zapierSettings.webhooks = []
         sanitized.aiClassificationSettings.endpointURL = AIClassificationSettings.default.endpointURL
         sanitized.aiClassificationSettings.providerName = AIClassificationSettings.default.providerName
         return sanitized
