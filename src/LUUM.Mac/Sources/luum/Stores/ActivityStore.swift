@@ -667,7 +667,7 @@ final class ActivityStore {
     }
 
     var zapierConfigured: Bool {
-        !zapierSettings.webhookURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        zapierSettings.configured
     }
 
     var googleCalendarManagedOAuthAvailable: Bool {
@@ -1296,19 +1296,41 @@ final class ActivityStore {
     }
 
     func updateZapierWebhookURL(_ value: String) {
-        monitoringPreferences.zapierSettings.webhookURL = value
+        guard !value.isEmpty else {
+            monitoringPreferences.zapierSettings.webhooks = []
+            persistMonitoringPreferences()
+            return
+        }
+        let existing = monitoringPreferences.zapierSettings.webhooks
+        if existing.contains(where: { $0.url == value }) { return }
+        let wh = ZapierWebhook(url: value, label: "Webhook", events: [])
+        monitoringPreferences.zapierSettings.webhooks = existing + [wh]
         persistMonitoringPreferences()
     }
 
     func saveZapierWebhookURLToServer(_ url: String) {
-        Task { await runSaveZapierWebhookURL(url) }
+        let existing = monitoringPreferences.zapierSettings.webhooks
+        let wh = ZapierWebhook(url: url, label: "Webhook", events: [])
+        let updated = existing.contains(where: { $0.url == url }) ? existing : existing + [wh]
+        Task { await runSaveZapierWebhooks(updated) }
+    }
+
+    func saveZapierWebhooksToServer(_ webhooks: [ZapierWebhook]) {
+        Task { await runSaveZapierWebhooks(webhooks) }
     }
 
     func removeZapierWebhook() {
-        Task { await runSaveZapierWebhookURL(nil) }
+        Task { await runSaveZapierWebhooks([]) }
     }
 
-    private func runSaveZapierWebhookURL(_ url: String?) async {
+    func removeZapierWebhook(id: UUID) {
+        let updated = monitoringPreferences.zapierSettings.webhooks.filter { $0.id != id }
+        monitoringPreferences.zapierSettings.webhooks = updated
+        persistMonitoringPreferences()
+        Task { await runSaveZapierWebhooks(updated) }
+    }
+
+    private func runSaveZapierWebhooks(_ webhooks: [ZapierWebhook]) async {
         guard let idToken = authSession?.idToken, !idToken.isEmpty else {
             zapierStatusMessage = "Faça login antes de configurar o Zapier."
             return
@@ -1320,12 +1342,20 @@ final class ActivityStore {
             zapierStatusMessage = "Erro interno: URL de endpoint inválida."
             return
         }
-        struct Body: Encodable { let webhookUrl: String? }
+        struct WebhookBody: Encodable {
+            let url: String
+            let label: String
+            let events: [String]
+        }
+        struct Body: Encodable { let webhooks: [WebhookBody] }
+        let body = Body(webhooks: webhooks.map {
+            WebhookBody(url: $0.url, label: $0.label, events: Array($0.events))
+        })
         var req = URLRequest(url: endpoint)
         req.httpMethod = "POST"
         req.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try? JSONEncoder().encode(Body(webhookUrl: url))
+        req.httpBody = try? JSONEncoder().encode(body)
         do {
             let (data, response) = try await URLSession.shared.data(for: req)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
@@ -1337,8 +1367,9 @@ final class ActivityStore {
                 }
                 return
             }
-            updateZapierWebhookURL(url ?? "")
-            zapierStatusMessage = url != nil ? "URL do Zapier salva com sucesso." : "Zapier desconectado."
+            monitoringPreferences.zapierSettings.webhooks = webhooks
+            persistMonitoringPreferences()
+            zapierStatusMessage = webhooks.isEmpty ? "Zapier desconectado." : "Webhooks do Zapier salvos com sucesso."
         } catch {
             zapierStatusMessage = humanReadableOAuthError("network_error", integration: "Zapier")
         }
@@ -3178,75 +3209,6 @@ final class ActivityStore {
         }
     }
 
-    private func runLinearConnect() async {
-        guard canUse(.agendaIntegrations) else {
-            linearStatusMessage = lockMessage(for: .agendaIntegrations)
-            return
-        }
-        guard let verified = try? await authCoordinator.verifiedAuthSessionForProtectedRequest() else {
-            linearStatusMessage = "Entre na sua conta Luum antes de conectar o Linear."
-            return
-        }
-        linearStatusMessage = "Carregando autorização do Linear..."
-
-        let backendURL = FirebaseAuthService.defaultBaseURL
-        guard let url = URL(string: "\(backendURL)/api/integrations?action=linear-auth") else {
-            linearStatusMessage = "Erro ao montar URL de autenticação do Linear."
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(verified.idToken)", forHTTPHeaderField: "Authorization")
-
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
-            guard (200 ..< 300).contains(statusCode) else {
-                struct ErrorBody: Decodable { let error: String }
-                let msg = (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error ?? "Linear não configurado no servidor."
-                linearStatusMessage = msg
-                return
-            }
-            struct AuthResponse: Decodable { let url: String }
-            let authResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
-            guard let authURL = URL(string: authResponse.url) else {
-                linearStatusMessage = "URL OAuth do Linear inválida."
-                return
-            }
-            NSWorkspace.shared.open(authURL)
-            linearStatusMessage = "Autorizando no Linear... Conclua no navegador e volte ao Luum."
-        } catch {
-            linearStatusMessage = humanReadableOAuthError("network_error", integration: "Linear")
-        }
-    }
-
-    private func handleLinearOAuthCallback(_ url: URL) {
-        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
-
-        if let error = items.first(where: { $0.name == "error" })?.value {
-            linearStatusMessage = humanReadableOAuthError(error, integration: "Linear")
-            return
-        }
-
-        guard let accessToken = items.first(where: { $0.name == "access_token" })?.value,
-              !accessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            linearStatusMessage = "Token do Linear não recebido. Tente reconectar."
-            return
-        }
-
-        let rawTokenType = items.first(where: { $0.name == "token_type" })?.value
-        let tokenType = rawTokenType.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } ?? "Bearer"
-
-        do {
-            try keychainService.setString("\(tokenType) \(accessToken)", for: Self.linearTokenKey)
-            monitoringPreferences.linearSettings.isEnabled = true
-            linearStatusMessage = "Linear conectado. Adicione IDs de times abaixo para sincronizar."
-            persistMonitoringPreferences()
-        } catch {
-            linearStatusMessage = "Erro ao salvar token do Linear no Keychain."
-        }
-    }
-
     private func loadValidOutlookTokens() async -> OutlookCalendarTokens? {
         guard var tokens = keychainService.codable(OutlookCalendarTokens.self, for: Self.outlookCalendarSessionKey) else {
             return nil
@@ -4731,25 +4693,38 @@ final class ActivityStore {
             return
         }
 
-        do {
-            let payload = ZapierWebhookPayload(
-                eventType: type,
-                sentAt: Date(),
-                appName: "luum",
-                organizationName: teamSettings.organizationName,
-                memberName: teamSettings.memberDisplayName,
-                details: details
-            )
-            try await zapierService.send(
-                webhookURL: zapierSettings.webhookURL,
-                payload: payload
-            )
-            monitoringPreferences.zapierSettings.lastDeliveryAt = Date()
-            zapierStatusMessage = "Webhook do Zapier entregue com sucesso."
-            persistMonitoringPreferences()
-        } catch {
-            zapierStatusMessage = error.localizedDescription
+        let webhooks = zapierSettings.webhooks.filter { w in
+            w.events.isEmpty || w.events.contains(type)
         }
+        guard !webhooks.isEmpty else { return }
+
+        let payload = ZapierWebhookPayload(
+            eventType: type,
+            sentAt: Date(),
+            appName: "luum",
+            organizationName: teamSettings.organizationName,
+            memberName: teamSettings.memberDisplayName,
+            details: details
+        )
+
+        var succeeded = 0
+        var lastError: String?
+        for wh in webhooks {
+            do {
+                try await zapierService.send(webhookURL: wh.url, payload: payload)
+                succeeded += 1
+            } catch {
+                lastError = error.localizedDescription
+            }
+        }
+
+        if succeeded > 0 {
+            monitoringPreferences.zapierSettings.lastDeliveryAt = Date()
+            persistMonitoringPreferences()
+        }
+        zapierStatusMessage = succeeded == webhooks.count
+            ? "Webhook do Zapier entregue com sucesso."
+            : lastError ?? "Erro ao entregar webhook do Zapier."
     }
 
     private var workspaceSecret: String? {

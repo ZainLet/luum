@@ -7,6 +7,10 @@ struct SettingsView: View {
     @State private var isShowingSignOutConfirmation = false
     @State private var workspaceSecretDraft = ""
     @State private var tab: SettingsTab = .conta
+    @State private var showAddZapierWebhook = false
+    @State private var newZapierURL = ""
+    @State private var newZapierLabel = ""
+    @State private var newZapierEvents: Set<String> = []
 
     private enum SettingsTab: String, CaseIterable {
         case conta = "Conta"
@@ -671,21 +675,49 @@ struct SettingsView: View {
             .disabled(!store.zapierConfigured)
 
             if store.zapierManagedConnectionAvailable {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("URL do webhook")
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Webhooks")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.white.opacity(0.6))
 
-                    ZapierWebhookURLField(store: store)
+                    ForEach(store.zapierSettings.webhooks) { wh in
+                        HStack(spacing: 8) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(wh.label)
+                                    .font(.caption)
+                                    .foregroundStyle(.white)
+                                Text(wh.url)
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(LuumTheme.textMuted)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+                            Spacer()
+                            Button(action: { store.removeZapierWebhook(id: wh.id) }) {
+                                Image(systemName: "minus.circle")
+                                    .foregroundStyle(LuumTheme.hotPink)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(store.isSavingZapierWebhook)
+                        }
+                        .padding(10)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(.white.opacity(0.04)))
+                    }
+
+                    Button {
+                        showAddZapierWebhook = true
+                    } label: {
+                        Label("Adicionar webhook", systemImage: "plus.circle")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(store.isSavingZapierWebhook)
                 }
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 14).fill(.white.opacity(0.03)))
                 .overlay { RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.05)) }
-
-                if store.zapierConfigured {
-                    Button("Remover webhook") { store.removeZapierWebhook() }
-                        .buttonStyle(.bordered)
-                        .disabled(store.isSavingZapierWebhook)
+                .sheet(isPresented: $showAddZapierWebhook) {
+                    addZapierWebhookSheet
                 }
             } else {
                 Text("Configure zapier-webhook-config no servidor para habilitar esta integração.")
@@ -1362,48 +1394,62 @@ private struct LinearTeamIDField: View {
     }
 }
 
-// MARK: - ZapierWebhookURLField
+// MARK: - Add Zapier Webhook Sheet
 
-private struct ZapierWebhookURLField: View {
-    @Bindable var store: ActivityStore
-    @State private var draft = ""
-    @State private var didLoad = false
+private extension SettingsView {
+    var addZapierWebhookSheet: some View {
+        VStack(spacing: 16) {
+            Text("Adicionar webhook")
+                .font(.headline)
 
-    var body: some View {
-        HStack(spacing: 8) {
-            TextField("https://hooks.zapier.com/hooks/catch/…", text: $draft)
-                .textFieldStyle(.plain)
-                .font(.caption.monospaced())
-                .foregroundStyle(.white)
-                .onSubmit { saveDraft() }
-
-            Button(action: saveDraft) {
-                if store.isSavingZapierWebhook {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(isDraftSaveable
-                            ? LuumTheme.hotPink : LuumTheme.textMuted)
-                }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Label")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.6))
+                TextField("Ex: Foco", text: $newZapierLabel)
+                    .textFieldStyle(.plain)
+                    .font(.caption)
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.05)))
             }
-            .buttonStyle(.plain)
-            .disabled(!isDraftSaveable || store.isSavingZapierWebhook)
-        }
-        .onAppear {
-            guard !didLoad else { return }
-            didLoad = true
-            draft = store.zapierSettings.webhookURL
-        }
-    }
 
-    private var isDraftSaveable: Bool {
-        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !trimmed.isEmpty && trimmed != store.zapierSettings.webhookURL
-    }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("URL do webhook")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.6))
+                TextField("https://hooks.zapier.com/hooks/catch/…", text: $newZapierURL)
+                    .textFieldStyle(.plain)
+                    .font(.caption.monospaced())
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.05)))
+            }
 
-    private func saveDraft() {
-        let value = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty else { return }
-        store.saveZapierWebhookURLToServer(value)
+            HStack(spacing: 16) {
+                Button("Cancelar") {
+                    newZapierURL = ""
+                    newZapierLabel = ""
+                    newZapierEvents = []
+                    showAddZapierWebhook = false
+                }
+                .buttonStyle(.bordered)
+
+                Button("Adicionar") {
+                    let url = newZapierURL.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !url.isEmpty else { return }
+                    let label = newZapierLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let wh = ZapierWebhook(url: url, label: label.isEmpty ? "Webhook" : label)
+                    let updated = store.zapierSettings.webhooks + [wh]
+                    store.saveZapierWebhooksToServer(updated)
+                    newZapierURL = ""
+                    newZapierLabel = ""
+                    newZapierEvents = []
+                    showAddZapierWebhook = false
+                }
+                .buttonStyle(.glassProminent)
+                .disabled(newZapierURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 400)
     }
 }

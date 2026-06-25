@@ -235,17 +235,39 @@ struct LinearSettings: Codable, Hashable, Sendable {
     }
 }
 
+struct ZapierWebhook: Identifiable, Codable, Hashable, Sendable {
+    var id: UUID
+    var url: String
+    var label: String
+    var events: Set<String>
+
+    init(url: String, label: String = "Webhook", events: Set<String> = []) {
+        self.id = UUID()
+        self.url = url
+        self.label = label
+        self.events = events
+    }
+}
+
 struct ZapierSettings: Codable, Hashable, Sendable {
     var isEnabled: Bool
-    var webhookURL: String
+    var webhooks: [ZapierWebhook]
     var sendsFocusEvents: Bool
     var sendsCalendarSyncEvents: Bool
     var sendsWorkspaceRankingEvents: Bool
     var lastDeliveryAt: Date?
 
+    var webhookURL: String {
+        webhooks.first?.url ?? ""
+    }
+
+    var configured: Bool {
+        !webhooks.isEmpty
+    }
+
     static let `default` = ZapierSettings(
         isEnabled: false,
-        webhookURL: "",
+        webhooks: [],
         sendsFocusEvents: true,
         sendsCalendarSyncEvents: true,
         sendsWorkspaceRankingEvents: true,
@@ -255,7 +277,13 @@ struct ZapierSettings: Codable, Hashable, Sendable {
     func normalized() -> ZapierSettings {
         ZapierSettings(
             isEnabled: isEnabled,
-            webhookURL: webhookURL.trimmingCharacters(in: .whitespacesAndNewlines),
+            webhooks: webhooks.map { w in
+                ZapierWebhook(
+                    url: w.url.trimmingCharacters(in: .whitespacesAndNewlines),
+                    label: w.label.trimmingCharacters(in: .whitespacesAndNewlines).nilIfBlank ?? "Webhook",
+                    events: w.events
+                )
+            }.filter { !$0.url.isEmpty },
             sendsFocusEvents: sendsFocusEvents,
             sendsCalendarSyncEvents: sendsCalendarSyncEvents,
             sendsWorkspaceRankingEvents: sendsWorkspaceRankingEvents,

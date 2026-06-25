@@ -2,7 +2,7 @@
 
 const { admin, getFirestore } = require('../_firebaseAdmin');
 
-// Sends a summary payload to the user's configured Zapier webhook URL.
+// Sends a summary payload to all configured Zapier webhooks.
 // Body: { summary: string, date: string, totalMinutes?: number }
 module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -23,17 +23,29 @@ module.exports = async (req, res) => {
 
     const db = getFirestore();
     const doc = await db.collection('zapier_webhooks').doc(uid).get();
-    if (!doc.exists || !doc.data().webhookUrl) {
+    if (!doc.exists) {
         return res.status(404).json({ error: 'Nenhum webhook Zapier configurado para este usuário' });
     }
 
-    const webhookUrl = doc.data().webhookUrl;
-    const resp = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ summary, date, totalMinutes: totalMinutes || 0, source: 'luum' }),
-    });
+    const data = doc.data();
+    const webhooks = Array.isArray(data.webhooks) ? data.webhooks
+        : data.webhookUrl ? [{ url: data.webhookUrl }]
+        : [];
 
-    if (!resp.ok) return res.status(502).json({ error: 'Falha ao enviar para o Zapier', status: resp.status });
-    return res.json({ ok: true });
+    if (webhooks.length === 0) {
+        return res.status(404).json({ error: 'Nenhum webhook Zapier configurado para este usuário' });
+    }
+
+    const payload = JSON.stringify({ summary, date, totalMinutes: totalMinutes || 0, source: 'luum' });
+    const results = await Promise.allSettled(webhooks.map(w =>
+        fetch(w.url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+        }).then(r => r.ok)
+    ));
+
+    const succeeded = results.filter(r => r.status === 'fulfilled' && r.value).length;
+    if (succeeded === 0) return res.status(502).json({ error: 'Falha ao enviar para todos os webhooks Zapier' });
+    return res.json({ ok: true, delivered: succeeded, total: webhooks.length });
 };
