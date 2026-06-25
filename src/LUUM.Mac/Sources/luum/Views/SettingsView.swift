@@ -170,6 +170,11 @@ struct SettingsView: View {
 
         Divider().opacity(0.08)
 
+        // ClickUp
+        clickUpSection
+
+        Divider().opacity(0.08)
+
         // Pending (coming soon)
         pendingIntegrationsSection
 
@@ -448,6 +453,95 @@ struct SettingsView: View {
         }
     }
 
+    private var clickUpSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label("ClickUp", systemImage: "checklist")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                Spacer()
+                if store.hasClickUpToken {
+                    Text("Conectado")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LuumTheme.hotPink)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(LuumTheme.hotPink.opacity(0.12)))
+                } else if store.clickUpManagedOAuthAvailable {
+                    Text("Pronto para conectar")
+                        .font(.caption)
+                        .foregroundStyle(LuumTheme.textMuted)
+                }
+            }
+
+            if let message = store.clickUpStatusMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textSecondary)
+            }
+
+            Toggle("Ativar ClickUp", isOn: Binding(
+                get: { store.clickUpSettings.isEnabled },
+                set: { store.updateClickUpEnabled($0) }
+            ))
+            .toggleStyle(.switch)
+            .disabled(!store.hasClickUpToken)
+
+            HStack(spacing: 10) {
+                if store.clickUpManagedOAuthAvailable {
+                    Button(store.hasClickUpToken ? "Reconectar" : "Conectar ClickUp") {
+                        store.connectClickUp()
+                    }
+                    .buttonStyle(.glassProminent)
+                }
+
+                Button("Sincronizar") { store.refreshClickUp() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!store.hasClickUpToken || store.isSyncingClickUp)
+
+                if store.hasClickUpToken {
+                    Button("Desconectar") { store.disconnectClickUp() }
+                        .buttonStyle(.bordered)
+                }
+            }
+
+            if store.hasClickUpToken && store.clickUpSettings.isEnabled {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("IDs de lista")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.6))
+
+                    ForEach(store.clickUpSettings.listIDs, id: \.self) { listID in
+                        HStack {
+                            Text(listID)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(LuumTheme.textSecondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer()
+                            Button(action: { store.removeClickUpListID(listID) }) {
+                                Image(systemName: "minus.circle")
+                                    .foregroundStyle(LuumTheme.hotPink)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    ClickUpListIDField(store: store)
+                }
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 14).fill(.white.opacity(0.03)))
+                .overlay { RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.05)) }
+            }
+
+            if !store.clickUpManagedOAuthAvailable {
+                Text("ClickUp OAuth não configurado no servidor. Configure CLICKUP_CLIENT_ID e CLICKUP_CLIENT_SECRET na Vercel.")
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textMuted)
+            }
+        }
+    }
+
     private var pendingIntegrationsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -461,12 +555,6 @@ struct SettingsView: View {
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 10)], spacing: 10) {
-                pendingIntegrationRow(
-                    name: "ClickUp",
-                    systemImage: "checklist",
-                    isConnected: store.hasClickUpToken,
-                    isAvailable: store.clickUpManagedOAuthAvailable
-                )
                 pendingIntegrationRow(
                     name: "Linear",
                     systemImage: "arrow.up.right.square",
@@ -1056,6 +1144,36 @@ private struct GoogleConnectionCard: View {
 }
 
 // MARK: - NotionDatabaseIDField
+
+private struct ClickUpListIDField: View {
+    @Bindable var store: ActivityStore
+    @State private var draft = ""
+
+    var body: some View {
+        HStack(spacing: 8) {
+            TextField("ID da lista do ClickUp", text: $draft)
+                .textFieldStyle(.plain)
+                .font(.caption.monospaced())
+                .foregroundStyle(.white)
+                .onSubmit { addDraft() }
+
+            Button(action: addDraft) {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundStyle(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? LuumTheme.textMuted : LuumTheme.hotPink)
+            }
+            .buttonStyle(.plain)
+            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+    }
+
+    private func addDraft() {
+        let value = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return }
+        store.addClickUpListID(value)
+        draft = ""
+    }
+}
 
 private struct NotionDatabaseIDField: View {
     @Bindable var store: ActivityStore

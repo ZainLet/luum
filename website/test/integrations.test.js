@@ -222,15 +222,28 @@ test('zapier-trigger requires auth', async () => {
     assert.equal(res.code, 401);
 });
 
-test('zapier-action rejects unknown token', async () => {
+test('zapier-action rejects bad token', async () => {
     installFirebaseMock();
     deleteHandlers();
     const handler = require('../api/integrations/_zapier-action');
     const res = response();
     await handler({
-        method: 'POST', headers: { authorization: 'Bearer unknown-token' },
-        body: { action: 'test', payload: {} }
+        method: 'POST', headers: { authorization: 'Bearer bad-token' },
+        body: { summary: 'test', date: '2026-06-25', totalMinutes: 60 }
     }, res);
     assert.equal(res.code, 403);
+    assert.ok(res.body.error);
+});
+
+test('zapier-action returns 404 when webhook not configured', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    const handler = require('../api/integrations/_zapier-action');
+    const res = response();
+    await handler({
+        method: 'POST', headers: { authorization: 'Bearer valid-token' },
+        body: { summary: 'Resumo do dia', date: '2026-06-25', totalMinutes: 120 }
+    }, res);
+    assert.equal(res.code, 404);
     assert.ok(res.body.error);
 });

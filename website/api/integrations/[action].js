@@ -1,5 +1,8 @@
 'use strict';
 
+const clickupAuth    = require('./_clickup-auth');
+const clickupCallback = require('./_clickup-callback');
+const clickupTasks   = require('./_clickup-tasks');
 const clickupWebhook = require('./_clickup-webhook');
 const linearAuth    = require('./_linear-auth');
 const linearIssues  = require('./_linear-issues');
@@ -9,11 +12,15 @@ const notionPages    = require('./_notion-pages');
 const outlookAuth    = require('./_outlook-auth');
 const outlookCallback = require('./_outlook-callback');
 const outlookRefresh = require('./_outlook-refresh');
-const zapierAction  = require('./_zapier-action');
-const zapierTrigger = require('./_zapier-trigger');
+const zapierAction       = require('./_zapier-action');
+const zapierTrigger      = require('./_zapier-trigger');
+const zapierWebhookConfig = require('./_zapier-webhook-config');
 
 const ROUTES = {
-    'clickup-webhook': clickupWebhook,
+    'clickup-auth':     clickupAuth,
+    'clickup-callback': clickupCallback,
+    'clickup-tasks':    clickupTasks,
+    'clickup-webhook':  clickupWebhook,
     'linear-auth':     linearAuth,
     'linear-issues':   linearIssues,
     'notion-auth':     notionAuth,
@@ -22,8 +29,9 @@ const ROUTES = {
     'outlook-auth':    outlookAuth,
     'outlook-callback': outlookCallback,
     'outlook-refresh': outlookRefresh,
-    'zapier-action':   zapierAction,
-    'zapier-trigger':  zapierTrigger,
+    'zapier-action':        zapierAction,
+    'zapier-trigger':       zapierTrigger,
+    'zapier-webhook-config': zapierWebhookConfig,
 };
 
 module.exports = (req, res) => {

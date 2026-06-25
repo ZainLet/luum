@@ -404,6 +404,10 @@ final class ActivityStore {
             handleOutlookOAuthCallback(url)
             return
         }
+        if url.scheme == "luum", url.host == "clickup" {
+            handleClickUpOAuthCallback(url)
+            return
+        }
         authCoordinator.handleAuthCallbackURL(url)
     }
 
@@ -432,6 +436,7 @@ final class ActivityStore {
         stopMonitoring()
         keychainService.removeValue(for: Self.outlookCalendarSessionKey)
         keychainService.removeValue(for: Self.teamWorkspaceSecretKey)
+        keychainService.removeValue(for: Self.clickUpTokenKey)
         monitoringPreferences.teamSettings.sharesAnonymousMetrics = false
         monitoringPreferences.teamSettings.automaticallySyncWorkspace = false
         monitoringPreferences.teamSettings.workspaceID = ""
@@ -1100,6 +1105,17 @@ final class ActivityStore {
         Task { [weak self] in
             await self?.runClickUpSync(for: day, force: true)
         }
+    }
+
+    func connectClickUp() { Task { await runClickUpConnect() } }
+
+    func disconnectClickUp() {
+        keychainService.removeValue(for: Self.clickUpTokenKey)
+        monitoringPreferences.clickUpSettings.isEnabled = false
+        monitoringPreferences.clickUpSettings.listIDs = []
+        clickUpAgendaItems = []; clickUpAgendaDay = nil
+        clickUpStatusMessage = "ClickUp desconectado."
+        persistMonitoringPreferences()
     }
 
     func updateLinearEnabled(_ value: Bool) {
@@ -3149,6 +3165,55 @@ final class ActivityStore {
             await sendZapierCalendarSyncEventIfNeeded(source: "outlook", itemCount: result.events.count)
         } catch {
             outlookCalendarStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func runClickUpConnect() async {
+        guard canUse(.agendaIntegrations) else {
+            clickUpStatusMessage = lockMessage(for: .agendaIntegrations)
+            return
+        }
+        guard let idToken = authSession?.idToken, !idToken.isEmpty else {
+            clickUpStatusMessage = "Faça login antes de conectar o ClickUp."
+            return
+        }
+        clickUpStatusMessage = "Abrindo autorização do ClickUp..."
+        do {
+            let baseURL = FirebaseAuthService.defaultBaseURL
+            var req = URLRequest(url: URL(string: "\(baseURL)/api/integrations?action=clickup-auth")!)
+            req.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
+            let (data, _) = try await URLSession.shared.data(for: req)
+            struct AuthResponse: Decodable { let url: String }
+            let authResp = try JSONDecoder().decode(AuthResponse.self, from: data)
+            guard let oauthURL = URL(string: authResp.url) else {
+                clickUpStatusMessage = "URL de autorização inválida."
+                return
+            }
+            await NSWorkspace.shared.open(oauthURL)
+        } catch {
+            clickUpStatusMessage = "Erro ao iniciar conexão com ClickUp: \(error.localizedDescription)"
+        }
+    }
+
+    private func handleClickUpOAuthCallback(_ url: URL) {
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let params = Dictionary(uniqueKeysWithValues: (components?.queryItems ?? []).compactMap {
+            guard let v = $0.value else { return nil as (String, String)? }
+            return ($0.name, v)
+        })
+        if let errMsg = params["error"] {
+            clickUpStatusMessage = "Erro ao conectar ClickUp: \(errMsg)"
+            return
+        }
+        guard let accessToken = params["access_token"], !accessToken.isEmpty else {
+            clickUpStatusMessage = "Resposta inválida do ClickUp."
+            return
+        }
+        do {
+            try keychainService.setString(accessToken, for: Self.clickUpTokenKey)
+            clickUpStatusMessage = "ClickUp conectado com sucesso."
+        } catch {
+            clickUpStatusMessage = "Erro ao salvar token ClickUp: \(error.localizedDescription)"
         }
     }
 

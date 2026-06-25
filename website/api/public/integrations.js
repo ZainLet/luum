@@ -12,6 +12,8 @@ async function publicIntegrationsHandler(req, res) {
     const googleCalendarClientID = await getSetting('GOOGLE_CALENDAR_CLIENT_ID');
     const outlookClientID = await getSetting('OUTLOOK_CLIENT_ID');
     const notionClientID = await getSetting('NOTION_CLIENT_ID');
+    const linearClientID = await getSetting('LINEAR_CLIENT_ID');
+    const clickupClientID = await getSetting('CLICKUP_CLIENT_ID');
 
     return res.json({
         googleCalendar: {
@@ -26,8 +28,8 @@ async function publicIntegrationsHandler(req, res) {
             googleCalendar: Boolean(googleCalendarClientID),
             outlookCalendar: Boolean(outlookClientID),
             notion: Boolean(notionClientID),
-            clickUp: true,
-            linear: true,
+            linear: Boolean(linearClientID),
+            clickUp: Boolean(clickupClientID),
             zapier: true
         }
     });
