@@ -201,6 +201,7 @@ test('linear-auth rejects non-GET method', async () => {
         body: {}
     }, res);
     assert.equal(res.code, 405);
+    assert.ok(res.body.error, 'deve retornar corpo com campo error');
 });
 
 test('linear-issues rejects unauthenticated Linear', async () => {
