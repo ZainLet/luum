@@ -437,7 +437,7 @@ test('clickup-callback redireciona com erro quando troca falha', async () => {
 
 // --- zapier-webhook-config ---
 
-test('zapier-webhook-config GET retorna null quando não configurado', async () => {
+test('zapier-webhook-config GET retorna lista vazia quando não configurado', async () => {
     installFirebaseMock();
     deleteHandlers();
     const handler = require('../api/integrations/_zapier-webhook-config');
@@ -446,10 +446,61 @@ test('zapier-webhook-config GET retorna null quando não configurado', async () 
         method: 'GET', headers: { authorization: 'Bearer valid-token' }, body: {}
     }, res);
     assert.equal(res.code, 200);
-    assert.equal(res.body.webhookUrl, null);
+    assert.deepEqual(res.body.webhooks, []);
 });
 
-test('zapier-webhook-config POST salva URL válida do Zapier', async () => {
+test('zapier-webhook-config POST webhooks array válido', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    const handler = require('../api/integrations/_zapier-webhook-config');
+    const res = response();
+    await handler({
+        method: 'POST', headers: { authorization: 'Bearer valid-token' },
+        body: {
+            webhooks: [
+                { url: 'https://hooks.zapier.com/hooks/catch/123/abc', label: 'Foco', events: ['focus_mode'] },
+                { url: 'https://hooks.zapier.com/hooks/catch/456/def', label: 'Calendário', events: ['calendar_sync'] },
+            ]
+        }
+    }, res);
+    assert.equal(res.code, 200);
+    assert.ok(res.body.ok);
+    assert.equal(res.body.webhooks.length, 2);
+    assert.equal(res.body.webhooks[0].label, 'Foco');
+    assert.equal(res.body.webhooks[1].events[0], 'calendar_sync');
+});
+
+test('zapier-webhook-config POST rejeita webhooks com URL inválida', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    const handler = require('../api/integrations/_zapier-webhook-config');
+    const res = response();
+    await handler({
+        method: 'POST', headers: { authorization: 'Bearer valid-token' },
+        body: {
+            webhooks: [
+                { url: 'https://evil.com/webhook', label: 'Bad' }
+            ]
+        }
+    }, res);
+    assert.equal(res.code, 400);
+    assert.ok(res.body.error);
+});
+
+test('zapier-webhook-config POST webhooks vazio remove configuração', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    const handler = require('../api/integrations/_zapier-webhook-config');
+    const res = response();
+    await handler({
+        method: 'POST', headers: { authorization: 'Bearer valid-token' },
+        body: { webhooks: [] }
+    }, res);
+    assert.equal(res.code, 200);
+    assert.ok(res.body.ok);
+});
+
+test('zapier-webhook-config backward compat: POST webhookUrl singular', async () => {
     installFirebaseMock();
     deleteHandlers();
     const handler = require('../api/integrations/_zapier-webhook-config');
@@ -460,35 +511,11 @@ test('zapier-webhook-config POST salva URL válida do Zapier', async () => {
     }, res);
     assert.equal(res.code, 200);
     assert.ok(res.body.ok);
+    assert.equal(res.body.webhooks.length, 1);
+    assert.equal(res.body.webhooks[0].url, 'https://hooks.zapier.com/hooks/catch/123/abc');
 });
 
-test('zapier-webhook-config POST rejeita URL de outro host', async () => {
-    installFirebaseMock();
-    deleteHandlers();
-    const handler = require('../api/integrations/_zapier-webhook-config');
-    const res = response();
-    await handler({
-        method: 'POST', headers: { authorization: 'Bearer valid-token' },
-        body: { webhookUrl: 'https://evil.com/webhook' }
-    }, res);
-    assert.equal(res.code, 400);
-    assert.ok(res.body.error);
-});
-
-test('zapier-webhook-config POST rejeita URL maior que 2048 chars', async () => {
-    installFirebaseMock();
-    deleteHandlers();
-    const handler = require('../api/integrations/_zapier-webhook-config');
-    const res = response();
-    await handler({
-        method: 'POST', headers: { authorization: 'Bearer valid-token' },
-        body: { webhookUrl: 'https://hooks.zapier.com/' + 'x'.repeat(2050) }
-    }, res);
-    assert.equal(res.code, 400);
-    assert.ok(res.body.error);
-});
-
-test('zapier-webhook-config POST sem webhookUrl remove configuração', async () => {
+test('zapier-webhook-config backward compat: POST webhookUrl null remove', async () => {
     installFirebaseMock();
     deleteHandlers();
     const handler = require('../api/integrations/_zapier-webhook-config');
@@ -499,4 +526,20 @@ test('zapier-webhook-config POST sem webhookUrl remove configuração', async ()
     }, res);
     assert.equal(res.code, 200);
     assert.ok(res.body.ok);
+});
+
+test('zapier-webhook-config GET retorna webhooks migrados do formato antigo', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    sharedStore['zapier_webhooks'] = {
+        'test-user': { _data: { webhookUrl: 'https://hooks.zapier.com/hooks/catch/old/format' }, _collections: {} }
+    };
+    const handler = require('../api/integrations/_zapier-webhook-config');
+    const res = response();
+    await handler({
+        method: 'GET', headers: { authorization: 'Bearer valid-token' }, body: {}
+    }, res);
+    assert.equal(res.code, 200);
+    assert.equal(res.body.webhooks.length, 1);
+    assert.equal(res.body.webhooks[0].url, 'https://hooks.zapier.com/hooks/catch/old/format');
 });
