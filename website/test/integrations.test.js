@@ -203,6 +203,7 @@ test('linear-auth GET returns auth URL with correct callback redirect_uri', asyn
     assert.ok(res.body.url);
     assert.ok(res.body.url.includes('linear.app'));
     assert.ok(res.body.url.includes('linear-callback'), 'redirect_uri deve apontar para linear-callback');
+    assert.ok(res.body.url.includes('state='), 'URL deve incluir parâmetro state para CSRF protection');
 });
 
 test('linear-auth rejects non-GET method', async () => {
