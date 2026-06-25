@@ -409,6 +409,10 @@ final class ActivityStore {
             handleClickUpOAuthCallback(url)
             return
         }
+        if url.scheme == "luum", url.host == "linear" {
+            handleLinearOAuthCallback(url)
+            return
+        }
         authCoordinator.handleAuthCallbackURL(url)
     }
 
@@ -1201,6 +1205,78 @@ final class ActivityStore {
         guard !isSyncingLinear else { return }
         Task { [weak self] in
             await self?.runLinearSync(for: day, force: true)
+        }
+    }
+
+    func connectLinear() { Task { await runLinearConnect() } }
+
+    func disconnectLinear() {
+        keychainService.removeValue(for: Self.linearTokenKey)
+        monitoringPreferences.linearSettings.isEnabled = false
+        linearAgendaItems = []; linearAgendaDay = nil
+        linearStatusMessage = "Linear desconectado."
+        persistMonitoringPreferences()
+    }
+
+    private func runLinearConnect() async {
+        guard canUse(.agendaIntegrations) else {
+            linearStatusMessage = lockMessage(for: .agendaIntegrations)
+            return
+        }
+        guard let idToken = authSession?.idToken, !idToken.isEmpty else {
+            linearStatusMessage = "Faça login antes de conectar o Linear."
+            return
+        }
+        linearStatusMessage = "Abrindo autorização do Linear..."
+        do {
+            let baseURL = FirebaseAuthService.defaultBaseURL
+            var req = URLRequest(url: URL(string: "\(baseURL)/api/integrations?action=linear-auth")!)
+            req.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
+            let (data, _) = try await URLSession.shared.data(for: req)
+            struct AuthResponse: Decodable { let url: String }
+            let authResp = try JSONDecoder().decode(AuthResponse.self, from: data)
+            guard let oauthURL = URL(string: authResp.url) else {
+                linearStatusMessage = "URL de autorização inválida."
+                return
+            }
+            NSWorkspace.shared.open(oauthURL)
+        } catch {
+            linearStatusMessage = "Erro ao iniciar conexão com Linear: \(error.localizedDescription)"
+        }
+    }
+
+    func handleLinearOAuthCallback(_ url: URL) {
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let params = Dictionary(uniqueKeysWithValues: (components?.queryItems ?? []).compactMap {
+            guard let v = $0.value else { return nil as (String, String)? }
+            return ($0.name, v)
+        })
+        if let errMsg = params["error"] {
+            switch errMsg {
+            case "invalid_state", "missing_state":
+                linearStatusMessage = "Sessão expirada. Tente conectar novamente."
+            case "server_not_configured":
+                linearStatusMessage = "Linear não está configurado no servidor."
+            case "access_denied":
+                linearStatusMessage = "Autorização negada. Permita o acesso para conectar."
+            default:
+                linearStatusMessage = "Erro ao conectar Linear. Tente novamente."
+            }
+            return
+        }
+        guard let accessToken = params["access_token"], !accessToken.isEmpty else {
+            linearStatusMessage = "Resposta inválida do Linear."
+            return
+        }
+        do {
+            let rawTokenType = params["token_type"]
+            let tokenType = rawTokenType.flatMap {
+                $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0
+            } ?? "Bearer"
+            try keychainService.setString("\(tokenType) \(accessToken)", for: Self.linearTokenKey)
+            linearStatusMessage = "Linear conectado com sucesso."
+        } catch {
+            linearStatusMessage = "Erro ao salvar token Linear: \(error.localizedDescription)"
         }
     }
 

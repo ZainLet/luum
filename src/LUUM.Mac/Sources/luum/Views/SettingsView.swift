@@ -185,11 +185,6 @@ struct SettingsView: View {
 
         Divider().opacity(0.08)
 
-        // Pending (coming soon)
-        pendingIntegrationsSection
-
-        Divider().opacity(0.08)
-
         // AI
         aiClassificationSection
     }
