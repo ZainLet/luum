@@ -2,36 +2,36 @@
 
 ## Supported Versions
 
-Luum is still in alpha. Security fixes are applied to the active alpha branch and to the newest alpha release only.
+O Luum está em alpha. Correções de segurança são aplicadas ao branch alpha ativo e à versão alpha mais recente.
 
-| Version | Supported |
+| Versão | Suportada |
 | --- | --- |
-| `v0.0.x-alpha` / newest alpha | Yes |
-| Older alpha builds | Best effort only |
-| Unreleased local builds | No public support |
+| `v0.1.x` / build alpha mais recente | Sim |
+| Builds alpha antigos | Melhor esforço |
+| Builds locais não empacotados | Sem suporte público |
 
 ## Reporting a Vulnerability
 
-Report security issues privately to `oluum.app@gmail.com`. Do not open a public issue with secrets, tokens, customer data, screenshots of API keys, or exploit details.
+Reporte problemas de segurança de forma privada para `luum.app@gmail.com`. Não abra issues públicas com segredos, tokens, dados de clientes, prints de chaves de API ou detalhes de exploit.
 
-Please include:
+Inclua:
 
-- A short description of the issue and affected surface: macOS app, website, Vercel API, Firebase/Firestore, Stripe, or installer.
-- Steps to reproduce with a test account when possible.
-- Any relevant request IDs, timestamps, or sanitized logs.
-- Whether any Firebase ID token, Stripe key, Gemini key, Resend key, webhook secret, or user backup data may have been exposed.
+- Breve descrição do problema e superfície afetada: app macOS, website, API Vercel, Firebase/Firestore, Stripe, OAuth de integração ou instalador.
+- Passos para reproduzir com conta de teste quando possível.
+- Request IDs, timestamps ou logs sanitizados relevantes.
+- Se algum Firebase ID token, chave Stripe, chave Gemini, chave Resend, webhook secret, client_secret OAuth ou dados de backup de usuário podem ter sido expostos.
 
-Expected handling:
+Tratamento esperado:
 
-- We acknowledge reproducible reports as soon as practical.
-- We prioritize issues involving account takeover, payment/billing changes, Firebase backup access, leaked integration secrets, or installer trust.
-- We publish fixes in the next alpha build when the fix affects the macOS app, or redeploy the Vercel/Firebase backend when the fix is server-side.
+- Confirmamos reportes reproduzíveis assim que possível.
+- Priorizamos problemas de takeover de conta, alterações de pagamento/plano, acesso indevido a backup Firebase, vazamento de segredos de integração ou comprometimento do instalador.
+- Publicamos correções no próximo build alpha para problemas no app macOS ou redeploy Vercel/Firebase para problemas server-side.
 
 ## Secret Handling
 
-Never commit production secrets to this repository. Production credentials must live in Vercel environment variables, the encrypted admin integration store, Firebase/Stripe dashboards, or a separate password manager.
+Nunca commite segredos de produção neste repositório. Credenciais de produção devem ficar em variáveis de ambiente da Vercel, no storage admin cifrado de integrações, nos dashboards Firebase/Stripe, ou em um gerenciador de senhas separado.
 
-Sensitive values include:
+Valores sensíveis incluem:
 
 - `FIREBASE_SERVICE_ACCOUNT_JSON`
 - `LUUM_SETTINGS_ENCRYPTION_KEY`
@@ -39,23 +39,47 @@ Sensitive values include:
 - `STRIPE_WEBHOOK_SECRET`
 - `GEMINI_API_KEY`
 - `RESEND_API_KEY`
-- OAuth client secrets, refresh tokens, Zapier webhook URLs, workspace secrets, and private keys.
+- `NOTION_CLIENT_SECRET`
+- `OUTLOOK_CLIENT_SECRET`
+- OAuth client secrets, refresh tokens, URLs de webhook do Zapier, workspace secrets e chaves privadas.
 
-The repository test suite includes a regression scan for common private key patterns. If a real secret is ever committed, rotate it immediately in the external provider, remove it from the active branch, and treat any built artifacts from that commit as untrusted.
+A suíte de testes do repositório inclui um scan de regressão para padrões comuns de chaves privadas. Se um segredo real for commitado, rotacione-o imediatamente no provedor externo, remova-o do branch ativo e trate qualquer artefato de build a partir desse commit como não confiável.
 
-Public Firebase web API keys and public OAuth client IDs are not treated as private secrets, but they must only point at the official Luum project and must be protected by Firebase Auth, Firestore rules, allowed origins, and backend validation.
+Chaves públicas (Firebase web API key, OAuth client IDs públicos como `GOOGLE_CALENDAR_CLIENT_ID`, `NOTION_CLIENT_ID`, `OUTLOOK_CLIENT_ID`) não são segredos, mas devem apontar apenas para o projeto oficial Luum e devem ser protegidas por Firebase Auth, regras do Firestore, origens permitidas e validação no backend.
+
+## Modelo de segurança OAuth
+
+O Luum usa dois padrões distintos para OAuth de integrações:
+
+**PKCE sem client_secret (Google Calendar):** O app nativo usa PKCE com loopback em `127.0.0.1` (RFC 8252). O Google Calendar usa um client ID do tipo "App para computador" (Desktop app) no GCP, que não possui `client_secret` — esse tipo de credencial é projetado para uso sem segredo. client IDs do tipo "Aplicativo Web" requerem `client_secret` e causariam `invalid_request: client_secret is missing`.
+
+**OAuth gerenciado pelo servidor (Notion, Outlook):** O fluxo passa inteiramente pelo backend Vercel. O `client_secret` fica apenas nas variáveis de ambiente da Vercel e nunca é enviado ao app. O app recebe apenas o `access_token` (e `refresh_token` para Outlook) via redirect `luum://`. Renovação de tokens Outlook é feita server-side via `/api/integrations?action=outlook-refresh`.
+
+URIs de redirect OAuth válidos (devem ser configurados nos portais de cada provedor):
+
+- Notion: `https://luum-app.vercel.app/api/integrations?action=notion-callback`
+- Outlook: `https://luum-app.vercel.app/api/integrations?action=outlook-callback`
+- Google Calendar: `127.0.0.1:<porta-efêmera>` (loopback local, RFC 8252)
 
 ## Production Boundaries
 
-- Official website: `https://luum-app.web.app`
-- Official backend API: `https://luum-app.vercel.app`
-- Official Firebase project: `luum-app`
-- macOS bundle id: `com.luum.apple`
+- Website oficial: `https://luum-app.web.app`
+- API backend oficial: `https://luum-app.vercel.app`
+- Projeto Firebase oficial: `luum-app`
+- Bundle ID macOS: `com.luum.apple`
 
-The macOS app should send Firebase ID tokens only to the official backend. Login, plan status, cloud backup, weekly PDF email, workspace ranking, and AI classification should not be redirected to arbitrary local preferences or third-party endpoints in production.
+O app macOS deve enviar Firebase ID tokens apenas ao backend oficial. Login, status de plano, backup em nuvem, PDF semanal por email, ranking de workspace e classificação de IA não devem ser redirecionados para preferências locais arbitrárias ou endpoints de terceiros em produção.
+
+Integrações suportadas em produção:
+
+- **Google Calendar** — PKCE loopback no app, client ID em `/api/public/integrations`
+- **Notion Calendar** — OAuth server-side com `NOTION_CLIENT_ID` + `NOTION_CLIENT_SECRET` na Vercel
+- **Outlook Calendar** — OAuth server-side com `OUTLOOK_CLIENT_ID` + `OUTLOOK_CLIENT_SECRET` na Vercel; refresh token armazenado no Keychain local cifrado
+- **ClickUp** — OAuth server-side com `CLICKUP_CLIENT_ID` + `CLICKUP_CLIENT_SECRET` na Vercel; access token armazenado no Keychain local cifrado
+- **Linear** — OAuth server-side com `LINEAR_CLIENT_ID` + `LINEAR_CLIENT_SECRET` na Vercel; access token armazenado no Keychain local cifrado
 
 ## macOS Alpha Distribution
 
-Current alpha builds are signed ad-hoc and packaged as a `.pkg` installer that places `luum.app` in `/Applications`. Until the Apple Developer Program, Developer ID signing, hardened runtime, and notarization are configured, Gatekeeper may require `Control-click > Open` on first launch.
+Os builds alpha atuais são assinados ad-hoc e empacotados como instalador `.pkg` que coloca `luum.app` em `/Applications`. Até que o Apple Developer Program, assinatura Developer ID, hardened runtime e notarização sejam configurados, o Gatekeeper pode exigir `Control-click > Abrir` no primeiro launch.
 
-The app avoids the macOS Keychain by default in ad-hoc builds and stores local session data in an encrypted local vault to reduce repeated password prompts when signatures change between alpha builds.
+Tokens OAuth e chaves de API de integrações ficam no Keychain local cifrado do macOS e nunca são enviados ao servidor de backup. Apenas metadados de atividade (com controles de privacidade opt-in) são sincronizados com o backend Vercel.

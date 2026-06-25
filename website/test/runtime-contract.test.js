@@ -22,7 +22,7 @@ test('security policy documents Luum alpha production boundaries', () => {
     const securityPolicy = fs.readFileSync(path.join(__dirname, '..', '..', 'SECURITY.md'), 'utf8');
 
     assert.doesNotMatch(securityPolicy, /Use this section/i);
-    assert.match(securityPolicy, /v0\.0\.x-alpha/);
+    assert.match(securityPolicy, /v0\.\d+\.x/);
     assert.match(securityPolicy, /https:\/\/luum-app\.vercel\.app/);
     assert.match(securityPolicy, /FIREBASE_SERVICE_ACCOUNT_JSON/);
     assert.match(securityPolicy, /STRIPE_SECRET_KEY/);
