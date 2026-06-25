@@ -4,8 +4,9 @@ const clickupAuth    = require('./_clickup-auth');
 const clickupCallback = require('./_clickup-callback');
 const clickupTasks   = require('./_clickup-tasks');
 const clickupWebhook = require('./_clickup-webhook');
-const linearAuth    = require('./_linear-auth');
-const linearIssues  = require('./_linear-issues');
+const linearAuth     = require('./_linear-auth');
+const linearCallback = require('./_linear-callback');
+const linearIssues   = require('./_linear-issues');
 const notionAuth     = require('./_notion-auth');
 const notionCallback = require('./_notion-callback');
 const notionPages    = require('./_notion-pages');
@@ -22,6 +23,7 @@ const ROUTES = {
     'clickup-tasks':    clickupTasks,
     'clickup-webhook':  clickupWebhook,
     'linear-auth':     linearAuth,
+    'linear-callback': linearCallback,
     'linear-issues':   linearIssues,
     'notion-auth':     notionAuth,
     'notion-callback': notionCallback,
