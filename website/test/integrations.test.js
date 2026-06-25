@@ -173,7 +173,7 @@ test('notion-pages rejects non-configured integration', async () => {
     assert.ok(res.body.error);
 });
 
-test('linear-auth GET returns auth URL', async () => {
+test('linear-auth GET returns auth URL with correct callback redirect_uri', async () => {
     installFirebaseMock({ plan: 'profissional' });
     deleteHandlers();
     process.env.LINEAR_CLIENT_ID = 'linear-client';
@@ -187,6 +187,21 @@ test('linear-auth GET returns auth URL', async () => {
     assert.equal(res.code, 200);
     assert.ok(res.body.url);
     assert.ok(res.body.url.includes('linear.app'));
+    assert.ok(res.body.url.includes('linear-callback'), 'redirect_uri deve apontar para linear-callback');
+});
+
+test('linear-auth rejects non-GET method', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    process.env.LINEAR_CLIENT_ID = 'linear-client';
+    const handler = require('../api/integrations/_linear-auth');
+    const res = response();
+    await handler({
+        method: 'POST', headers: { authorization: 'Bearer valid-token' },
+        body: {}
+    }, res);
+    assert.equal(res.code, 405);
+    assert.ok(res.body.error, 'deve retornar corpo com campo error');
 });
 
 test('linear-issues rejects unauthenticated Linear', async () => {
