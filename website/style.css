@@ -438,6 +438,43 @@ p {
     display: block;
 }
 
+.window-chrome {
+    position: relative;
+    z-index: 1;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    background: #10101c;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.06), 0 0 80px rgba(155,108,255,0.12);
+}
+
+.window-chrome img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.window-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.traffic-light {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.traffic-light.red    { background: #ff5f57; }
+.traffic-light.yellow { background: #febc2e; }
+.traffic-light.green  { background: #28c840; }
+
 /* ==============================
    SECTIONS (generic)
    ============================== */
@@ -682,17 +719,16 @@ section .eyebrow {
 }
 
 .pricing-card.featured-plan {
-    background: linear-gradient(135deg, rgba(155, 108, 255, 0.06) 0%, rgba(155, 108, 255, 0.02) 100%);
-    border-color: rgba(155, 108, 255, 0.2);
-    transform: scale(1.03);
+    background: linear-gradient(135deg, rgba(155, 108, 255, 0.08) 0%, rgba(155, 108, 255, 0.03) 100%);
+    border-color: rgba(155, 108, 255, 0.3);
     z-index: 2;
-    box-shadow: 0 0 0 1px rgba(155, 108, 255, 0.15), var(--shadow-purple);
+    box-shadow: 0 0 0 1px rgba(155, 108, 255, 0.2), var(--shadow-purple-lg);
 }
 
 .pricing-card.featured-plan:hover {
-    transform: scale(1.03) translateY(-6px);
-    border-color: rgba(155, 108, 255, 0.3);
-    box-shadow: 0 0 0 1px rgba(155, 108, 255, 0.2), var(--shadow-purple-lg);
+    transform: translateY(-8px);
+    border-color: rgba(155, 108, 255, 0.45);
+    box-shadow: 0 0 0 1px rgba(155, 108, 255, 0.3), 0 24px 56px rgba(155,108,255,0.18);
 }
 
 .pricing-card.featured-plan::before {
@@ -738,7 +774,7 @@ section .eyebrow {
 
 .price-display {
     margin-bottom: 28px;
-    min-height: 76px;
+    min-height: 80px;
 }
 
 .price-amount,
@@ -754,19 +790,21 @@ section .eyebrow {
 }
 
 .price-display .price-amount {
-    font-size: clamp(1.75rem, 3.5vw, 2.4rem);
+    font-size: clamp(1.5rem, 2.4vw, 2rem);
     font-weight: 800;
     letter-spacing: -0.04em;
     color: var(--text-primary);
     line-height: 1.1;
-    white-space: nowrap;
 }
 
 .price-display .price-period {
-    font-size: 0.9rem;
+    display: block;
+    font-size: 0.8125rem;
     font-weight: 500;
     color: var(--text-muted);
     letter-spacing: 0;
+    margin-top: 4px;
+    line-height: 1.4;
 }
 
 .billing-info {
