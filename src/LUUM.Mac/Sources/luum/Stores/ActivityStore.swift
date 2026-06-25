@@ -41,6 +41,7 @@ final class ActivityStore {
     private(set) var linearAgendaItems: [CalendarAgendaItem] = []
     private(set) var isSyncingLinear = false
     private(set) var zapierStatusMessage: String?
+    private(set) var isSavingZapierWebhook = false
 
     private(set) var cloudSyncStatusMessage: String?
     private(set) var cloudSyncLastSyncAt: Date?
@@ -1221,6 +1222,45 @@ final class ActivityStore {
     func updateZapierWebhookURL(_ value: String) {
         monitoringPreferences.zapierSettings.webhookURL = value
         persistMonitoringPreferences()
+    }
+
+    func saveZapierWebhookURLToServer(_ url: String) {
+        Task { await runSaveZapierWebhookURL(url) }
+    }
+
+    func removeZapierWebhook() {
+        Task { await runSaveZapierWebhookURL(nil) }
+    }
+
+    private func runSaveZapierWebhookURL(_ url: String?) async {
+        guard let idToken = authSession?.idToken, !idToken.isEmpty else {
+            zapierStatusMessage = "Faça login antes de configurar o Zapier."
+            return
+        }
+        isSavingZapierWebhook = true
+        defer { isSavingZapierWebhook = false }
+        let baseURL = FirebaseAuthService.defaultBaseURL
+        guard let endpoint = URL(string: "\(baseURL)/api/integrations?action=zapier-webhook-config") else {
+            zapierStatusMessage = "Erro interno: URL de endpoint inválida."
+            return
+        }
+        struct Body: Encodable { let webhookUrl: String? }
+        var req = URLRequest(url: endpoint)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONEncoder().encode(Body(webhookUrl: url))
+        do {
+            let (_, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                zapierStatusMessage = "Erro ao salvar configuração do Zapier no servidor."
+                return
+            }
+            updateZapierWebhookURL(url ?? "")
+            zapierStatusMessage = url != nil ? "URL do Zapier salva com sucesso." : "Zapier desconectado."
+        } catch {
+            zapierStatusMessage = "Erro de rede: \(error.localizedDescription)"
+        }
     }
 
     func updateZapierSendsFocusEvents(_ value: Bool) {

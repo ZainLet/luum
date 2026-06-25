@@ -175,6 +175,11 @@ struct SettingsView: View {
 
         Divider().opacity(0.08)
 
+        // Zapier
+        zapierSection
+
+        Divider().opacity(0.08)
+
         // Pending (coming soon)
         pendingIntegrationsSection
 
@@ -542,6 +547,65 @@ struct SettingsView: View {
         }
     }
 
+    private var zapierSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label("Zapier", systemImage: "bolt.horizontal")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                Spacer()
+                if store.zapierConfigured {
+                    Text("Configurado")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LuumTheme.hotPink)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(LuumTheme.hotPink.opacity(0.12)))
+                } else if store.zapierManagedConnectionAvailable {
+                    Text("Pronto para configurar")
+                        .font(.caption)
+                        .foregroundStyle(LuumTheme.textMuted)
+                }
+            }
+
+            if let message = store.zapierStatusMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textSecondary)
+            }
+
+            Toggle("Ativar Zapier", isOn: Binding(
+                get: { store.zapierSettings.isEnabled },
+                set: { store.updateZapierEnabled($0) }
+            ))
+            .toggleStyle(.switch)
+            .disabled(!store.zapierConfigured)
+
+            if store.zapierManagedConnectionAvailable {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("URL do webhook")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.6))
+
+                    ZapierWebhookURLField(store: store)
+                }
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 14).fill(.white.opacity(0.03)))
+                .overlay { RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.05)) }
+
+                if store.zapierConfigured {
+                    Button("Remover webhook") { store.removeZapierWebhook() }
+                        .buttonStyle(.bordered)
+                        .disabled(store.isSavingZapierWebhook)
+                }
+            } else {
+                Text("Configure zapier-webhook-config no servidor para habilitar esta integração.")
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textMuted)
+            }
+        }
+    }
+
     private var pendingIntegrationsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -560,12 +624,6 @@ struct SettingsView: View {
                     systemImage: "arrow.up.right.square",
                     isConnected: store.hasLinearToken,
                     isAvailable: store.linearManagedOAuthAvailable
-                )
-                pendingIntegrationRow(
-                    name: "Zapier",
-                    systemImage: "bolt.horizontal",
-                    isConnected: store.zapierConfigured,
-                    isAvailable: store.zapierManagedConnectionAvailable
                 )
             }
 
@@ -824,7 +882,6 @@ struct SettingsView: View {
             store.outlookCalendarStatusMessage,
             store.clickUpStatusMessage,
             store.linearStatusMessage,
-            store.zapierStatusMessage,
         ]
         .compactMap { msg in
             let trimmed = msg?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -1202,5 +1259,51 @@ private struct NotionDatabaseIDField: View {
         guard !value.isEmpty else { return }
         store.addNotionDataSourceID(value)
         draft = ""
+    }
+}
+
+// MARK: - ZapierWebhookURLField
+
+private struct ZapierWebhookURLField: View {
+    @Bindable var store: ActivityStore
+    @State private var draft = ""
+    @State private var didLoad = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            TextField("https://hooks.zapier.com/hooks/catch/…", text: $draft)
+                .textFieldStyle(.plain)
+                .font(.caption.monospaced())
+                .foregroundStyle(.white)
+                .onSubmit { saveDraft() }
+
+            Button(action: saveDraft) {
+                if store.isSavingZapierWebhook {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(isDraftSaveable
+                            ? LuumTheme.hotPink : LuumTheme.textMuted)
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(!isDraftSaveable || store.isSavingZapierWebhook)
+        }
+        .onAppear {
+            guard !didLoad else { return }
+            didLoad = true
+            draft = store.zapierSettings.webhookURL
+        }
+    }
+
+    private var isDraftSaveable: Bool {
+        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && trimmed != store.zapierSettings.webhookURL
+    }
+
+    private func saveDraft() {
+        let value = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return }
+        store.saveZapierWebhookURLToServer(value)
     }
 }
