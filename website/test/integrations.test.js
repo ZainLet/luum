@@ -6,12 +6,20 @@ const firebaseAdminPath = require.resolve('../api/_firebaseAdmin');
 function response() {
     return {
         body: null, code: 200, headers: {},
+        redirectUrl: null,
         setHeader(name, value) { this.headers[name] = value; },
         status(code) { this.code = code; return this; },
         json(body) { this.body = body; return this; },
+        redirect(url) { this.redirectUrl = url; return this; },
         end() { return this; }
     };
 }
+
+function mockFetch(responseBody, ok = true) {
+    global.fetch = async () => ({ ok, status: ok ? 200 : 400, json: async () => responseBody });
+}
+
+function restoreFetch() { delete global.fetch; }
 
 const sharedStore = {};
 
@@ -27,6 +35,10 @@ function installFirebaseMock(userData = {}) {
             },
             set(data, opts) {
                 doc._data = { ...(doc._data || {}), ...data };
+                return Promise.resolve();
+            },
+            delete() {
+                doc._data = null;
                 return Promise.resolve();
             },
             collection(sub) {
@@ -96,6 +108,9 @@ function deleteHandlers() {
         '../api/integrations/_notion-callback',
         '../api/integrations/_notion-pages',
         '../api/integrations/_clickup-webhook',
+        '../api/integrations/_clickup-auth',
+        '../api/integrations/_clickup-callback',
+        '../api/integrations/_zapier-webhook-config',
         '../api/integrations/_linear-auth',
         '../api/integrations/_linear-issues',
         '../api/integrations/_zapier-trigger',
@@ -237,15 +252,174 @@ test('zapier-trigger requires auth', async () => {
     assert.equal(res.code, 401);
 });
 
-test('zapier-action rejects unknown token', async () => {
+test('zapier-action rejects bad token', async () => {
     installFirebaseMock();
     deleteHandlers();
     const handler = require('../api/integrations/_zapier-action');
     const res = response();
     await handler({
-        method: 'POST', headers: { authorization: 'Bearer unknown-token' },
-        body: { action: 'test', payload: {} }
+        method: 'POST', headers: { authorization: 'Bearer bad-token' },
+        body: { summary: 'test', date: '2026-06-25', totalMinutes: 60 }
     }, res);
     assert.equal(res.code, 403);
     assert.ok(res.body.error);
+});
+
+test('zapier-action returns 404 when webhook not configured', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    const handler = require('../api/integrations/_zapier-action');
+    const res = response();
+    await handler({
+        method: 'POST', headers: { authorization: 'Bearer valid-token' },
+        body: { summary: 'Resumo do dia', date: '2026-06-25', totalMinutes: 120 }
+    }, res);
+    assert.equal(res.code, 404);
+    assert.ok(res.body.error);
+});
+
+// --- clickup-auth ---
+
+test('clickup-auth GET retorna URL de autorização', async () => {
+    installFirebaseMock({ plan: 'profissional' });
+    deleteHandlers();
+    process.env.CLICKUP_CLIENT_ID = 'clickup-client';
+    const handler = require('../api/integrations/_clickup-auth');
+    const res = response();
+    await handler({
+        method: 'GET', headers: { authorization: 'Bearer valid-token', host: 'localhost:3000' },
+        body: {}
+    }, res);
+    assert.equal(res.code, 200);
+    assert.ok(res.body.url);
+    assert.ok(res.body.url.includes('app.clickup.com'), `esperado clickup.com, recebido: ${res.body.url}`);
+    assert.ok(res.body.url.includes('clickup-callback'), 'redirect_uri deve incluir clickup-callback');
+});
+
+test('clickup-auth rejeita método não-GET com 405', async () => {
+    installFirebaseMock({ plan: 'profissional' });
+    deleteHandlers();
+    process.env.CLICKUP_CLIENT_ID = 'clickup-client';
+    const handler = require('../api/integrations/_clickup-auth');
+    const res = response();
+    await handler({
+        method: 'POST', headers: { authorization: 'Bearer valid-token' }, body: {}
+    }, res);
+    assert.equal(res.code, 405);
+    assert.ok(res.body.error);
+});
+
+test('clickup-auth retorna 503 quando CLICKUP_CLIENT_ID não configurado', async () => {
+    installFirebaseMock({ plan: 'profissional' });
+    deleteHandlers();
+    delete process.env.CLICKUP_CLIENT_ID;
+    const handler = require('../api/integrations/_clickup-auth');
+    const res = response();
+    await handler({
+        method: 'GET', headers: { authorization: 'Bearer valid-token', host: 'localhost:3000' },
+        body: {}
+    }, res);
+    assert.equal(res.code, 503);
+    assert.ok(res.body.error);
+});
+
+// --- clickup-callback ---
+
+test('clickup-callback redireciona para luum://clickup em sucesso', async () => {
+    deleteHandlers();
+    process.env.CLICKUP_CLIENT_ID = 'clickup-client';
+    process.env.CLICKUP_CLIENT_SECRET = 'clickup-secret';
+    mockFetch({ access_token: 'cu_tok123' });
+    const handler = require('../api/integrations/_clickup-callback');
+    const res = response();
+    await handler({
+        method: 'GET', headers: { host: 'localhost:3000' },
+        query: { code: 'auth-code' }
+    }, res);
+    assert.ok(res.redirectUrl, 'deve redirecionar');
+    assert.ok(res.redirectUrl.startsWith('luum://clickup?'), `esperado luum://clickup, recebido: ${res.redirectUrl}`);
+    assert.ok(res.redirectUrl.includes('access_token=cu_tok123'));
+    restoreFetch();
+});
+
+test('clickup-callback redireciona com erro quando troca falha', async () => {
+    deleteHandlers();
+    process.env.CLICKUP_CLIENT_ID = 'clickup-client';
+    process.env.CLICKUP_CLIENT_SECRET = 'clickup-secret';
+    mockFetch({ error: 'invalid_code' }, false);
+    const handler = require('../api/integrations/_clickup-callback');
+    const res = response();
+    await handler({
+        method: 'GET', headers: { host: 'localhost:3000' },
+        query: { code: 'bad-code' }
+    }, res);
+    assert.ok(res.redirectUrl);
+    assert.ok(res.redirectUrl.includes('error='), `esperado error na URL, recebido: ${res.redirectUrl}`);
+    restoreFetch();
+});
+
+// --- zapier-webhook-config ---
+
+test('zapier-webhook-config GET retorna null quando não configurado', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    const handler = require('../api/integrations/_zapier-webhook-config');
+    const res = response();
+    await handler({
+        method: 'GET', headers: { authorization: 'Bearer valid-token' }, body: {}
+    }, res);
+    assert.equal(res.code, 200);
+    assert.equal(res.body.webhookUrl, null);
+});
+
+test('zapier-webhook-config POST salva URL válida do Zapier', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    const handler = require('../api/integrations/_zapier-webhook-config');
+    const res = response();
+    await handler({
+        method: 'POST', headers: { authorization: 'Bearer valid-token' },
+        body: { webhookUrl: 'https://hooks.zapier.com/hooks/catch/123/abc' }
+    }, res);
+    assert.equal(res.code, 200);
+    assert.ok(res.body.ok);
+});
+
+test('zapier-webhook-config POST rejeita URL de outro host', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    const handler = require('../api/integrations/_zapier-webhook-config');
+    const res = response();
+    await handler({
+        method: 'POST', headers: { authorization: 'Bearer valid-token' },
+        body: { webhookUrl: 'https://evil.com/webhook' }
+    }, res);
+    assert.equal(res.code, 400);
+    assert.ok(res.body.error);
+});
+
+test('zapier-webhook-config POST rejeita URL maior que 2048 chars', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    const handler = require('../api/integrations/_zapier-webhook-config');
+    const res = response();
+    await handler({
+        method: 'POST', headers: { authorization: 'Bearer valid-token' },
+        body: { webhookUrl: 'https://hooks.zapier.com/' + 'x'.repeat(2050) }
+    }, res);
+    assert.equal(res.code, 400);
+    assert.ok(res.body.error);
+});
+
+test('zapier-webhook-config POST sem webhookUrl remove configuração', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    const handler = require('../api/integrations/_zapier-webhook-config');
+    const res = response();
+    await handler({
+        method: 'POST', headers: { authorization: 'Bearer valid-token' },
+        body: { webhookUrl: null }
+    }, res);
+    assert.equal(res.code, 200);
+    assert.ok(res.body.ok);
 });

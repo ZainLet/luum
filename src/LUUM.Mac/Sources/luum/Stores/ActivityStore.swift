@@ -41,6 +41,7 @@ final class ActivityStore {
     private(set) var linearAgendaItems: [CalendarAgendaItem] = []
     private(set) var isSyncingLinear = false
     private(set) var zapierStatusMessage: String?
+    private(set) var isSavingZapierWebhook = false
 
     private(set) var cloudSyncStatusMessage: String?
     private(set) var cloudSyncLastSyncAt: Date?
@@ -404,6 +405,10 @@ final class ActivityStore {
             handleOutlookOAuthCallback(url)
             return
         }
+        if url.scheme == "luum", url.host == "clickup" {
+            handleClickUpOAuthCallback(url)
+            return
+        }
         authCoordinator.handleAuthCallbackURL(url)
     }
 
@@ -432,6 +437,7 @@ final class ActivityStore {
         stopMonitoring()
         keychainService.removeValue(for: Self.outlookCalendarSessionKey)
         keychainService.removeValue(for: Self.teamWorkspaceSecretKey)
+        keychainService.removeValue(for: Self.clickUpTokenKey)
         monitoringPreferences.teamSettings.sharesAnonymousMetrics = false
         monitoringPreferences.teamSettings.automaticallySyncWorkspace = false
         monitoringPreferences.teamSettings.workspaceID = ""
@@ -1102,6 +1108,17 @@ final class ActivityStore {
         }
     }
 
+    func connectClickUp() { Task { await runClickUpConnect() } }
+
+    func disconnectClickUp() {
+        keychainService.removeValue(for: Self.clickUpTokenKey)
+        monitoringPreferences.clickUpSettings.isEnabled = false
+        monitoringPreferences.clickUpSettings.listIDs = []
+        clickUpAgendaItems = []; clickUpAgendaDay = nil
+        clickUpStatusMessage = "ClickUp desconectado."
+        persistMonitoringPreferences()
+    }
+
     func updateLinearEnabled(_ value: Bool) {
         if value && !canUse(.agendaIntegrations) {
             monitoringPreferences.linearSettings.isEnabled = false
@@ -1205,6 +1222,45 @@ final class ActivityStore {
     func updateZapierWebhookURL(_ value: String) {
         monitoringPreferences.zapierSettings.webhookURL = value
         persistMonitoringPreferences()
+    }
+
+    func saveZapierWebhookURLToServer(_ url: String) {
+        Task { await runSaveZapierWebhookURL(url) }
+    }
+
+    func removeZapierWebhook() {
+        Task { await runSaveZapierWebhookURL(nil) }
+    }
+
+    private func runSaveZapierWebhookURL(_ url: String?) async {
+        guard let idToken = authSession?.idToken, !idToken.isEmpty else {
+            zapierStatusMessage = "Faça login antes de configurar o Zapier."
+            return
+        }
+        isSavingZapierWebhook = true
+        defer { isSavingZapierWebhook = false }
+        let baseURL = FirebaseAuthService.defaultBaseURL
+        guard let endpoint = URL(string: "\(baseURL)/api/integrations?action=zapier-webhook-config") else {
+            zapierStatusMessage = "Erro interno: URL de endpoint inválida."
+            return
+        }
+        struct Body: Encodable { let webhookUrl: String? }
+        var req = URLRequest(url: endpoint)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONEncoder().encode(Body(webhookUrl: url))
+        do {
+            let (_, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                zapierStatusMessage = "Erro ao salvar configuração do Zapier no servidor."
+                return
+            }
+            updateZapierWebhookURL(url ?? "")
+            zapierStatusMessage = url != nil ? "URL do Zapier salva com sucesso." : "Zapier desconectado."
+        } catch {
+            zapierStatusMessage = "Erro de rede: \(error.localizedDescription)"
+        }
     }
 
     func updateZapierSendsFocusEvents(_ value: Bool) {
@@ -3149,6 +3205,55 @@ final class ActivityStore {
             await sendZapierCalendarSyncEventIfNeeded(source: "outlook", itemCount: result.events.count)
         } catch {
             outlookCalendarStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func runClickUpConnect() async {
+        guard canUse(.agendaIntegrations) else {
+            clickUpStatusMessage = lockMessage(for: .agendaIntegrations)
+            return
+        }
+        guard let idToken = authSession?.idToken, !idToken.isEmpty else {
+            clickUpStatusMessage = "Faça login antes de conectar o ClickUp."
+            return
+        }
+        clickUpStatusMessage = "Abrindo autorização do ClickUp..."
+        do {
+            let baseURL = FirebaseAuthService.defaultBaseURL
+            var req = URLRequest(url: URL(string: "\(baseURL)/api/integrations?action=clickup-auth")!)
+            req.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
+            let (data, _) = try await URLSession.shared.data(for: req)
+            struct AuthResponse: Decodable { let url: String }
+            let authResp = try JSONDecoder().decode(AuthResponse.self, from: data)
+            guard let oauthURL = URL(string: authResp.url) else {
+                clickUpStatusMessage = "URL de autorização inválida."
+                return
+            }
+            NSWorkspace.shared.open(oauthURL)
+        } catch {
+            clickUpStatusMessage = "Erro ao iniciar conexão com ClickUp: \(error.localizedDescription)"
+        }
+    }
+
+    private func handleClickUpOAuthCallback(_ url: URL) {
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let params = Dictionary(uniqueKeysWithValues: (components?.queryItems ?? []).compactMap {
+            guard let v = $0.value else { return nil as (String, String)? }
+            return ($0.name, v)
+        })
+        if let errMsg = params["error"] {
+            clickUpStatusMessage = "Erro ao conectar ClickUp: \(errMsg)"
+            return
+        }
+        guard let accessToken = params["access_token"], !accessToken.isEmpty else {
+            clickUpStatusMessage = "Resposta inválida do ClickUp."
+            return
+        }
+        do {
+            try keychainService.setString(accessToken, for: Self.clickUpTokenKey)
+            clickUpStatusMessage = "ClickUp conectado com sucesso."
+        } catch {
+            clickUpStatusMessage = "Erro ao salvar token ClickUp: \(error.localizedDescription)"
         }
     }
 
