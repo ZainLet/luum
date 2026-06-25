@@ -3216,7 +3216,7 @@ final class ActivityStore {
             NSWorkspace.shared.open(authURL)
             linearStatusMessage = "Autorizando no Linear... Conclua no navegador e volte ao Luum."
         } catch {
-            linearStatusMessage = "Erro ao iniciar conexão com Linear."
+            linearStatusMessage = humanReadableOAuthError("network_error", integration: "Linear")
         }
     }
 
@@ -3224,7 +3224,7 @@ final class ActivityStore {
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
 
         if let error = items.first(where: { $0.name == "error" })?.value {
-            linearStatusMessage = "Conexão com Linear cancelada: \(error)"
+            linearStatusMessage = humanReadableOAuthError(error, integration: "Linear")
             return
         }
 
