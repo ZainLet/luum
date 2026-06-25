@@ -17,13 +17,13 @@ enum LinearIssue: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingToken:
-            "Conexao Linear em um clique sera liberada em breve."
+            "Linear não conectado. Conecte em Configurações → Integrações."
         case .missingTeams:
-            "Conexao Linear em um clique sera liberada em breve."
+            "Nenhum time Linear configurado. Adicione um Team ID em Configurações."
         case .invalidResponse:
-            "O Linear respondeu sem um payload utilizavel."
+            "Resposta inválida do Linear. Tente sincronizar novamente."
         case .unauthorized:
-            "Nao foi possivel validar a conexao do Linear. Reconecte quando o conector estiver disponivel."
+            "Token do Linear expirado. Reconecte em Configurações → Integrações."
         case let .apiError(message):
             message
         }
