@@ -75,17 +75,17 @@ function cleanCategories(categories) {
     return cleaned.length ? cleaned : [
         { id: 'work', title: 'Trabalho' },
         { id: 'entertainment', title: 'Entretenimento' },
-        { id: 'communication', title: 'Comunicacao' },
+        { id: 'communication', title: 'Comunicação' },
         { id: 'learning', title: 'Aprendizado' },
-        { id: 'utilities', title: 'Utilitarios' },
+        { id: 'utilities', title: 'Utilitários' },
         { id: 'uncategorized', title: 'Sem categoria' }
     ];
 }
 
 function buildClassifyPrompt({ kind, label, secondaryLabel, currentCategoryID, categories }) {
     const categoryLines = categories.map((c) => `- ${c.id}: ${c.title}`).join('\n');
-    return `Voce e o classificador do Luum, um app de produtividade para macOS.
-Classifique o alvo em UMA das categorias permitidas, usando conhecimento geral do app/site, nome publico, bundle id, dominio e a provavel descricao web dele.
+    return `Você é o classificador do Luum, um app de produtividade para macOS.
+Classifique o alvo em UMA das categorias permitidas, usando conhecimento geral do app/site, nome público, bundle id, domínio e a provável descrição web dele.
 
 Categorias permitidas:
 ${categoryLines}
@@ -94,13 +94,13 @@ Alvo:
 tipo: ${kind}
 nome_ou_dominio: ${label}
 detalhe: ${secondaryLabel || 'n/a'}
-categoria_atual: ${currentCategoryID || 'sem categoria confiavel'}
+categoria_atual: ${currentCategoryID || 'sem categoria confiável'}
 
 Regras:
-- Responda apenas JSON valido.
+- Responda apenas JSON válido.
 - Use exatamente um categoryID permitido.
 - confidence deve ficar entre 0 e 1.
-- reason deve ser curta, em portugues, com no maximo 120 caracteres.
+- reason deve ser curta, em português, com no máximo 120 caracteres.
 
 Formato:
 {"categoryID":"work","confidence":0.82,"reason":"Ambiente de desenvolvimento/produtividade."}`;
@@ -233,14 +233,14 @@ function buildQueryPrompt(query, context) {
         ? `Atividade ativa agora: ${context.currentActivity}`
         : 'Nenhuma atividade ativa no momento';
 
-    return `Voce e o assistente de produtividade do Luum, um app de rastreamento de tempo para macOS.
-Responda a pergunta do usuario com base nos dados de produtividade capturados pelo app.
+    return `Você é o assistente de produtividade do Luum, um app de rastreamento de tempo para macOS.
+Responda a pergunta do usuário com base nos dados de produtividade capturados pelo app.
 
 Data: ${context.date || 'hoje'}
 Tempo total rastreado: ${formatDuration(context.totalTrackedTime)}
 ${activityLine}
 
-Distribuicao por categoria:
+Distribuição por categoria:
 ${breakdownLines}
 
 Apps mais usados:
@@ -248,13 +248,13 @@ ${appLines}
 
 Pergunta: "${query}"
 
-Instrucoes:
-- Responda em portugues (pt-BR), de forma direta, util e concisa.
-- Use os dados fornecidos como base. Nao invente informacoes ausentes.
+Instruções:
+- Responda em português (pt-BR), de forma direta, útil e concisa.
+- Use os dados fornecidos como base. Não invente informações ausentes.
 - Se os dados forem insuficientes, diga brevemente o que falta.
-- Maximo 3 paragrafos curtos. Prefira listas quando listar itens.
-- Nao use markdown com asteriscos para negrito. Use linguagem natural.
-- Nao repita a pergunta na resposta.`;
+- Máximo 3 parágrafos curtos. Prefira listas quando listar itens.
+- Não use markdown com asteriscos para negrito. Use linguagem natural.
+- Não repita a pergunta na resposta.`;
 }
 
 async function queryHandler(req, res) {
