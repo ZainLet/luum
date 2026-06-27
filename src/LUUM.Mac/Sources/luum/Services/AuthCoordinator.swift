@@ -33,7 +33,7 @@ final class AuthCoordinator {
                 return
             }
             clearPendingAuthRequest()
-            store.authStatusMessage = "Esta solicitacao de login expirou. Clique em Entrar e tente novamente."
+            store.authStatusMessage = "Esta solicitação de login expirou. Clique em Entrar e tente novamente."
             return
         }
 
@@ -167,15 +167,15 @@ final class AuthCoordinator {
                         let offline = sessionToValidate
                         let message = offline.isLocked
                             ? "Conecte-se a internet e valide seu plano para liberar o app."
-                            : "Sem conexao com a API. Usando sessao local validada por ate 24 horas."
+                            : "Sem conexão com a API. Usando sessão local validada por até 24 horas."
                         self.applyAuthSession(offline, message: message)
                     } else if Self.isExplicitAuthRejection(error) {
                         self.rejectAuthSession(sessionToValidate)
                     } else {
                         let offline = sessionToValidate
                         let message = offline.isLocked
-                            ? "Nao foi possivel validar o plano agora. Tente novamente em instantes."
-                            : "A API de assinatura respondeu de forma temporaria. Usando sessao local validada por ate 24 horas."
+                            ? "Não foi possível validar o plano agora. Tente novamente em instantes."
+                            : "A API de assinatura respondeu de forma temporária. Usando sessão local validada por até 24 horas."
                         self.applyAuthSession(offline, message: message)
                     }
                     self.store.isCheckingAuth = false

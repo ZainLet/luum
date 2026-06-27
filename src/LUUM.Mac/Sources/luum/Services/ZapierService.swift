@@ -19,7 +19,7 @@ enum ZapierIssue: LocalizedError {
         case .missingWebhook:
             "Automacoes Zapier guiadas serao liberadas em breve."
         case .invalidWebhook:
-            "Nao foi possivel validar a conexao do Zapier."
+            "Não foi possível validar a conexão do Zapier."
         case let .apiError(message):
             message
         }

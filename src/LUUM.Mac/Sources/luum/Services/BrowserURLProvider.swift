@@ -14,9 +14,9 @@ enum BrowserAutomationIssue: LocalizedError {
     var errorDescription: String? {
         switch self {
         case let .permissionDenied(browser):
-            "Permita Automacao para o luum controlar \(browser) e ler a URL da aba ativa."
+            "Permita Automação para o luum controlar \(browser) e ler a URL da aba ativa."
         case let .scriptFailed(browser, message):
-            "Nao foi possivel ler a aba ativa de \(browser): \(message)"
+            "Não foi possível ler a aba ativa de \(browser): \(message)"
         }
     }
 }

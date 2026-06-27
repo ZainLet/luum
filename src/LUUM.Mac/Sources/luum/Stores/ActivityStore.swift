@@ -125,11 +125,11 @@ final class ActivityStore {
     @ObservationIgnored var linearAgendaDay: Date?
     private(set) var summaryRevision = 0
 
-    @ObservationIgnored static let notionPendingConnectionMessage = "Conexao Notion em um clique sera liberada em breve."
-    @ObservationIgnored static let outlookPendingConnectionMessage = "Conexao Microsoft em um clique sera liberada em breve."
-    @ObservationIgnored static let clickUpPendingConnectionMessage = "Conexao ClickUp em um clique sera liberada em breve."
-    @ObservationIgnored static let linearPendingConnectionMessage = "Conexao Linear em um clique sera liberada em breve."
-    @ObservationIgnored static let zapierPendingConnectionMessage = "Automacoes Zapier guiadas serao liberadas em breve."
+    @ObservationIgnored static let notionPendingConnectionMessage = "Conexão Notion em um clique será liberada em breve."
+    @ObservationIgnored static let outlookPendingConnectionMessage = "Conexão Microsoft em um clique será liberada em breve."
+    @ObservationIgnored static let clickUpPendingConnectionMessage = "Conexão ClickUp em um clique será liberada em breve."
+    @ObservationIgnored static let linearPendingConnectionMessage = "Conexão Linear em um clique será liberada em breve."
+    @ObservationIgnored static let zapierPendingConnectionMessage = "Automações Zapier guiadas serão liberadas em breve."
 
     init(
         persistence: ActivityPersistence = ActivityPersistence(),
@@ -204,7 +204,7 @@ final class ActivityStore {
             ? (hasStoredLinearToken && !monitoringPreferences.linearSettings.teamIDs.isEmpty ? "Linear pronto para sincronizar." : Self.linearPendingConnectionMessage)
             : nil
         self.zapierStatusMessage = monitoringPreferences.zapierSettings.isEnabled
-            ? (hasStoredZapierWebhook ? "Zapier pronto para disparar automacoes." : Self.zapierPendingConnectionMessage)
+            ? (hasStoredZapierWebhook ? "Zapier pronto para disparar automações." : Self.zapierPendingConnectionMessage)
             : nil
         self.cloudSyncStatusMessage = nil
         self.workspaceSyncStatusMessage = nil
@@ -376,7 +376,7 @@ final class ActivityStore {
     func openLoginPage() {
         let request = LuumAuthRequest()
         guard let url = FirebaseAuthService.loginURL(state: request.state) else {
-            authStatusMessage = "Nao foi possivel preparar o login do Luum."
+            authStatusMessage = "Não foi possível preparar o login do Luum."
             return
         }
 
@@ -390,7 +390,7 @@ final class ActivityStore {
 
         guard NSWorkspace.shared.open(url) else {
             authCoordinator.clearPendingAuthRequest()
-            authStatusMessage = "Nao foi possivel abrir o navegador para entrar no Luum."
+            authStatusMessage = "Não foi possível abrir o navegador para entrar no Luum."
             return
         }
         authStatusMessage = "Conclua o login no navegador."

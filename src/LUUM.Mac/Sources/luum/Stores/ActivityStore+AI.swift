@@ -36,7 +36,7 @@ extension ActivityStore {
                 aiClassificationStatusMessage = "Chave da IA salva no cofre local cifrado."
             }
         } catch {
-            aiClassificationStatusMessage = "Nao foi possivel salvar a chave da IA."
+            aiClassificationStatusMessage = "Não foi possível salvar a chave da IA."
         }
     }
 

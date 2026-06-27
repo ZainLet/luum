@@ -64,11 +64,11 @@ enum WorkspaceSyncError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidBaseURL:
-            "A URL do workspace corporativo nao e valida."
+            "A URL do workspace corporativo não é válida."
         case .missingSecret:
-            "A chave do workspace nao foi encontrada neste Mac."
+            "A chave do workspace não foi encontrada neste Mac."
         case .unauthorized:
-            "A chave do workspace nao confere com a configuracao do backend."
+            "A chave do workspace não confere com a configuração do backend."
         case .invalidResponse:
             "O backend corporativo respondeu sem um payload utilizavel."
         case let .apiError(message):
