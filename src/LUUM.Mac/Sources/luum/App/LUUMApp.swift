@@ -193,6 +193,34 @@ private struct MenuBarPanel: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            let todaySummary = store.summary(for: Date())
+            if todaySummary.totalTrackedTime > 0 {
+                Divider()
+                    .overlay(.white.opacity(0.06))
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Hoje: \(LuumFormatters.duration(todaySummary.totalTrackedTime))")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LuumTheme.textSecondary)
+
+                    ForEach(todaySummary.categoryBreakdown.prefix(3)) { breakdown in
+                        HStack {
+                            Circle()
+                                .fill(breakdown.category.tint)
+                                .frame(width: 6, height: 6)
+                            Text(breakdown.category.title)
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.75))
+                            Spacer()
+                            Text(LuumFormatters.duration(breakdown.duration))
+                                .font(.caption)
+                                .foregroundStyle(LuumTheme.textSecondary)
+                                .monospacedDigit()
+                        }
+                    }
+                }
+            }
+
             Divider()
                 .overlay(.white.opacity(0.06))
 
