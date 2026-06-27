@@ -233,15 +233,102 @@ test('linear-auth rejects non-GET method', async () => {
     assert.ok(res.body.error, 'deve retornar corpo com campo error');
 });
 
-test('linear-issues rejects unauthenticated Linear', async () => {
-    installFirebaseMock({ plan: 'profissional' });
+test('linear-issues retorna 401 sem X-Linear-Token', async () => {
+    installFirebaseMock();
     deleteHandlers();
     const handler = require('../api/integrations/_linear-issues');
     const res = response();
     await handler({
-        method: 'GET', headers: { authorization: 'Bearer valid-token' }, body: {}
+        method: 'GET', headers: { authorization: 'Bearer valid-token' }, query: { team_id: 'TEAM' }
     }, res);
-    assert.ok(res.code === 400 || res.code === 403);
+    assert.equal(res.code, 401);
+    assert.ok(res.body.error);
+});
+
+test('linear-issues retorna 400 sem team_id', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    mockFetch({ data: { issues: { nodes: [] }, team: { cycles: { nodes: [] } } } });
+    const handler = require('../api/integrations/_linear-issues');
+    const res = response();
+    await handler({
+        method: 'GET', headers: { authorization: 'Bearer valid-token', 'x-linear-token': 'lin_token_123' },
+        query: {}
+    }, res);
+    assert.equal(res.code, 400);
+    assert.ok(res.body.error);
+    restoreFetch();
+});
+
+test('linear-issues retorna issues e ciclos com mock', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    mockFetch({
+        data: {
+            issues: {
+                nodes: [
+                    {
+                        id: 'uuid-1',
+                        identifier: 'TEAM-123',
+                        title: 'Implementar login',
+                        dueDate: '2026-07-01',
+                        state: { name: 'In Progress' },
+                        cycle: { id: 'cycle-uuid' }
+                    },
+                    {
+                        id: 'uuid-2',
+                        identifier: 'TEAM-124',
+                        title: 'Corrigir bug',
+                        dueDate: null,
+                        state: { name: 'Todo' },
+                        cycle: null
+                    }
+                ]
+            },
+            team: {
+                cycles: {
+                    nodes: [
+                        { id: 'cycle-uuid', name: 'Ciclo 12', startsAt: '2026-06-22', endsAt: '2026-07-06' }
+                    ]
+                }
+            }
+        }
+    });
+    const handler = require('../api/integrations/_linear-issues');
+    const res = response();
+    await handler({
+        method: 'GET', headers: { authorization: 'Bearer valid-token', 'x-linear-token': 'lin_token_123' },
+        query: { team_id: 'TEAM' }
+    }, res);
+    assert.equal(res.code, 200);
+    assert.equal(res.body.issues.length, 2);
+    assert.equal(res.body.issues[0].id, 'TEAM-123');
+    assert.equal(res.body.issues[0].state, 'In Progress');
+    assert.equal(res.body.issues[0].dueDate, '2026-07-01');
+    assert.equal(res.body.issues[0].cycleId, 'cycle-uuid');
+    assert.equal(res.body.issues[1].id, 'TEAM-124');
+    assert.equal(res.body.issues[1].dueDate, null);
+    assert.equal(res.body.issues[1].cycleId, null);
+    assert.equal(res.body.cycles.length, 1);
+    assert.equal(res.body.cycles[0].name, 'Ciclo 12');
+    assert.equal(res.body.cycles[0].startsAt, '2026-06-22');
+    assert.equal(res.body.cycles[0].endsAt, '2026-07-06');
+    restoreFetch();
+});
+
+test('linear-issues retorna 401 quando token Linear expirado', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    mockFetch({ error: 'Unauthorized' }, false, 401);
+    const handler = require('../api/integrations/_linear-issues');
+    const res = response();
+    await handler({
+        method: 'GET', headers: { authorization: 'Bearer valid-token', 'x-linear-token': 'lin_token_expired' },
+        query: { team_id: 'TEAM' }
+    }, res);
+    assert.equal(res.code, 401);
+    assert.ok(res.body.error.includes('expirado'));
+    restoreFetch();
 });
 
 test('linear-callback rejeita state com HMAC inválido', async () => {
