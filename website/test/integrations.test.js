@@ -821,3 +821,91 @@ test('clickup-auth loga auth_start ao gerar URL', async () => {
         console.log = original;
     }
 });
+
+test('rate limiting — linear-auth retorna 429 após 20 requisições do mesmo IP', async () => {
+    const { resetAll } = require('../api/_rateLimit');
+    resetAll();
+    installFirebaseMock({ plan: 'profissional' });
+    deleteHandlers();
+    process.env.LINEAR_CLIENT_ID = 'linear-client-rl';
+    process.env.LINEAR_CLIENT_SECRET = 'linear-secret-rl';
+    try {
+        delete require.cache[require.resolve('../api/integrations/[action]')];
+        const dispatcher = require('../api/integrations/[action]');
+        const ip = '192.0.2.ratelimit-linear';
+        const makeReq = () => ({
+            method: 'GET',
+            query: { action: 'linear-auth' },
+            headers: { authorization: 'Bearer valid-token', host: 'localhost', 'x-forwarded-for': ip },
+            body: {},
+        });
+        for (let i = 0; i < 20; i++) {
+            const res = response();
+            await dispatcher(makeReq(), res);
+            assert.notEqual(res.code, 429, `requisição ${i + 1} não deveria ser limitada`);
+        }
+        const res = response();
+        await dispatcher(makeReq(), res);
+        assert.equal(res.code, 429, 'requisição 21 deve retornar 429');
+        assert.ok(res.headers['Retry-After'], 'deve incluir header Retry-After');
+        assert.ok(res.body?.error, 'deve incluir mensagem de erro');
+    } finally {
+        resetAll();
+    }
+});
+
+test('rate limiting — linear-callback retorna 429 após 10 requisições do mesmo IP', async () => {
+    const { resetAll } = require('../api/_rateLimit');
+    resetAll();
+    installFirebaseMock({ plan: 'profissional' });
+    deleteHandlers();
+    process.env.LINEAR_CLIENT_ID = 'linear-client-rl2';
+    process.env.LINEAR_CLIENT_SECRET = 'linear-secret-rl2';
+    try {
+        delete require.cache[require.resolve('../api/integrations/[action]')];
+        const dispatcher = require('../api/integrations/[action]');
+        const ip = '192.0.2.ratelimit-linear-cb';
+        const makeReq = () => ({
+            method: 'GET',
+            query: { action: 'linear-callback' },
+            headers: { authorization: 'Bearer valid-token', host: 'localhost', 'x-forwarded-for': ip },
+            body: {},
+        });
+        for (let i = 0; i < 10; i++) {
+            const res = response();
+            await dispatcher(makeReq(), res);
+            assert.notEqual(res.code, 429, `requisição ${i + 1} não deveria ser limitada`);
+        }
+        const res = response();
+        await dispatcher(makeReq(), res);
+        assert.equal(res.code, 429, 'requisição 11 deve retornar 429');
+        assert.ok(res.headers['Retry-After'], 'deve incluir header Retry-After');
+    } finally {
+        resetAll();
+    }
+});
+
+test('rate limiting — ação sem limite (clickup-tasks) não retorna 429', async () => {
+    const { resetAll } = require('../api/_rateLimit');
+    resetAll();
+    installFirebaseMock({ plan: 'profissional' });
+    deleteHandlers();
+    process.env.CLICKUP_CLIENT_ID = 'cu-client';
+    try {
+        delete require.cache[require.resolve('../api/integrations/[action]')];
+        const dispatcher = require('../api/integrations/[action]');
+        const ip = '192.0.2.ratelimit-tasks';
+        for (let i = 0; i < 30; i++) {
+            const res = response();
+            await dispatcher({
+                method: 'GET',
+                query: { action: 'clickup-tasks' },
+                headers: { authorization: 'Bearer valid-token', host: 'localhost', 'x-forwarded-for': ip },
+                body: {},
+            }, res);
+            assert.notEqual(res.code, 429, `requisição ${i + 1} de ação sem limite não deve retornar 429`);
+        }
+    } finally {
+        resetAll();
+    }
+});

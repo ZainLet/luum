@@ -1,5 +1,6 @@
 'use strict';
 
+const { checkRateLimit } = require('../_rateLimit');
 const clickupAuth    = require('./_clickup-auth');
 const clickupCallback = require('./_clickup-callback');
 const clickupTasks   = require('./_clickup-tasks');
@@ -36,9 +37,31 @@ const ROUTES = {
     'zapier-webhook-config': zapierWebhookConfig,
 };
 
+// Callbacks exchange OAuth codes — tighter limit to prevent code brute-forcing
+const CALLBACK_ACTIONS = new Set(['clickup-callback', 'linear-callback', 'notion-callback', 'outlook-callback']);
+// Auth endpoints generate OAuth URLs — moderate limit
+const AUTH_ACTIONS = new Set(['clickup-auth', 'linear-auth', 'notion-auth', 'outlook-auth']);
+
+function rateLimitForAction(req, action) {
+    if (CALLBACK_ACTIONS.has(action)) {
+        return checkRateLimit(req, { windowMs: 60_000, max: 10, key: `integration:${action}` });
+    }
+    if (AUTH_ACTIONS.has(action)) {
+        return checkRateLimit(req, { windowMs: 60_000, max: 20, key: `integration:${action}` });
+    }
+    return { limited: false };
+}
+
 module.exports = (req, res) => {
     const action = req.query.action;
     const handler = ROUTES[action];
     if (!handler) return res.status(404).json({ error: `Integração '${action}' não encontrada.` });
+
+    const rl = rateLimitForAction(req, action);
+    if (rl.limited) {
+        res.setHeader('Retry-After', String(rl.retryAfter));
+        return res.status(429).json({ error: 'Muitas requisições. Tente novamente em breve.' });
+    }
+
     return handler(req, res);
 };
