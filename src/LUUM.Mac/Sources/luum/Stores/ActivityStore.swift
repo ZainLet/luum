@@ -389,7 +389,7 @@ final class ActivityStore {
             return explanation
         }
 
-        return "O recurso \(feature.title) exige um plano maior. Seu plano atual e \(accountPlan.title)."
+        return "O recurso \(feature.title) exige um plano maior. Seu plano atual é \(accountPlan.title)."
     }
 
     func openLoginPage() {
