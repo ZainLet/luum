@@ -432,6 +432,8 @@ final class ActivityStore {
         workspaceSyncTask = nil
         aiClassificationTask?.cancel()
         aiClassificationTask = nil
+        aiQueryTask?.cancel()
+        aiQueryTask = nil
         weeklyReportEmailTask?.cancel()
         weeklyReportEmailTask = nil
         weeklyReportEmailHealthTask?.cancel()
@@ -439,6 +441,9 @@ final class ActivityStore {
         isSyncingCloud = false
         isSyncingWorkspace = false
         isClassifyingWithAI = false
+        isQueryingAI = false
+        aiQueryResponse = nil
+        aiQueryError = nil
         isSendingWeeklyReportEmail = false
         isCheckingWeeklyReportEmailHealth = false
         monitoringPausedForSleep = false
