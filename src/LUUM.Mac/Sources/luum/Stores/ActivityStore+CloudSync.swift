@@ -161,22 +161,6 @@ extension ActivityStore {
         }
     }
 
-    private func friendlyNetworkError(_ error: Error) -> String {
-        if let urlError = error as? URLError {
-            switch urlError.code {
-            case .notConnectedToInternet, .networkConnectionLost:
-                return "Sem internet. O backup será tentado novamente mais tarde."
-            case .timedOut:
-                return "A conexão expirou. Tente novamente em breve."
-            case .cannotConnectToHost, .cannotFindHost:
-                return "Não foi possível conectar ao servidor. Tente em breve."
-            default:
-                break
-            }
-        }
-        return error.localizedDescription
-    }
-
     private func makeCloudBackupPayload() -> CloudBackupPayload {
         let retentionDays = monitoringPreferences.privacySettings.retentionDays
         let summaries: [CloudDailySummarySnapshot]

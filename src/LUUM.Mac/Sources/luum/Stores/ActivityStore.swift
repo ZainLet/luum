@@ -364,6 +364,22 @@ final class ActivityStore {
         return authSession.includes(feature)
     }
 
+    func friendlyNetworkError(_ error: Error) -> String {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .networkConnectionLost:
+                return "Sem conexão com a internet. Tente novamente mais tarde."
+            case .timedOut:
+                return "A conexão expirou. Tente novamente em breve."
+            case .cannotConnectToHost, .cannotFindHost:
+                return "Não foi possível conectar ao servidor. Tente em breve."
+            default:
+                break
+            }
+        }
+        return error.localizedDescription
+    }
+
     func lockMessage(for feature: LuumFeature) -> String {
         if authSession == nil {
             return "Entre com sua conta Firebase do Luum para liberar o app neste Mac."

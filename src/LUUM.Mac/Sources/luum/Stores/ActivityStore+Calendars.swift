@@ -77,7 +77,7 @@ extension ActivityStore {
                 notionCalendarStatusMessage = "Notion conectado neste Mac."
             }
         } catch {
-            notionCalendarStatusMessage = error.localizedDescription
+            notionCalendarStatusMessage = friendlyNetworkError(error)
         }
     }
 
@@ -232,7 +232,7 @@ extension ActivityStore {
             persistMonitoringPreferences()
             await sendZapierCalendarSyncEventIfNeeded(source: "notion", itemCount: result.events.count)
         } catch {
-            notionCalendarStatusMessage = error.localizedDescription
+            notionCalendarStatusMessage = friendlyNetworkError(error)
         }
     }
 
@@ -281,7 +281,7 @@ extension ActivityStore {
             }
             persistMonitoringPreferences()
         } catch {
-            outlookCalendarStatusMessage = error.localizedDescription
+            outlookCalendarStatusMessage = friendlyNetworkError(error)
         }
     }
 
@@ -492,7 +492,7 @@ extension ActivityStore {
             persistMonitoringPreferences()
             await sendZapierCalendarSyncEventIfNeeded(source: "outlook", itemCount: result.events.count)
         } catch {
-            outlookCalendarStatusMessage = error.localizedDescription
+            outlookCalendarStatusMessage = friendlyNetworkError(error)
         }
     }
 }

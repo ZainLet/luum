@@ -67,7 +67,7 @@ extension ActivityStore {
                 workspaceSyncStatusMessage = "Chave do workspace atualizada neste Mac."
             }
         } catch {
-            workspaceSyncStatusMessage = error.localizedDescription
+            workspaceSyncStatusMessage = friendlyNetworkError(error)
         }
     }
 
@@ -147,7 +147,7 @@ extension ActivityStore {
         } catch is CancellationError {
             return
         } catch {
-            workspaceSyncStatusMessage = error.localizedDescription
+            workspaceSyncStatusMessage = friendlyNetworkError(error)
         }
     }
 
@@ -168,7 +168,7 @@ extension ActivityStore {
             )
             workspaceAdminEntries = response.members
         } catch {
-            workspaceSyncStatusMessage = error.localizedDescription
+            workspaceSyncStatusMessage = friendlyNetworkError(error)
         }
     }
 
@@ -189,7 +189,7 @@ extension ActivityStore {
             )
             await runFetchAdminList()
         } catch {
-            workspaceSyncStatusMessage = error.localizedDescription
+            workspaceSyncStatusMessage = friendlyNetworkError(error)
         }
     }
 
