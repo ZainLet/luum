@@ -112,6 +112,9 @@ final class ActivityStore {
     @ObservationIgnored private var weeklyReportEmailTask: Task<Void, Never>?
     @ObservationIgnored private var weeklyReportEmailHealthTask: Task<Void, Never>?
     @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
+    @ObservationIgnored private var sleepObserverTask: Task<Void, Never>?
+    @ObservationIgnored private var wakeObserverTask: Task<Void, Never>?
+    @ObservationIgnored private var monitoringPausedForSleep = false
     @ObservationIgnored let calendarRefreshInterval: TimeInterval = 900
     @ObservationIgnored private let cloudSyncInterval: TimeInterval = 900
     @ObservationIgnored private let reminderEvaluationMinimumInterval: TimeInterval = 30
@@ -438,6 +441,7 @@ final class ActivityStore {
         isClassifyingWithAI = false
         isSendingWeeklyReportEmail = false
         isCheckingWeeklyReportEmailHealth = false
+        monitoringPausedForSleep = false
         stopMonitoring()
         keychainService.removeValue(for: Self.outlookCalendarSessionKey)
         keychainService.removeValue(for: Self.teamWorkspaceSecretKey)
@@ -712,6 +716,7 @@ final class ActivityStore {
     func bootstrap(selectedDay: Date = Date()) {
         keychainService.removeLegacySystemKeychainItems()
         startMaintenanceLoop()
+        startSleepWakeObservers()
 
         if authSession != nil {
             refreshAccountStatus()
@@ -720,6 +725,28 @@ final class ActivityStore {
         Task { [weak self] in
             await self?.ensureAgenda(for: selectedDay)
             await self?.reminderEngine.refreshAuthorizationStatus()
+        }
+    }
+
+    private func startSleepWakeObservers() {
+        let workspaceNC = NSWorkspace.shared.notificationCenter
+        sleepObserverTask = Task { @MainActor [weak self] in
+            for await _ in workspaceNC.notifications(named: NSWorkspace.willSleepNotification) {
+                guard let self else { return }
+                if self.isMonitoring {
+                    self.monitoringPausedForSleep = true
+                    self.stopMonitoring()
+                }
+            }
+        }
+        wakeObserverTask = Task { @MainActor [weak self] in
+            for await _ in workspaceNC.notifications(named: NSWorkspace.didWakeNotification) {
+                guard let self else { return }
+                if self.monitoringPausedForSleep {
+                    self.monitoringPausedForSleep = false
+                    self.startMonitoring()
+                }
+            }
         }
     }
 
