@@ -18,7 +18,7 @@ extension ActivityStore {
         guard value else {
             notionAgendaItems = []
             notionAgendaDay = nil
-            notionCalendarStatusMessage = "Integracao do Notion pausada."
+            notionCalendarStatusMessage = "Integração do Notion pausada."
             return
         }
 
@@ -252,7 +252,7 @@ extension ActivityStore {
         guard value else {
             outlookAgendaItems = []
             outlookAgendaDay = nil
-            outlookCalendarStatusMessage = "Integracao do Outlook pausada."
+            outlookCalendarStatusMessage = "Integração do Outlook pausada."
             return
         }
 

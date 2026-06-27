@@ -18,7 +18,7 @@ extension ActivityStore {
         guard value else {
             linearAgendaItems = []
             linearAgendaDay = nil
-            linearStatusMessage = "Integracao do Linear pausada."
+            linearStatusMessage = "Integração do Linear pausada."
             return
         }
 

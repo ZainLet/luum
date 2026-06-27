@@ -15,7 +15,7 @@ extension ActivityStore {
         persistMonitoringPreferences()
         zapierStatusMessage = value
             ? (zapierConfigured ? "Zapier pronto para disparar automacoes." : Self.zapierPendingConnectionMessage)
-            : "Integracao com Zapier pausada."
+            : "Integração com Zapier pausada."
     }
 
     func updateZapierWebhookURL(_ value: String) {

@@ -18,7 +18,7 @@ extension ActivityStore {
         guard value else {
             clickUpAgendaItems = []
             clickUpAgendaDay = nil
-            clickUpStatusMessage = "Integracao do ClickUp pausada."
+            clickUpStatusMessage = "Integração do ClickUp pausada."
             return
         }
 
