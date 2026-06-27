@@ -129,7 +129,10 @@ function deleteHandlers() {
         '../api/integrations/_zapier-trigger',
         '../api/integrations/_zapier-action',
         '../api/_integrationSettings',
-        '../api/_entitlements'
+        '../api/_entitlements',
+        '../api/integrations/_oauthLogger',
+        '../api/integrations/_outlook-callback',
+        '../api/integrations/_notion-callback'
     ];
     for (const p of paths) {
         try {
@@ -629,4 +632,105 @@ test('zapier-webhook-config GET retorna webhooks migrados do formato antigo', as
     assert.equal(res.code, 200);
     assert.equal(res.body.webhooks.length, 1);
     assert.equal(res.body.webhooks[0].url, 'https://hooks.zapier.com/hooks/catch/old/format');
+});
+
+// --- oauthLogger ---
+
+test('oauthLog emite JSON estruturado com campos obrigatórios', () => {
+    deleteHandlers();
+    const logs = [];
+    const original = console.log;
+    console.log = (msg) => logs.push(JSON.parse(msg));
+    try {
+        const { oauthLog } = require('../api/integrations/_oauthLogger');
+        oauthLog('linear', 'token_exchange_success', { scope: 'read' });
+        assert.equal(logs.length, 1);
+        assert.equal(logs[0].service, 'oauth');
+        assert.equal(logs[0].integration, 'linear');
+        assert.equal(logs[0].event, 'token_exchange_success');
+        assert.equal(logs[0].scope, 'read');
+        assert.ok(logs[0].ts, 'deve ter timestamp');
+    } finally {
+        console.log = original;
+    }
+});
+
+test('oauthLog funciona sem details', () => {
+    deleteHandlers();
+    const logs = [];
+    const original = console.log;
+    console.log = (msg) => logs.push(JSON.parse(msg));
+    try {
+        const { oauthLog } = require('../api/integrations/_oauthLogger');
+        oauthLog('clickup', 'callback_received');
+        assert.equal(logs[0].integration, 'clickup');
+        assert.equal(logs[0].event, 'callback_received');
+    } finally {
+        console.log = original;
+    }
+});
+
+test('linear-callback loga callback_received e token_exchange_success', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    mockFetch({ access_token: 'lin_token', token_type: 'Bearer', scope: 'read' });
+    process.env.LINEAR_CLIENT_ID = 'cid';
+    process.env.LINEAR_CLIENT_SECRET = 'csecret';
+    const logs = [];
+    const original = console.log;
+    console.log = (msg) => { try { logs.push(JSON.parse(msg)); } catch { /* non-json */ } };
+    try {
+        const handler = require('../api/integrations/_linear-callback');
+        const state = makeState('csecret', 'nonce123');
+        const res = response();
+        await handler({ method: 'GET', headers: { host: 'localhost' }, query: { code: 'abc', state } }, res);
+        const events = logs.map(l => l.event).filter(Boolean);
+        assert.ok(events.includes('callback_received'), 'deve logar callback_received');
+        assert.ok(events.includes('token_exchange_success'), 'deve logar token_exchange_success');
+        assert.ok(!logs.some(l => JSON.stringify(l).includes('lin_token')), 'não deve logar access_token');
+    } finally {
+        console.log = original;
+        restoreFetch();
+    }
+});
+
+test('linear-callback loga state_invalid quando HMAC falha', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    process.env.LINEAR_CLIENT_SECRET = 'csecret';
+    const logs = [];
+    const original = console.log;
+    console.log = (msg) => { try { logs.push(JSON.parse(msg)); } catch { /* non-json */ } };
+    try {
+        const handler = require('../api/integrations/_linear-callback');
+        const res = response();
+        await handler({ method: 'GET', headers: { host: 'localhost' }, query: { code: 'abc', state: 'bad.hmac' } }, res);
+        const events = logs.map(l => l.event).filter(Boolean);
+        assert.ok(events.includes('state_invalid'), 'deve logar state_invalid');
+    } finally {
+        console.log = original;
+    }
+});
+
+test('clickup-callback loga token_exchange_error quando troca falha', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    mockFetch({ error: 'invalid_client' }, false, 401);
+    process.env.CLICKUP_CLIENT_ID = 'cid';
+    process.env.CLICKUP_CLIENT_SECRET = 'csecret';
+    const logs = [];
+    const original = console.log;
+    console.log = (msg) => { try { logs.push(JSON.parse(msg)); } catch { /* non-json */ } };
+    try {
+        const handler = require('../api/integrations/_clickup-callback');
+        const res = response();
+        await handler({ method: 'GET', headers: {}, query: { code: 'abc' } }, res);
+        const errLog = logs.find(l => l.event === 'token_exchange_error');
+        assert.ok(errLog, 'deve logar token_exchange_error');
+        assert.equal(errLog.errorCode, 'invalid_client');
+        assert.equal(errLog.status, 401);
+    } finally {
+        console.log = original;
+        restoreFetch();
+    }
 });
