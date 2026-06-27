@@ -1,6 +1,7 @@
 'use strict';
 
 const { admin } = require('../_firebaseAdmin');
+const { oauthLog } = require('./_oauthLogger');
 
 module.exports = async (req, res) => {
     if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
@@ -19,5 +20,6 @@ module.exports = async (req, res) => {
     const host = req.headers.host || 'luum-app.vercel.app';
     const redirectURI = `https://${host}/api/integrations?action=clickup-callback`;
     const url = `https://app.clickup.com/api?client_id=${encodeURIComponent(clientID)}&redirect_uri=${encodeURIComponent(redirectURI)}`;
+    oauthLog('clickup', 'auth_start');
     return res.json({ url });
 };

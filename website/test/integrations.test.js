@@ -734,3 +734,90 @@ test('clickup-callback loga token_exchange_error quando troca falha', async () =
         restoreFetch();
     }
 });
+
+test('notion-callback loga token_exchange_success com workspaceId', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    mockFetch({ access_token: 'notion_tok', workspace_id: 'ws-abc', workspace_name: 'Acme' });
+    process.env.NOTION_CLIENT_ID = 'ncid';
+    process.env.NOTION_CLIENT_SECRET = 'nsecret';
+    const logs = [];
+    const original = console.log;
+    console.log = (msg) => { try { logs.push(JSON.parse(msg)); } catch { /* non-json */ } };
+    try {
+        const handler = require('../api/integrations/_notion-callback');
+        const res = response();
+        await handler({ method: 'GET', headers: { host: 'localhost' }, query: { code: 'ncode' } }, res);
+        const events = logs.map(l => l.event).filter(Boolean);
+        assert.ok(events.includes('callback_received'), 'deve logar callback_received');
+        assert.ok(events.includes('token_exchange_success'), 'deve logar token_exchange_success');
+        const successLog = logs.find(l => l.event === 'token_exchange_success');
+        assert.equal(successLog.workspaceId, 'ws-abc');
+        assert.ok(!logs.some(l => JSON.stringify(l).includes('notion_tok')), 'não deve logar access_token');
+    } finally {
+        console.log = original;
+        restoreFetch();
+    }
+});
+
+test('outlook-callback loga token_exchange_success com hasRefreshToken', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    mockFetch({ access_token: 'ms_tok', refresh_token: 'ms_refresh', expires_in: 3600 });
+    process.env.OUTLOOK_CLIENT_ID = 'ocid';
+    process.env.OUTLOOK_CLIENT_SECRET = 'osecret';
+    const logs = [];
+    const original = console.log;
+    console.log = (msg) => { try { logs.push(JSON.parse(msg)); } catch { /* non-json */ } };
+    try {
+        const handler = require('../api/integrations/_outlook-callback');
+        const res = response();
+        await handler({ method: 'GET', headers: { host: 'localhost' }, query: { code: 'ocode' } }, res);
+        const events = logs.map(l => l.event).filter(Boolean);
+        assert.ok(events.includes('callback_received'), 'deve logar callback_received');
+        assert.ok(events.includes('token_exchange_success'), 'deve logar token_exchange_success');
+        const successLog = logs.find(l => l.event === 'token_exchange_success');
+        assert.equal(successLog.hasRefreshToken, true);
+        assert.ok(!logs.some(l => JSON.stringify(l).includes('ms_tok')), 'não deve logar access_token');
+    } finally {
+        console.log = original;
+        restoreFetch();
+    }
+});
+
+test('linear-auth loga auth_start ao gerar URL', async () => {
+    installFirebaseMock({ plan: 'profissional' });
+    deleteHandlers();
+    process.env.LINEAR_CLIENT_ID = 'linear-client';
+    process.env.LINEAR_CLIENT_SECRET = 'linear-secret';
+    const logs = [];
+    const original = console.log;
+    console.log = (msg) => { try { logs.push(JSON.parse(msg)); } catch { /* non-json */ } };
+    try {
+        const handler = require('../api/integrations/_linear-auth');
+        const res = response();
+        await handler({ method: 'GET', headers: { authorization: 'Bearer valid-token', host: 'localhost' }, body: {} }, res);
+        const events = logs.map(l => l.event).filter(Boolean);
+        assert.ok(events.includes('auth_start'), 'deve logar auth_start');
+    } finally {
+        console.log = original;
+    }
+});
+
+test('clickup-auth loga auth_start ao gerar URL', async () => {
+    installFirebaseMock({ plan: 'profissional' });
+    deleteHandlers();
+    process.env.CLICKUP_CLIENT_ID = 'clickup-client';
+    const logs = [];
+    const original = console.log;
+    console.log = (msg) => { try { logs.push(JSON.parse(msg)); } catch { /* non-json */ } };
+    try {
+        const handler = require('../api/integrations/_clickup-auth');
+        const res = response();
+        await handler({ method: 'GET', headers: { authorization: 'Bearer valid-token', host: 'localhost' }, body: {} }, res);
+        const events = logs.map(l => l.event).filter(Boolean);
+        assert.ok(events.includes('auth_start'), 'deve logar auth_start');
+    } finally {
+        console.log = original;
+    }
+});

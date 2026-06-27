@@ -1,6 +1,7 @@
 'use strict';
 
 const { admin } = require('../_firebaseAdmin');
+const { oauthLog } = require('./_oauthLogger');
 
 module.exports = async (req, res) => {
     if (req.method !== 'GET') {
@@ -25,5 +26,6 @@ module.exports = async (req, res) => {
     const host = req.headers.host || 'luum-app.vercel.app';
     const redirectURI = `https://${host}/api/integrations?action=notion-callback`;
     const url = `https://api.notion.com/v1/oauth/authorize?client_id=${encodeURIComponent(clientID)}&redirect_uri=${encodeURIComponent(redirectURI)}&response_type=code&owner=user`;
+    oauthLog('notion', 'auth_start');
     return res.json({ url });
 };
