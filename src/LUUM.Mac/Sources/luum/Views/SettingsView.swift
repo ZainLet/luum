@@ -691,6 +691,18 @@ struct SettingsView: View {
                                     .foregroundStyle(LuumTheme.textMuted)
                                     .lineLimit(1)
                                     .truncationMode(.middle)
+                                if !wh.events.isEmpty {
+                                    HStack(spacing: 4) {
+                                        ForEach(ZapierEvent.allCases.filter { wh.events.contains($0.rawValue) }, id: \.self) { event in
+                                            Text(event.displayName)
+                                                .font(.caption2)
+                                                .foregroundStyle(LuumTheme.textMuted)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(RoundedRectangle(cornerRadius: 4).fill(.white.opacity(0.06)))
+                                        }
+                                    }
+                                }
                             }
                             Spacer()
                             Button(action: { store.removeZapierWebhook(id: wh.id) }) {
@@ -1424,6 +1436,29 @@ private extension SettingsView {
                     .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.05)))
             }
 
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Eventos")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.6))
+
+                HStack(spacing: 6) {
+                    ForEach(ZapierEvent.allCases, id: \.self) { event in
+                        Button(event.displayName) {
+                            if newZapierEvents.contains(event.rawValue) {
+                                newZapierEvents.remove(event.rawValue)
+                            } else {
+                                newZapierEvents.insert(event.rawValue)
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(newZapierEvents.contains(event.rawValue) ? .blue : .gray.opacity(0.3))
+                        .font(.caption)
+                        .controlSize(.small)
+                    }
+                }
+                .padding(.top, 2)
+            }
+
             HStack(spacing: 16) {
                 Button("Cancelar") {
                     newZapierURL = ""
@@ -1437,7 +1472,7 @@ private extension SettingsView {
                     let url = newZapierURL.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !url.isEmpty else { return }
                     let label = newZapierLabel.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let wh = ZapierWebhook(url: url, label: label.isEmpty ? "Webhook" : label)
+                    let wh = ZapierWebhook(url: url, label: label.isEmpty ? "Webhook" : label, events: newZapierEvents)
                     let updated = store.zapierSettings.webhooks + [wh]
                     store.saveZapierWebhooksToServer(updated)
                     newZapierURL = ""

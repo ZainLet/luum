@@ -235,6 +235,24 @@ struct LinearSettings: Codable, Hashable, Sendable {
     }
 }
 
+enum ZapierEvent: String, CaseIterable, Codable, Sendable {
+    case focusProfileTriggered = "focus_profile_triggered"
+    case focusBlockTriggered = "focus_block_triggered"
+    case calendarSync = "calendar_sync"
+    case workspaceRankingSync = "workspace_ranking_sync"
+    case manualTest = "manual_test"
+
+    var displayName: String {
+        switch self {
+        case .focusProfileTriggered: "Perfil de foco ativado"
+        case .focusBlockTriggered: "Escudo de foco"
+        case .calendarSync: "Sincronização de agenda"
+        case .workspaceRankingSync: "Ranking de workspace"
+        case .manualTest: "Teste manual"
+        }
+    }
+}
+
 struct ZapierWebhook: Identifiable, Codable, Hashable, Sendable {
     var id: UUID
     var url: String
