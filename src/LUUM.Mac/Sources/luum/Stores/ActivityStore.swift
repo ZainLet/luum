@@ -446,6 +446,15 @@ final class ActivityStore {
         keychainService.removeValue(for: Self.outlookCalendarSessionKey)
         keychainService.removeValue(for: Self.teamWorkspaceSecretKey)
         keychainService.removeValue(for: Self.clickUpTokenKey)
+        keychainService.removeValue(for: Self.notionCalendarTokenKey)
+        keychainService.removeValue(for: Self.outlookCalendarTokenKey)
+        keychainService.removeValue(for: Self.linearTokenKey)
+        keychainService.removeValue(for: Self.aiClassificationAPIKeyKey)
+        for connection in googleCalendarConnections {
+            keychainService.removeValue(for: Self.googleCalendarTokenKey(connection.id))
+        }
+        googleCalendarConnections = []
+        calendarCoordinator.removeAllCalendarTokens()
         monitoringPreferences.teamSettings.sharesAnonymousMetrics = false
         monitoringPreferences.teamSettings.automaticallySyncWorkspace = false
         monitoringPreferences.teamSettings.workspaceID = ""
