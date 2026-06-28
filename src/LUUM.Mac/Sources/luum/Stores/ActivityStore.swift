@@ -31,15 +31,19 @@ final class ActivityStore {
     var notionCalendarStatusMessage: String?
     var notionAgendaItems: [CalendarAgendaItem] = []
     var isSyncingNotionCalendar = false
+    var isConnectingNotionCalendar = false
     var outlookCalendarStatusMessage: String?
     var outlookAgendaItems: [CalendarAgendaItem] = []
     var isSyncingOutlookCalendar = false
+    var isConnectingOutlookCalendar = false
     var clickUpStatusMessage: String?
     var clickUpAgendaItems: [CalendarAgendaItem] = []
     var isSyncingClickUp = false
+    var isConnectingClickUp = false
     var linearStatusMessage: String?
     var linearAgendaItems: [CalendarAgendaItem] = []
     var isSyncingLinear = false
+    var isConnectingLinear = false
     var zapierStatusMessage: String?
     var isSavingZapierWebhook = false
 
