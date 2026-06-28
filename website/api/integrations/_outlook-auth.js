@@ -1,6 +1,7 @@
 'use strict';
 
 const { admin } = require('../_firebaseAdmin');
+const { oauthLog } = require('./_oauthLogger');
 
 module.exports = async (req, res) => {
     if (req.method !== 'GET') {
@@ -26,5 +27,6 @@ module.exports = async (req, res) => {
     const redirectURI = `https://${host}/api/integrations?action=outlook-callback`;
     const scopes = 'offline_access openid profile Calendars.Read Mail.ReadBasic';
     const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${encodeURIComponent(clientID)}&response_type=code&redirect_uri=${encodeURIComponent(redirectURI)}&response_mode=query&scope=${encodeURIComponent(scopes)}`;
+    oauthLog('outlook', 'auth_start');
     return res.json({ url });
 };

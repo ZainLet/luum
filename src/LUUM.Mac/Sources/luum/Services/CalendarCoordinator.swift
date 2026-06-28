@@ -237,7 +237,7 @@ final class CalendarCoordinator {
             )
 
             guard let profile = result.profile else {
-                store.googleCalendarStatusMessage = "Nao foi possivel identificar a conta Google conectada."
+                store.googleCalendarStatusMessage = "Não foi possível identificar a conta Google conectada."
                 return
             }
 

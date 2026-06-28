@@ -8,15 +8,15 @@
 
         <item>
             <title>Luum 0.1.2</title>
-            <pubDate>Mon, 23 Jun 2026 22:00:00 +0000</pubDate>
+            <pubDate>Fri, 27 Jun 2026 05:07:00 +0000</pubDate>
             <sparkle:version>3</sparkle:version>
             <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
             <sparkle:releaseNotesLink>https://github.com/ZainLet/luum/releases/tag/v0.1.2</sparkle:releaseNotesLink>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <enclosure
                 url="https://github.com/ZainLet/luum/releases/download/v0.1.2/Luum-0.1.2-alpha.zip"
-                sparkle:edSignature="PLACEHOLDER"
-                length="0"
+                sparkle:edSignature="p8mgUzhqD44yfgyYnCFaEVjMZ8BE17r3AL4qUX+rnkHAQPDamZzuIaDRm4+HZk13Wbspv5GNm7g9iW2ejcOkDg=="
+                length="6324840"
                 type="application/octet-stream"
             />
         </item>
@@ -29,7 +29,7 @@
             <sparkle:releaseNotesLink>https://github.com/ZainLet/luum/releases/tag/v0.1.1</sparkle:releaseNotesLink>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/ZainLet/luum/releases/download/v0.1.1/Luum-0.1.1-alpha.zip"
+                url="https://github.com/ZainLet/luum/releases/download/v0.1.1/Luum-0.1.1-alpha-88284c4-dirty-20260623T191331Z.zip"
                 sparkle:edSignature="016G+sIX9MW9jPdpp+vHTRdVTmPSx7ySGxIgmSoFfLn42YCXU+oLx7fGqb/jwSqCngG2ZuLCqTKJV64XV17+CQ=="
                 length="5757316"
                 type="application/octet-stream"
@@ -44,7 +44,7 @@
             <sparkle:releaseNotesLink>https://github.com/ZainLet/luum/releases/tag/v0.1.0</sparkle:releaseNotesLink>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/ZainLet/luum/releases/download/v0.1.0/Luum-0.1.0-alpha.zip"
+                url="https://github.com/ZainLet/luum/releases/download/v0.1.0/Luum-0.1.0-alpha-03b6ebd-dirty-20260623T180354Z.zip"
                 sparkle:edSignature="7G6ufpP+8G8KxXImDX5X+V2evmw8WMUUu1z3PyGEow0fQ4vORKU+NmjpLlL8YLz1K4WqblY/J6bKov5KexryBg=="
                 length="4693876"
                 type="application/octet-stream"

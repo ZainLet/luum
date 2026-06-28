@@ -25,13 +25,13 @@ final class ReminderEngine {
 
         switch settings.authorizationStatus {
         case .notDetermined:
-            message = "Ative notificacoes para receber alertas de pausa e distração."
+            message = "Ative notificações para receber alertas de pausa e distração."
         case .denied:
-            message = "As notificacoes estao bloqueadas. Libere no macOS para receber lembretes."
+            message = "As notificações estão bloqueadas. Libere no macOS para receber lembretes."
         case .authorized, .provisional, .ephemeral:
             message = nil
         @unknown default:
-            message = "O status de notificacoes nao foi reconhecido."
+            message = "O status de notificações não foi reconhecido."
         }
 
         onPermissionMessage?(message, isAuthorized)
@@ -41,7 +41,7 @@ final class ReminderEngine {
         do {
             _ = try await notificationCenter.requestAuthorization(options: [.alert, .badge, .sound])
         } catch {
-            onPermissionMessage?("Nao foi possivel solicitar permissao de notificacoes.", false)
+            onPermissionMessage?("Não foi possível solicitar permissão de notificações.", false)
             return
         }
 

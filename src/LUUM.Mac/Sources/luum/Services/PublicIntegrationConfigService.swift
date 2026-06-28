@@ -29,13 +29,13 @@ enum PublicIntegrationConfigError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidBaseURL:
-            "A API oficial de integracoes do Luum nao esta disponivel."
+            "A API oficial de integrações do Luum não está disponível."
         case .routeMissing:
-            "A rota /api/public/integrations nao foi encontrada na Vercel. Atualize o deploy do site para liberar conexoes em um clique."
+            "A rota /api/public/integrations não foi encontrada na Vercel. Atualize o deploy do site para liberar conexões em um clique."
         case let .unavailable(statusCode):
-            "Nao foi possivel carregar integracoes gerenciadas do Luum agora. HTTP \(statusCode)."
+            "Não foi possível carregar integrações gerenciadas do Luum agora. HTTP \(statusCode)."
         case .invalidPayload:
-            "Nao foi possivel carregar as integracoes gerenciadas do Luum."
+            "Não foi possível carregar as integrações gerenciadas do Luum."
         }
     }
 }

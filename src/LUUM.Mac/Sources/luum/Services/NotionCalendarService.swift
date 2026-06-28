@@ -17,13 +17,13 @@ enum NotionCalendarIssue: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingToken:
-            "Conexao Notion em um clique sera liberada em breve."
+            "Conexão Notion em um clique será liberada em breve."
         case .missingDataSources:
-            "Conexao Notion em um clique sera liberada em breve."
+            "Conexão Notion em um clique será liberada em breve."
         case .invalidResponse:
-            "O Notion respondeu sem um payload de eventos utilizavel."
+            "O Notion respondeu sem um payload de eventos utilizável."
         case .unauthorized:
-            "Nao foi possivel validar a conexao do Notion. Reconecte quando o conector estiver disponivel."
+            "Não foi possível validar a conexão do Notion. Reconecte quando o conector estiver disponível."
         case let .apiError(message):
             message
         }

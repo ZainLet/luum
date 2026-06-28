@@ -734,3 +734,178 @@ test('clickup-callback loga token_exchange_error quando troca falha', async () =
         restoreFetch();
     }
 });
+
+test('notion-callback loga token_exchange_success com workspaceId', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    mockFetch({ access_token: 'notion_tok', workspace_id: 'ws-abc', workspace_name: 'Acme' });
+    process.env.NOTION_CLIENT_ID = 'ncid';
+    process.env.NOTION_CLIENT_SECRET = 'nsecret';
+    const logs = [];
+    const original = console.log;
+    console.log = (msg) => { try { logs.push(JSON.parse(msg)); } catch { /* non-json */ } };
+    try {
+        const handler = require('../api/integrations/_notion-callback');
+        const res = response();
+        await handler({ method: 'GET', headers: { host: 'localhost' }, query: { code: 'ncode' } }, res);
+        const events = logs.map(l => l.event).filter(Boolean);
+        assert.ok(events.includes('callback_received'), 'deve logar callback_received');
+        assert.ok(events.includes('token_exchange_success'), 'deve logar token_exchange_success');
+        const successLog = logs.find(l => l.event === 'token_exchange_success');
+        assert.equal(successLog.workspaceId, 'ws-abc');
+        assert.ok(!logs.some(l => JSON.stringify(l).includes('notion_tok')), 'não deve logar access_token');
+    } finally {
+        console.log = original;
+        restoreFetch();
+    }
+});
+
+test('outlook-callback loga token_exchange_success com hasRefreshToken', async () => {
+    installFirebaseMock();
+    deleteHandlers();
+    mockFetch({ access_token: 'ms_tok', refresh_token: 'ms_refresh', expires_in: 3600 });
+    process.env.OUTLOOK_CLIENT_ID = 'ocid';
+    process.env.OUTLOOK_CLIENT_SECRET = 'osecret';
+    const logs = [];
+    const original = console.log;
+    console.log = (msg) => { try { logs.push(JSON.parse(msg)); } catch { /* non-json */ } };
+    try {
+        const handler = require('../api/integrations/_outlook-callback');
+        const res = response();
+        await handler({ method: 'GET', headers: { host: 'localhost' }, query: { code: 'ocode' } }, res);
+        const events = logs.map(l => l.event).filter(Boolean);
+        assert.ok(events.includes('callback_received'), 'deve logar callback_received');
+        assert.ok(events.includes('token_exchange_success'), 'deve logar token_exchange_success');
+        const successLog = logs.find(l => l.event === 'token_exchange_success');
+        assert.equal(successLog.hasRefreshToken, true);
+        assert.ok(!logs.some(l => JSON.stringify(l).includes('ms_tok')), 'não deve logar access_token');
+    } finally {
+        console.log = original;
+        restoreFetch();
+    }
+});
+
+test('linear-auth loga auth_start ao gerar URL', async () => {
+    installFirebaseMock({ plan: 'profissional' });
+    deleteHandlers();
+    process.env.LINEAR_CLIENT_ID = 'linear-client';
+    process.env.LINEAR_CLIENT_SECRET = 'linear-secret';
+    const logs = [];
+    const original = console.log;
+    console.log = (msg) => { try { logs.push(JSON.parse(msg)); } catch { /* non-json */ } };
+    try {
+        const handler = require('../api/integrations/_linear-auth');
+        const res = response();
+        await handler({ method: 'GET', headers: { authorization: 'Bearer valid-token', host: 'localhost' }, body: {} }, res);
+        const events = logs.map(l => l.event).filter(Boolean);
+        assert.ok(events.includes('auth_start'), 'deve logar auth_start');
+    } finally {
+        console.log = original;
+    }
+});
+
+test('clickup-auth loga auth_start ao gerar URL', async () => {
+    installFirebaseMock({ plan: 'profissional' });
+    deleteHandlers();
+    process.env.CLICKUP_CLIENT_ID = 'clickup-client';
+    const logs = [];
+    const original = console.log;
+    console.log = (msg) => { try { logs.push(JSON.parse(msg)); } catch { /* non-json */ } };
+    try {
+        const handler = require('../api/integrations/_clickup-auth');
+        const res = response();
+        await handler({ method: 'GET', headers: { authorization: 'Bearer valid-token', host: 'localhost' }, body: {} }, res);
+        const events = logs.map(l => l.event).filter(Boolean);
+        assert.ok(events.includes('auth_start'), 'deve logar auth_start');
+    } finally {
+        console.log = original;
+    }
+});
+
+test('rate limiting — linear-auth retorna 429 após 20 requisições do mesmo IP', async () => {
+    const { resetAll } = require('../api/_rateLimit');
+    resetAll();
+    installFirebaseMock({ plan: 'profissional' });
+    deleteHandlers();
+    process.env.LINEAR_CLIENT_ID = 'linear-client-rl';
+    process.env.LINEAR_CLIENT_SECRET = 'linear-secret-rl';
+    try {
+        delete require.cache[require.resolve('../api/integrations/[action]')];
+        const dispatcher = require('../api/integrations/[action]');
+        const ip = '192.0.2.ratelimit-linear';
+        const makeReq = () => ({
+            method: 'GET',
+            query: { action: 'linear-auth' },
+            headers: { authorization: 'Bearer valid-token', host: 'localhost', 'x-forwarded-for': ip },
+            body: {},
+        });
+        for (let i = 0; i < 20; i++) {
+            const res = response();
+            await dispatcher(makeReq(), res);
+            assert.notEqual(res.code, 429, `requisição ${i + 1} não deveria ser limitada`);
+        }
+        const res = response();
+        await dispatcher(makeReq(), res);
+        assert.equal(res.code, 429, 'requisição 21 deve retornar 429');
+        assert.ok(res.headers['Retry-After'], 'deve incluir header Retry-After');
+        assert.ok(res.body?.error, 'deve incluir mensagem de erro');
+    } finally {
+        resetAll();
+    }
+});
+
+test('rate limiting — linear-callback retorna 429 após 10 requisições do mesmo IP', async () => {
+    const { resetAll } = require('../api/_rateLimit');
+    resetAll();
+    installFirebaseMock({ plan: 'profissional' });
+    deleteHandlers();
+    process.env.LINEAR_CLIENT_ID = 'linear-client-rl2';
+    process.env.LINEAR_CLIENT_SECRET = 'linear-secret-rl2';
+    try {
+        delete require.cache[require.resolve('../api/integrations/[action]')];
+        const dispatcher = require('../api/integrations/[action]');
+        const ip = '192.0.2.ratelimit-linear-cb';
+        const makeReq = () => ({
+            method: 'GET',
+            query: { action: 'linear-callback' },
+            headers: { authorization: 'Bearer valid-token', host: 'localhost', 'x-forwarded-for': ip },
+            body: {},
+        });
+        for (let i = 0; i < 10; i++) {
+            const res = response();
+            await dispatcher(makeReq(), res);
+            assert.notEqual(res.code, 429, `requisição ${i + 1} não deveria ser limitada`);
+        }
+        const res = response();
+        await dispatcher(makeReq(), res);
+        assert.equal(res.code, 429, 'requisição 11 deve retornar 429');
+        assert.ok(res.headers['Retry-After'], 'deve incluir header Retry-After');
+    } finally {
+        resetAll();
+    }
+});
+
+test('rate limiting — ação sem limite (clickup-tasks) não retorna 429', async () => {
+    const { resetAll } = require('../api/_rateLimit');
+    resetAll();
+    installFirebaseMock({ plan: 'profissional' });
+    deleteHandlers();
+    process.env.CLICKUP_CLIENT_ID = 'cu-client';
+    try {
+        delete require.cache[require.resolve('../api/integrations/[action]')];
+        const dispatcher = require('../api/integrations/[action]');
+        const ip = '192.0.2.ratelimit-tasks';
+        for (let i = 0; i < 30; i++) {
+            const res = response();
+            await dispatcher({
+                method: 'GET',
+                query: { action: 'clickup-tasks' },
+                headers: { authorization: 'Bearer valid-token', host: 'localhost', 'x-forwarded-for': ip },
+                body: {},
+            }, res);
+            assert.notEqual(res.code, 429, `requisição ${i + 1} de ação sem limite não deve retornar 429`);
+        }
+    } finally {
+        resetAll();
+    }
+});

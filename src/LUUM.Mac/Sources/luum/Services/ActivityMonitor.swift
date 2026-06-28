@@ -140,7 +140,7 @@ final class ActivityMonitor {
         } catch let error as BrowserAutomationIssue {
             onAutomationMessage?(error.errorDescription)
         } catch {
-            onAutomationMessage?("Nao foi possivel consultar o navegador ativo.")
+            onAutomationMessage?("Não foi possível consultar o navegador ativo.")
         }
 
         onSnapshot?(
@@ -168,7 +168,7 @@ final class ActivityMonitor {
             return
         }
 
-        onInputMonitoringMessage?("Sem permissao de Monitoramento de Entrada. O luum continua lendo app e URL, mas nao consegue pausar a captura quando voce fica ausente.")
+        onInputMonitoringMessage?("Sem permissão de Monitoramento de Entrada. O luum continua lendo app e URL, mas não consegue pausar a captura quando você fica ausente.")
     }
 
     private func browserContext(

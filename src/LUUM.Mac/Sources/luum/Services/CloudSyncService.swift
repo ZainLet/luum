@@ -88,9 +88,9 @@ enum CloudSyncError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidBaseURL:
-            "A URL do sync em nuvem nao e valida."
+            "A URL do sync em nuvem não é válida."
         case .unauthorized:
-            "O login Firebase nao autorizou o sync. Entre novamente na conta Luum."
+            "O login Firebase não autorizou o sync. Entre novamente na conta Luum."
         case .invalidResponse:
             "A resposta do sync em nuvem veio incompleta."
         case let .apiError(message):
@@ -194,7 +194,7 @@ struct CloudSyncService {
 
             if statusCode == 404 {
                 throw CloudSyncError.apiError(
-                    "A rota de backup Firebase nao foi encontrada na Vercel. Atualize o app/site e confira se o deploy inclui /api/sync/[backupID]."
+                    "A rota de backup Firebase não foi encontrada na Vercel. Atualize o app/site e confira se o deploy inclui /api/sync/[backupID]."
                 )
             }
 

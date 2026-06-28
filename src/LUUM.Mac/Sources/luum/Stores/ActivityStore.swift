@@ -5,7 +5,7 @@ import Observation
 @MainActor
 @Observable
 final class ActivityStore {
-    private(set) var samples: [ActivitySample]
+    var samples: [ActivitySample]
     private(set) var isMonitoring = false
     private(set) var currentSnapshot: ActivitySnapshot?
     private(set) var automationStatusMessage: String?
@@ -28,36 +28,36 @@ final class ActivityStore {
     var googleCalendarConnections: [GoogleCalendarConnectionSnapshot]
     var googleCalendarStatusMessage: String?
     var publicIntegrationConfig: PublicIntegrationConfig?
-    private(set) var notionCalendarStatusMessage: String?
-    private(set) var notionAgendaItems: [CalendarAgendaItem] = []
-    private(set) var isSyncingNotionCalendar = false
-    private(set) var outlookCalendarStatusMessage: String?
-    private(set) var outlookAgendaItems: [CalendarAgendaItem] = []
-    private(set) var isSyncingOutlookCalendar = false
-    private(set) var clickUpStatusMessage: String?
-    private(set) var clickUpAgendaItems: [CalendarAgendaItem] = []
-    private(set) var isSyncingClickUp = false
-    private(set) var linearStatusMessage: String?
-    private(set) var linearAgendaItems: [CalendarAgendaItem] = []
-    private(set) var isSyncingLinear = false
-    private(set) var zapierStatusMessage: String?
-    private(set) var isSavingZapierWebhook = false
+    var notionCalendarStatusMessage: String?
+    var notionAgendaItems: [CalendarAgendaItem] = []
+    var isSyncingNotionCalendar = false
+    var outlookCalendarStatusMessage: String?
+    var outlookAgendaItems: [CalendarAgendaItem] = []
+    var isSyncingOutlookCalendar = false
+    var clickUpStatusMessage: String?
+    var clickUpAgendaItems: [CalendarAgendaItem] = []
+    var isSyncingClickUp = false
+    var linearStatusMessage: String?
+    var linearAgendaItems: [CalendarAgendaItem] = []
+    var isSyncingLinear = false
+    var zapierStatusMessage: String?
+    var isSavingZapierWebhook = false
 
-    private(set) var cloudSyncStatusMessage: String?
-    private(set) var cloudSyncLastSyncAt: Date?
-    private(set) var isSyncingCloud = false
-    private(set) var workspaceSyncStatusMessage: String?
-    private(set) var workspaceSyncLastSyncAt: Date?
-    private(set) var workspaceRankingEntries: [TeamRankingEntry] = []
-    private(set) var isCurrentUserWorkspaceAdmin = false
-    private(set) var workspaceAdminEntries: [WorkspaceAdminEntry] = []
-    private(set) var isSyncingWorkspace = false
-    private(set) var isLoadingAdminList = false
-    private(set) var aiClassificationStatusMessage: String?
-    private(set) var isClassifyingWithAI = false
-    private(set) var isQueryingAI = false
-    private(set) var aiQueryResponse: AIQueryResponse?
-    private(set) var aiQueryError: String?
+    var cloudSyncStatusMessage: String?
+    var cloudSyncLastSyncAt: Date?
+    var isSyncingCloud = false
+    var workspaceSyncStatusMessage: String?
+    var workspaceSyncLastSyncAt: Date?
+    var workspaceRankingEntries: [TeamRankingEntry] = []
+    var isCurrentUserWorkspaceAdmin = false
+    var workspaceAdminEntries: [WorkspaceAdminEntry] = []
+    var isSyncingWorkspace = false
+    var isLoadingAdminList = false
+    var aiClassificationStatusMessage: String?
+    var isClassifyingWithAI = false
+    var isQueryingAI = false
+    var aiQueryResponse: AIQueryResponse?
+    var aiQueryError: String?
     private(set) var isSendingWeeklyReportEmail = false
     private(set) var weeklyReportEmailHealthMessage: String?
     private(set) var isCheckingWeeklyReportEmailHealth = false
@@ -80,19 +80,19 @@ final class ActivityStore {
     @ObservationIgnored private let monitor: ActivityMonitor
     @ObservationIgnored private let googleCalendarPersistence: GoogleCalendarPersistence
     @ObservationIgnored private let googleCalendarService: GoogleCalendarService
-    @ObservationIgnored private let notionCalendarService: NotionCalendarService
-    @ObservationIgnored private let outlookCalendarService: OutlookCalendarService
-    @ObservationIgnored private let clickUpService: ClickUpService
-    @ObservationIgnored private let linearService: LinearService
-    @ObservationIgnored private let zapierService: ZapierService
+    @ObservationIgnored let notionCalendarService: NotionCalendarService
+    @ObservationIgnored let outlookCalendarService: OutlookCalendarService
+    @ObservationIgnored let clickUpService: ClickUpService
+    @ObservationIgnored let linearService: LinearService
+    @ObservationIgnored let zapierService: ZapierService
     @ObservationIgnored private let monitoringPreferencesPersistence: MonitoringPreferencesPersistence
     @ObservationIgnored private let reminderEngine: ReminderEngine
-    @ObservationIgnored private let keychainService: KeychainService
-    @ObservationIgnored private let cloudSyncService: CloudSyncService
-    @ObservationIgnored private let workspaceSyncService: WorkspaceSyncService
+    @ObservationIgnored let keychainService: KeychainService
+    @ObservationIgnored let cloudSyncService: CloudSyncService
+    @ObservationIgnored let workspaceSyncService: WorkspaceSyncService
     @ObservationIgnored private let authService: FirebaseAuthService
-    @ObservationIgnored private let aiClassificationService: AIClassificationService
-    @ObservationIgnored private let aiQueryService: AIQueryService
+    @ObservationIgnored let aiClassificationService: AIClassificationService
+    @ObservationIgnored let aiQueryService: AIQueryService
     @ObservationIgnored private let weeklyReportEmailService: WeeklyReportEmailService
     @ObservationIgnored private let publicIntegrationConfigService: PublicIntegrationConfigService
     @ObservationIgnored private let sessionGapTolerance: TimeInterval = 15
@@ -104,14 +104,17 @@ final class ActivityStore {
     @ObservationIgnored private var preferencesWriteTask: Task<Void, Never>?
     @ObservationIgnored private var reminderEvaluationTask: Task<Void, Never>?
     @ObservationIgnored private var lastReminderEvaluationRequestAt: Date?
-    @ObservationIgnored private var cloudSyncTask: Task<Void, Never>?
-    @ObservationIgnored private var cloudSyncPendingAfterCurrent = false
-    @ObservationIgnored private var workspaceSyncTask: Task<Void, Never>?
-    @ObservationIgnored private var aiClassificationTask: Task<Void, Never>?
-    @ObservationIgnored private var aiQueryTask: Task<Void, Never>?
+    @ObservationIgnored var cloudSyncTask: Task<Void, Never>?
+    @ObservationIgnored var cloudSyncPendingAfterCurrent = false
+    @ObservationIgnored var workspaceSyncTask: Task<Void, Never>?
+    @ObservationIgnored var aiClassificationTask: Task<Void, Never>?
+    @ObservationIgnored var aiQueryTask: Task<Void, Never>?
     @ObservationIgnored private var weeklyReportEmailTask: Task<Void, Never>?
     @ObservationIgnored private var weeklyReportEmailHealthTask: Task<Void, Never>?
     @ObservationIgnored private var maintenanceTask: Task<Void, Never>?
+    @ObservationIgnored private var sleepObserverTask: Task<Void, Never>?
+    @ObservationIgnored private var wakeObserverTask: Task<Void, Never>?
+    @ObservationIgnored private var monitoringPausedForSleep = false
     @ObservationIgnored let calendarRefreshInterval: TimeInterval = 900
     @ObservationIgnored private let cloudSyncInterval: TimeInterval = 900
     @ObservationIgnored private let reminderEvaluationMinimumInterval: TimeInterval = 30
@@ -119,17 +122,17 @@ final class ActivityStore {
     @ObservationIgnored private let preferencesPersistenceDebounce: Duration = .milliseconds(300)
     @ObservationIgnored private let liveSummaryRefreshInterval: TimeInterval = 30
     @ObservationIgnored private var lastLiveSummaryRefreshAt: Date?
-    @ObservationIgnored private var notionAgendaDay: Date?
-    @ObservationIgnored private var outlookAgendaDay: Date?
-    @ObservationIgnored private var clickUpAgendaDay: Date?
-    @ObservationIgnored private var linearAgendaDay: Date?
+    @ObservationIgnored var notionAgendaDay: Date?
+    @ObservationIgnored var outlookAgendaDay: Date?
+    @ObservationIgnored var clickUpAgendaDay: Date?
+    @ObservationIgnored var linearAgendaDay: Date?
     private(set) var summaryRevision = 0
 
-    @ObservationIgnored private static let notionPendingConnectionMessage = "Conexao Notion em um clique sera liberada em breve."
-    @ObservationIgnored private static let outlookPendingConnectionMessage = "Conexao Microsoft em um clique sera liberada em breve."
-    @ObservationIgnored private static let clickUpPendingConnectionMessage = "Conexao ClickUp em um clique sera liberada em breve."
-    @ObservationIgnored private static let linearPendingConnectionMessage = "Conexao Linear em um clique sera liberada em breve."
-    @ObservationIgnored private static let zapierPendingConnectionMessage = "Automacoes Zapier guiadas serao liberadas em breve."
+    @ObservationIgnored static let notionPendingConnectionMessage = "Conexão Notion em um clique será liberada em breve."
+    @ObservationIgnored static let outlookPendingConnectionMessage = "Conexão Microsoft em um clique será liberada em breve."
+    @ObservationIgnored static let clickUpPendingConnectionMessage = "Conexão ClickUp em um clique será liberada em breve."
+    @ObservationIgnored static let linearPendingConnectionMessage = "Conexão Linear em um clique será liberada em breve."
+    @ObservationIgnored static let zapierPendingConnectionMessage = "Automações Zapier guiadas serão liberadas em breve."
 
     init(
         persistence: ActivityPersistence = ActivityPersistence(),
@@ -204,7 +207,7 @@ final class ActivityStore {
             ? (hasStoredLinearToken && !monitoringPreferences.linearSettings.teamIDs.isEmpty ? "Linear pronto para sincronizar." : Self.linearPendingConnectionMessage)
             : nil
         self.zapierStatusMessage = monitoringPreferences.zapierSettings.isEnabled
-            ? (hasStoredZapierWebhook ? "Zapier pronto para disparar automacoes." : Self.zapierPendingConnectionMessage)
+            ? (hasStoredZapierWebhook ? "Zapier pronto para disparar automações." : Self.zapierPendingConnectionMessage)
             : nil
         self.cloudSyncStatusMessage = nil
         self.workspaceSyncStatusMessage = nil
@@ -361,6 +364,22 @@ final class ActivityStore {
         return authSession.includes(feature)
     }
 
+    func friendlyNetworkError(_ error: Error) -> String {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .networkConnectionLost:
+                return "Sem conexão com a internet. Tente novamente mais tarde."
+            case .timedOut:
+                return "A conexão expirou. Tente novamente em breve."
+            case .cannotConnectToHost, .cannotFindHost:
+                return "Não foi possível conectar ao servidor. Tente em breve."
+            default:
+                break
+            }
+        }
+        return error.localizedDescription
+    }
+
     func lockMessage(for feature: LuumFeature) -> String {
         if authSession == nil {
             return "Entre com sua conta Firebase do Luum para liberar o app neste Mac."
@@ -370,13 +389,13 @@ final class ActivityStore {
             return explanation
         }
 
-        return "O recurso \(feature.title) exige um plano maior. Seu plano atual e \(accountPlan.title)."
+        return "O recurso \(feature.title) exige um plano maior. Seu plano atual é \(accountPlan.title)."
     }
 
     func openLoginPage() {
         let request = LuumAuthRequest()
         guard let url = FirebaseAuthService.loginURL(state: request.state) else {
-            authStatusMessage = "Nao foi possivel preparar o login do Luum."
+            authStatusMessage = "Não foi possível preparar o login do Luum."
             return
         }
 
@@ -390,7 +409,7 @@ final class ActivityStore {
 
         guard NSWorkspace.shared.open(url) else {
             authCoordinator.clearPendingAuthRequest()
-            authStatusMessage = "Nao foi possivel abrir o navegador para entrar no Luum."
+            authStatusMessage = "Não foi possível abrir o navegador para entrar no Luum."
             return
         }
         authStatusMessage = "Conclua o login no navegador."
@@ -429,6 +448,8 @@ final class ActivityStore {
         workspaceSyncTask = nil
         aiClassificationTask?.cancel()
         aiClassificationTask = nil
+        aiQueryTask?.cancel()
+        aiQueryTask = nil
         weeklyReportEmailTask?.cancel()
         weeklyReportEmailTask = nil
         weeklyReportEmailHealthTask?.cancel()
@@ -436,12 +457,25 @@ final class ActivityStore {
         isSyncingCloud = false
         isSyncingWorkspace = false
         isClassifyingWithAI = false
+        isQueryingAI = false
+        aiQueryResponse = nil
+        aiQueryError = nil
         isSendingWeeklyReportEmail = false
         isCheckingWeeklyReportEmailHealth = false
+        monitoringPausedForSleep = false
         stopMonitoring()
         keychainService.removeValue(for: Self.outlookCalendarSessionKey)
         keychainService.removeValue(for: Self.teamWorkspaceSecretKey)
         keychainService.removeValue(for: Self.clickUpTokenKey)
+        keychainService.removeValue(for: Self.notionCalendarTokenKey)
+        keychainService.removeValue(for: Self.outlookCalendarTokenKey)
+        keychainService.removeValue(for: Self.linearTokenKey)
+        keychainService.removeValue(for: Self.aiClassificationAPIKeyKey)
+        for connection in googleCalendarConnections {
+            keychainService.removeValue(for: Self.googleCalendarTokenKey(connection.id))
+        }
+        googleCalendarConnections = []
+        calendarCoordinator.removeAllCalendarTokens()
         monitoringPreferences.teamSettings.sharesAnonymousMetrics = false
         monitoringPreferences.teamSettings.automaticallySyncWorkspace = false
         monitoringPreferences.teamSettings.workspaceID = ""
@@ -712,6 +746,7 @@ final class ActivityStore {
     func bootstrap(selectedDay: Date = Date()) {
         keychainService.removeLegacySystemKeychainItems()
         startMaintenanceLoop()
+        startSleepWakeObservers()
 
         if authSession != nil {
             refreshAccountStatus()
@@ -720,6 +755,28 @@ final class ActivityStore {
         Task { [weak self] in
             await self?.ensureAgenda(for: selectedDay)
             await self?.reminderEngine.refreshAuthorizationStatus()
+        }
+    }
+
+    private func startSleepWakeObservers() {
+        let workspaceNC = NSWorkspace.shared.notificationCenter
+        sleepObserverTask = Task { @MainActor [weak self] in
+            for await _ in workspaceNC.notifications(named: NSWorkspace.willSleepNotification) {
+                guard let self else { return }
+                if self.isMonitoring {
+                    self.monitoringPausedForSleep = true
+                    self.stopMonitoring()
+                }
+            }
+        }
+        wakeObserverTask = Task { @MainActor [weak self] in
+            for await _ in workspaceNC.notifications(named: NSWorkspace.didWakeNotification) {
+                guard let self else { return }
+                if self.monitoringPausedForSleep {
+                    self.monitoringPausedForSleep = false
+                    self.startMonitoring()
+                }
+            }
         }
     }
 
@@ -854,727 +911,7 @@ final class ActivityStore {
         persistGoogleCalendar()
     }
 
-    func updateNotionCalendarEnabled(_ value: Bool) {
-        if value && !canUse(.advancedIntegrations) {
-            monitoringPreferences.notionCalendarSettings.isEnabled = false
-            notionCalendarStatusMessage = lockMessage(for: .advancedIntegrations)
-            persistMonitoringPreferences()
-            return
-        }
 
-        monitoringPreferences.notionCalendarSettings.isEnabled = value
-        persistMonitoringPreferences()
-
-        guard value else {
-            notionAgendaItems = []
-            notionAgendaDay = nil
-            notionCalendarStatusMessage = "Integracao do Notion pausada."
-            return
-        }
-
-        notionCalendarStatusMessage = notionCalendarConfigured
-            ? "Notion pronto para sincronizar."
-            : Self.notionPendingConnectionMessage
-    }
-
-    func updateNotionWorkspaceLabel(_ value: String) {
-        monitoringPreferences.notionCalendarSettings.workspaceLabel = value
-        persistMonitoringPreferences()
-    }
-
-    func updateNotionDatePropertyName(_ value: String) {
-        monitoringPreferences.notionCalendarSettings.datePropertyName = value
-        persistMonitoringPreferences()
-    }
-
-    func updateNotionTitlePropertyName(_ value: String) {
-        monitoringPreferences.notionCalendarSettings.titlePropertyName = value
-        persistMonitoringPreferences()
-    }
-
-    func addNotionDataSourceID(_ value: String) {
-        guard let normalizedID = NotionCalendarSettings.normalizedDatabaseID(value) else {
-            notionCalendarStatusMessage = Self.notionPendingConnectionMessage
-            return
-        }
-
-        guard !monitoringPreferences.notionCalendarSettings.databaseIDs.contains(normalizedID) else { return }
-        monitoringPreferences.notionCalendarSettings.databaseIDs.append(normalizedID)
-        monitoringPreferences.notionCalendarSettings.databaseIDs.sort()
-        notionCalendarStatusMessage = "Data source adicionada ao Notion."
-        persistMonitoringPreferences()
-    }
-
-    func removeNotionDataSourceID(_ value: String) {
-        monitoringPreferences.notionCalendarSettings.databaseIDs.removeAll { $0 == value }
-        if monitoringPreferences.notionCalendarSettings.databaseIDs.isEmpty {
-            notionAgendaItems = []
-            notionAgendaDay = nil
-            notionCalendarStatusMessage = "Nenhuma data source do Notion selecionada."
-        }
-        persistMonitoringPreferences()
-    }
-
-    func updateNotionToken(_ value: String) {
-        do {
-            if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                keychainService.removeValue(for: Self.notionCalendarTokenKey)
-                notionAgendaItems = []
-                notionAgendaDay = nil
-                notionCalendarStatusMessage = Self.notionPendingConnectionMessage
-            } else {
-                try keychainService.setString(value, for: Self.notionCalendarTokenKey)
-                notionCalendarStatusMessage = "Notion conectado neste Mac."
-            }
-        } catch {
-            notionCalendarStatusMessage = error.localizedDescription
-        }
-    }
-
-    func connectNotionCalendar() {
-        Task { await runNotionConnect() }
-    }
-
-    func disconnectNotionCalendar() {
-        keychainService.removeValue(for: Self.notionCalendarTokenKey)
-        monitoringPreferences.notionCalendarSettings.isEnabled = false
-        notionAgendaItems = []
-        notionAgendaDay = nil
-        notionCalendarStatusMessage = "Notion desconectado."
-        persistMonitoringPreferences()
-    }
-
-    func refreshNotionCalendar(for day: Date = Date()) {
-        guard !isSyncingNotionCalendar else { return }
-        Task { [weak self] in
-            await self?.runNotionCalendarSync(for: day, force: true)
-        }
-    }
-
-    func updateOutlookCalendarEnabled(_ value: Bool) {
-        if value && !canUse(.agendaIntegrations) {
-            monitoringPreferences.outlookCalendarSettings.isEnabled = false
-            outlookCalendarStatusMessage = lockMessage(for: .agendaIntegrations)
-            persistMonitoringPreferences()
-            return
-        }
-
-        monitoringPreferences.outlookCalendarSettings.isEnabled = value
-        persistMonitoringPreferences()
-
-        guard value else {
-            outlookAgendaItems = []
-            outlookAgendaDay = nil
-            outlookCalendarStatusMessage = "Integracao do Outlook pausada."
-            return
-        }
-
-        outlookCalendarStatusMessage = outlookCalendarConfigured
-            ? "Outlook pronto para sincronizar."
-            : Self.outlookPendingConnectionMessage
-    }
-
-    func updateOutlookWorkspaceLabel(_ value: String) {
-        monitoringPreferences.outlookCalendarSettings.workspaceLabel = value
-        persistMonitoringPreferences()
-    }
-
-    func updateOutlookToken(_ value: String) {
-        do {
-            if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                keychainService.removeValue(for: Self.outlookCalendarTokenKey)
-                outlookAgendaItems = []
-                outlookAgendaDay = nil
-                monitoringPreferences.outlookCalendarSettings.accountEmail = ""
-                monitoringPreferences.outlookCalendarSettings.calendars = []
-                outlookCalendarStatusMessage = Self.outlookPendingConnectionMessage
-            } else {
-                try keychainService.setString(value, for: Self.outlookCalendarTokenKey)
-                outlookCalendarStatusMessage = "Outlook conectado neste Mac."
-            }
-            persistMonitoringPreferences()
-        } catch {
-            outlookCalendarStatusMessage = error.localizedDescription
-        }
-    }
-
-    func connectOutlookCalendar() {
-        Task { await runOutlookConnect() }
-    }
-
-    func disconnectOutlookCalendar() {
-        keychainService.removeValue(for: Self.outlookCalendarSessionKey)
-        keychainService.removeValue(for: Self.outlookCalendarTokenKey)
-        monitoringPreferences.outlookCalendarSettings.isEnabled = false
-        monitoringPreferences.outlookCalendarSettings.accountEmail = ""
-        monitoringPreferences.outlookCalendarSettings.calendars = []
-        outlookAgendaItems = []
-        outlookAgendaDay = nil
-        outlookCalendarStatusMessage = "Outlook desconectado."
-        persistMonitoringPreferences()
-    }
-
-    func setOutlookCalendarSelection(calendarID: String, isSelected: Bool) {
-        guard let index = monitoringPreferences.outlookCalendarSettings.calendars.firstIndex(where: { $0.id == calendarID }) else { return }
-        monitoringPreferences.outlookCalendarSettings.calendars[index].isSelected = isSelected
-        persistMonitoringPreferences()
-    }
-
-    func refreshOutlookCalendar(for day: Date = Date()) {
-        guard !isSyncingOutlookCalendar else { return }
-        Task { [weak self] in
-            await self?.runOutlookCalendarSync(for: day, force: true)
-        }
-    }
-
-    func updateClickUpEnabled(_ value: Bool) {
-        if value && !canUse(.agendaIntegrations) {
-            monitoringPreferences.clickUpSettings.isEnabled = false
-            clickUpStatusMessage = lockMessage(for: .agendaIntegrations)
-            persistMonitoringPreferences()
-            return
-        }
-
-        monitoringPreferences.clickUpSettings.isEnabled = value
-        persistMonitoringPreferences()
-
-        guard value else {
-            clickUpAgendaItems = []
-            clickUpAgendaDay = nil
-            clickUpStatusMessage = "Integracao do ClickUp pausada."
-            return
-        }
-
-        clickUpStatusMessage = clickUpConfigured
-            ? "ClickUp pronto para sincronizar."
-            : Self.clickUpPendingConnectionMessage
-    }
-
-    func updateClickUpWorkspaceLabel(_ value: String) {
-        monitoringPreferences.clickUpSettings.workspaceLabel = value
-        persistMonitoringPreferences()
-    }
-
-    func updateClickUpWorkspaceID(_ value: String) {
-        monitoringPreferences.clickUpSettings.workspaceID = value
-        persistMonitoringPreferences()
-    }
-
-    func updateClickUpIncludeClosedTasks(_ value: Bool) {
-        monitoringPreferences.clickUpSettings.includeClosedTasks = value
-        persistMonitoringPreferences()
-    }
-
-    func updateClickUpToken(_ value: String) {
-        do {
-            if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                keychainService.removeValue(for: Self.clickUpTokenKey)
-                clickUpAgendaItems = []
-                clickUpAgendaDay = nil
-                clickUpStatusMessage = Self.clickUpPendingConnectionMessage
-            } else {
-                try keychainService.setString(value, for: Self.clickUpTokenKey)
-                clickUpStatusMessage = "ClickUp conectado neste Mac."
-            }
-        } catch {
-            clickUpStatusMessage = error.localizedDescription
-        }
-    }
-
-    func addClickUpListID(_ value: String) {
-        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalized.isEmpty else {
-            clickUpStatusMessage = Self.clickUpPendingConnectionMessage
-            return
-        }
-
-        guard !monitoringPreferences.clickUpSettings.listIDs.contains(normalized) else { return }
-        monitoringPreferences.clickUpSettings.listIDs.append(normalized)
-        monitoringPreferences.clickUpSettings.listIDs.sort()
-        clickUpStatusMessage = "Lista do ClickUp adicionada."
-        persistMonitoringPreferences()
-    }
-
-    func removeClickUpListID(_ value: String) {
-        monitoringPreferences.clickUpSettings.listIDs.removeAll { $0 == value }
-        if monitoringPreferences.clickUpSettings.listIDs.isEmpty {
-            clickUpAgendaItems = []
-            clickUpAgendaDay = nil
-            clickUpStatusMessage = "Nenhuma lista do ClickUp selecionada."
-        }
-        persistMonitoringPreferences()
-    }
-
-    func refreshClickUp(for day: Date = Date()) {
-        guard !isSyncingClickUp else { return }
-        Task { [weak self] in
-            await self?.runClickUpSync(for: day, force: true)
-        }
-    }
-
-    func connectClickUp() { Task { await runClickUpConnect() } }
-
-    func disconnectClickUp() {
-        keychainService.removeValue(for: Self.clickUpTokenKey)
-        monitoringPreferences.clickUpSettings.isEnabled = false
-        monitoringPreferences.clickUpSettings.listIDs = []
-        clickUpAgendaItems = []; clickUpAgendaDay = nil
-        clickUpStatusMessage = "ClickUp desconectado."
-        persistMonitoringPreferences()
-    }
-
-    func updateLinearEnabled(_ value: Bool) {
-        if value && !canUse(.agendaIntegrations) {
-            monitoringPreferences.linearSettings.isEnabled = false
-            linearStatusMessage = lockMessage(for: .agendaIntegrations)
-            persistMonitoringPreferences()
-            return
-        }
-
-        monitoringPreferences.linearSettings.isEnabled = value
-        persistMonitoringPreferences()
-
-        guard value else {
-            linearAgendaItems = []
-            linearAgendaDay = nil
-            linearStatusMessage = "Integracao do Linear pausada."
-            return
-        }
-
-        linearStatusMessage = linearConfigured
-            ? "Linear pronto para sincronizar."
-            : Self.linearPendingConnectionMessage
-    }
-
-    func updateLinearWorkspaceLabel(_ value: String) {
-        monitoringPreferences.linearSettings.workspaceLabel = value
-        persistMonitoringPreferences()
-    }
-
-    func updateLinearWorkspaceID(_ value: String) {
-        monitoringPreferences.linearSettings.workspaceID = value
-        persistMonitoringPreferences()
-    }
-
-    func updateLinearIncludeCompletedIssues(_ value: Bool) {
-        monitoringPreferences.linearSettings.includeCompletedIssues = value
-        persistMonitoringPreferences()
-    }
-
-    func updateLinearToken(_ value: String) {
-        do {
-            if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                keychainService.removeValue(for: Self.linearTokenKey)
-                linearAgendaItems = []
-                linearAgendaDay = nil
-                linearStatusMessage = Self.linearPendingConnectionMessage
-            } else {
-                try keychainService.setString(value, for: Self.linearTokenKey)
-                linearStatusMessage = "Linear conectado neste Mac."
-            }
-        } catch {
-            linearStatusMessage = error.localizedDescription
-        }
-    }
-
-    func addLinearTeamID(_ value: String) {
-        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalized.isEmpty else {
-            linearStatusMessage = Self.linearPendingConnectionMessage
-            return
-        }
-
-        guard !monitoringPreferences.linearSettings.teamIDs.contains(normalized) else { return }
-        monitoringPreferences.linearSettings.teamIDs.append(normalized)
-        monitoringPreferences.linearSettings.teamIDs.sort()
-        linearStatusMessage = "Time do Linear adicionado."
-        persistMonitoringPreferences()
-    }
-
-    func removeLinearTeamID(_ value: String) {
-        monitoringPreferences.linearSettings.teamIDs.removeAll { $0 == value }
-        if monitoringPreferences.linearSettings.teamIDs.isEmpty {
-            linearAgendaItems = []
-            linearAgendaDay = nil
-            linearStatusMessage = "Nenhum time do Linear selecionado."
-        }
-        persistMonitoringPreferences()
-    }
-
-    func refreshLinear(for day: Date = Date()) {
-        guard !isSyncingLinear else { return }
-        Task { [weak self] in
-            await self?.runLinearSync(for: day, force: true)
-        }
-    }
-
-    func connectLinear() { Task { await runLinearConnect() } }
-
-    func disconnectLinear() {
-        keychainService.removeValue(for: Self.linearTokenKey)
-        monitoringPreferences.linearSettings.isEnabled = false
-        linearAgendaItems = []; linearAgendaDay = nil
-        linearStatusMessage = "Linear desconectado."
-        persistMonitoringPreferences()
-    }
-
-    private func runLinearConnect() async {
-        guard canUse(.agendaIntegrations) else {
-            linearStatusMessage = lockMessage(for: .agendaIntegrations)
-            return
-        }
-        guard let idToken = authSession?.idToken, !idToken.isEmpty else {
-            linearStatusMessage = "Faça login antes de conectar o Linear."
-            return
-        }
-        linearStatusMessage = "Abrindo autorização do Linear..."
-        do {
-            let baseURL = FirebaseAuthService.defaultBaseURL
-            var req = URLRequest(url: URL(string: "\(baseURL)/api/integrations?action=linear-auth")!)
-            req.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
-            let (data, _) = try await URLSession.shared.data(for: req)
-            struct AuthResponse: Decodable { let url: String }
-            let authResp = try JSONDecoder().decode(AuthResponse.self, from: data)
-            guard let oauthURL = URL(string: authResp.url) else {
-                linearStatusMessage = "URL de autorização inválida."
-                return
-            }
-            NSWorkspace.shared.open(oauthURL)
-        } catch {
-            linearStatusMessage = "Erro ao iniciar conexão com Linear: \(error.localizedDescription)"
-        }
-    }
-
-    func handleLinearOAuthCallback(_ url: URL) {
-        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        let params = Dictionary(uniqueKeysWithValues: (components?.queryItems ?? []).compactMap {
-            guard let v = $0.value else { return nil as (String, String)? }
-            return ($0.name, v)
-        })
-        if let errMsg = params["error"] {
-            switch errMsg {
-            case "invalid_state", "missing_state":
-                linearStatusMessage = "Sessão expirada. Tente conectar novamente."
-            case "server_not_configured":
-                linearStatusMessage = "Linear não está configurado no servidor."
-            case "access_denied":
-                linearStatusMessage = "Autorização negada. Permita o acesso para conectar."
-            default:
-                linearStatusMessage = "Erro ao conectar Linear. Tente novamente."
-            }
-            return
-        }
-        guard let accessToken = params["access_token"], !accessToken.isEmpty else {
-            linearStatusMessage = "Resposta inválida do Linear."
-            return
-        }
-        do {
-            let rawTokenType = params["token_type"]
-            let tokenType = rawTokenType.flatMap {
-                $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0
-            } ?? "Bearer"
-            try keychainService.setString("\(tokenType) \(accessToken)", for: Self.linearTokenKey)
-            linearStatusMessage = "Linear conectado com sucesso."
-        } catch {
-            linearStatusMessage = "Erro ao salvar token Linear: \(error.localizedDescription)"
-        }
-    }
-
-    func updateZapierEnabled(_ value: Bool) {
-        if value && !canUse(.advancedIntegrations) {
-            monitoringPreferences.zapierSettings.isEnabled = false
-            zapierStatusMessage = lockMessage(for: .advancedIntegrations)
-            persistMonitoringPreferences()
-            return
-        }
-
-        monitoringPreferences.zapierSettings.isEnabled = value
-        persistMonitoringPreferences()
-        zapierStatusMessage = value
-            ? (zapierConfigured ? "Zapier pronto para disparar automacoes." : Self.zapierPendingConnectionMessage)
-            : "Integracao com Zapier pausada."
-    }
-
-    func updateZapierWebhookURL(_ value: String) {
-        guard !value.isEmpty else {
-            monitoringPreferences.zapierSettings.webhooks = []
-            persistMonitoringPreferences()
-            return
-        }
-        let existing = monitoringPreferences.zapierSettings.webhooks
-        if existing.contains(where: { $0.url == value }) { return }
-        let wh = ZapierWebhook(url: value, label: "Webhook", events: [])
-        monitoringPreferences.zapierSettings.webhooks = existing + [wh]
-        persistMonitoringPreferences()
-    }
-
-    func saveZapierWebhookURLToServer(_ url: String) {
-        let existing = monitoringPreferences.zapierSettings.webhooks
-        let wh = ZapierWebhook(url: url, label: "Webhook", events: [])
-        let updated = existing.contains(where: { $0.url == url }) ? existing : existing + [wh]
-        Task { await runSaveZapierWebhooks(updated) }
-    }
-
-    func saveZapierWebhooksToServer(_ webhooks: [ZapierWebhook]) {
-        Task { await runSaveZapierWebhooks(webhooks) }
-    }
-
-    func removeZapierWebhook() {
-        Task { await runSaveZapierWebhooks([]) }
-    }
-
-    func removeZapierWebhook(id: UUID) {
-        let updated = monitoringPreferences.zapierSettings.webhooks.filter { $0.id != id }
-        monitoringPreferences.zapierSettings.webhooks = updated
-        persistMonitoringPreferences()
-        Task { await runSaveZapierWebhooks(updated) }
-    }
-
-    private func runSaveZapierWebhooks(_ webhooks: [ZapierWebhook]) async {
-        guard let idToken = authSession?.idToken, !idToken.isEmpty else {
-            zapierStatusMessage = "Faça login antes de configurar o Zapier."
-            return
-        }
-        isSavingZapierWebhook = true
-        defer { isSavingZapierWebhook = false }
-        let baseURL = FirebaseAuthService.defaultBaseURL
-        guard let endpoint = URL(string: "\(baseURL)/api/integrations?action=zapier-webhook-config") else {
-            zapierStatusMessage = "Erro interno: URL de endpoint inválida."
-            return
-        }
-        struct WebhookBody: Encodable {
-            let url: String
-            let label: String
-            let events: [String]
-        }
-        struct Body: Encodable { let webhooks: [WebhookBody] }
-        let body = Body(webhooks: webhooks.map {
-            WebhookBody(url: $0.url, label: $0.label, events: Array($0.events))
-        })
-        var req = URLRequest(url: endpoint)
-        req.httpMethod = "POST"
-        req.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try? JSONEncoder().encode(body)
-        do {
-            let (data, response) = try await URLSession.shared.data(for: req)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                if let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let serverError = body["error"] as? String {
-                    zapierStatusMessage = humanReadableOAuthError(serverError, integration: "Zapier")
-                } else {
-                    zapierStatusMessage = humanReadableOAuthError("server_not_configured", integration: "Zapier")
-                }
-                return
-            }
-            monitoringPreferences.zapierSettings.webhooks = webhooks
-            persistMonitoringPreferences()
-            zapierStatusMessage = webhooks.isEmpty ? "Zapier desconectado." : "Webhooks do Zapier salvos com sucesso."
-        } catch {
-            zapierStatusMessage = humanReadableOAuthError("network_error", integration: "Zapier")
-        }
-    }
-
-    func updateZapierSendsFocusEvents(_ value: Bool) {
-        if value && !canUse(.advancedIntegrations) {
-            monitoringPreferences.zapierSettings.sendsFocusEvents = false
-            zapierStatusMessage = lockMessage(for: .advancedIntegrations)
-            persistMonitoringPreferences()
-            return
-        }
-
-        monitoringPreferences.zapierSettings.sendsFocusEvents = value
-        persistMonitoringPreferences()
-    }
-
-    func updateZapierSendsCalendarSyncEvents(_ value: Bool) {
-        if value && !canUse(.advancedIntegrations) {
-            monitoringPreferences.zapierSettings.sendsCalendarSyncEvents = false
-            zapierStatusMessage = lockMessage(for: .advancedIntegrations)
-            persistMonitoringPreferences()
-            return
-        }
-
-        monitoringPreferences.zapierSettings.sendsCalendarSyncEvents = value
-        persistMonitoringPreferences()
-    }
-
-    func updateZapierSendsWorkspaceRankingEvents(_ value: Bool) {
-        if value && !canUse(.advancedIntegrations) {
-            monitoringPreferences.zapierSettings.sendsWorkspaceRankingEvents = false
-            zapierStatusMessage = lockMessage(for: .advancedIntegrations)
-            persistMonitoringPreferences()
-            return
-        }
-
-        monitoringPreferences.zapierSettings.sendsWorkspaceRankingEvents = value
-        persistMonitoringPreferences()
-    }
-
-    func sendZapierTestEvent() {
-        guard canUse(.advancedIntegrations) else {
-            zapierStatusMessage = lockMessage(for: .advancedIntegrations)
-            return
-        }
-
-        Task { [weak self] in
-            await self?.sendZapierEvent(
-                type: "manual_test",
-                details: [
-                    "status": "ok",
-                    "source": "luum-settings",
-                ]
-            )
-        }
-    }
-
-    func updateAIClassificationEnabled(_ value: Bool) {
-        monitoringPreferences.aiClassificationSettings.isEnabled = value
-        aiClassificationStatusMessage = value
-            ? "IA de classificação ativada. O Luum usa a configuração segura da sua conta."
-            : "IA de classificação desativada."
-        persistMonitoringPreferences()
-    }
-
-    func updateAIClassificationEndpointURL(_ value: String) {
-        monitoringPreferences.aiClassificationSettings.endpointURL = value
-        persistMonitoringPreferences()
-    }
-
-    func updateAIClassificationModel(_ value: String) {
-        monitoringPreferences.aiClassificationSettings.model = value
-        persistMonitoringPreferences()
-    }
-
-    func updateAIClassificationMinimumConfidence(_ value: Double) {
-        monitoringPreferences.aiClassificationSettings.minimumConfidence = value
-        persistMonitoringPreferences()
-    }
-
-    func updateAIClassificationAPIKey(_ value: String) {
-        do {
-            if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                keychainService.removeValue(for: Self.aiClassificationAPIKeyKey)
-                aiClassificationStatusMessage = "Chave da IA removida deste Mac."
-            } else {
-                try keychainService.setString(value, for: Self.aiClassificationAPIKeyKey)
-                aiClassificationStatusMessage = "Chave da IA salva no cofre local cifrado."
-            }
-        } catch {
-            aiClassificationStatusMessage = "Nao foi possivel salvar a chave da IA."
-        }
-    }
-
-    func classifyApplicationWithAI(_ item: UsageBreakdownItem) {
-        aiClassificationTask?.cancel()
-        aiClassificationTask = Task { [weak self] in
-            await self?.runAIClassification(kind: .application, item: item)
-        }
-    }
-
-    func classifyDomainWithAI(_ item: UsageBreakdownItem) {
-        aiClassificationTask?.cancel()
-        aiClassificationTask = Task { [weak self] in
-            await self?.runAIClassification(kind: .domain, item: item)
-        }
-    }
-
-    func sendAIQuery(_ question: String) {
-        let clean = question.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !clean.isEmpty, !isQueryingAI else { return }
-
-        aiQueryTask?.cancel()
-        isQueryingAI = true
-        aiQueryError = nil
-
-        aiQueryTask = Task { [weak self] in
-            await self?.runAIQuery(clean)
-        }
-    }
-
-    func clearAIQuery() {
-        aiQueryTask?.cancel()
-        aiQueryTask = nil
-        isQueryingAI = false
-        aiQueryResponse = nil
-        aiQueryError = nil
-    }
-
-    func updateTeamOrganizationName(_ value: String) {
-        monitoringPreferences.teamSettings.organizationName = value
-        persistMonitoringPreferences()
-    }
-
-    func updateTeamMemberDisplayName(_ value: String) {
-        monitoringPreferences.teamSettings.memberDisplayName = value
-        persistMonitoringPreferences()
-    }
-
-    func updateTeamRoleLabel(_ value: String) {
-        monitoringPreferences.teamSettings.roleLabel = value
-        persistMonitoringPreferences()
-    }
-
-    func updateTeamSharesAnonymousMetrics(_ value: Bool) {
-        if value && !canUse(.teamWorkspace) {
-            monitoringPreferences.teamSettings.sharesAnonymousMetrics = false
-            workspaceSyncStatusMessage = lockMessage(for: .teamWorkspace)
-            persistMonitoringPreferences()
-            return
-        }
-
-        monitoringPreferences.teamSettings.sharesAnonymousMetrics = value
-        persistMonitoringPreferences()
-    }
-
-    func updateTeamWorkspaceID(_ value: String) {
-        monitoringPreferences.teamSettings.workspaceID = value
-        persistMonitoringPreferences()
-    }
-
-    func updateTeamWorkspaceMemberID(_ value: String) {
-        monitoringPreferences.teamSettings.workspaceMemberID = value
-        persistMonitoringPreferences()
-    }
-
-    func updateTeamWorkspaceEndpointURL(_ value: String) {
-        monitoringPreferences.teamSettings.workspaceEndpointURL = FirebaseAuthService.defaultBaseURL
-        persistMonitoringPreferences()
-    }
-
-    func updateTeamAutomaticallySyncWorkspace(_ value: Bool) {
-        if value && !canUse(.teamWorkspace) {
-            monitoringPreferences.teamSettings.automaticallySyncWorkspace = false
-            workspaceSyncStatusMessage = lockMessage(for: .teamWorkspace)
-            persistMonitoringPreferences()
-            return
-        }
-
-        monitoringPreferences.teamSettings.automaticallySyncWorkspace = value
-        persistMonitoringPreferences()
-    }
-
-    func updateTeamWorkspaceSecret(_ value: String) {
-        do {
-            if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                keychainService.removeValue(for: Self.teamWorkspaceSecretKey)
-                workspaceSyncStatusMessage = "Chave do workspace removida deste Mac."
-            } else {
-                try keychainService.setString(value, for: Self.teamWorkspaceSecretKey)
-                workspaceSyncStatusMessage = "Chave do workspace atualizada neste Mac."
-            }
-        } catch {
-            workspaceSyncStatusMessage = error.localizedDescription
-        }
-    }
-
-    func syncWorkspaceRankingNow(for day: Date = Date()) {
-        guard !isSyncingWorkspace else { return }
-        workspaceSyncTask?.cancel()
-        workspaceSyncTask = Task { [weak self] in
-            await self?.runWorkspaceSync(for: day, force: true)
-        }
-    }
 
     func addBusinessClient(name: String, domain: String = "") {
         let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1662,73 +999,6 @@ final class ActivityStore {
     func updatePrivacySyncOnlyDomains(_ value: Bool) {
         monitoringPreferences.privacySettings.syncOnlyDomains = value
         persistMonitoringPreferences()
-    }
-
-    func updateCloudSyncEnabled(_ value: Bool) {
-        if value && !canUse(.cloudBackup) {
-            monitoringPreferences.cloudSyncSettings.isEnabled = false
-            cloudSyncStatusMessage = lockMessage(for: .cloudBackup)
-            persistMonitoringPreferences()
-            return
-        }
-
-        monitoringPreferences.cloudSyncSettings.isEnabled = value
-        persistMonitoringPreferences()
-        if value {
-            scheduleCloudSyncIfNeeded(reason: "cloud-enabled")
-        } else {
-            cloudSyncTask?.cancel()
-            cloudSyncTask = nil
-            cloudSyncPendingAfterCurrent = false
-        }
-    }
-
-    func updateCloudSyncEndpointURL(_ value: String) {
-        monitoringPreferences.cloudSyncSettings.endpointURL = FirebaseAuthService.defaultBaseURL
-        persistMonitoringPreferences()
-    }
-
-    func updateCloudSyncBackupID(_ value: String) {
-        monitoringPreferences.cloudSyncSettings.backupID = authSession?.uid ?? ""
-        persistMonitoringPreferences()
-    }
-
-    func updateCloudSyncSyncRawActivities(_ value: Bool) {
-        if value && !canUse(.rawActivityBackup) {
-            monitoringPreferences.cloudSyncSettings.syncRawActivities = false
-            cloudSyncStatusMessage = lockMessage(for: .rawActivityBackup)
-            persistMonitoringPreferences()
-            return
-        }
-
-        monitoringPreferences.cloudSyncSettings.syncRawActivities = value
-        persistMonitoringPreferences()
-    }
-
-    func updateCloudSyncSyncDailySummaries(_ value: Bool) {
-        monitoringPreferences.cloudSyncSettings.syncDailySummaries = value
-        persistMonitoringPreferences()
-    }
-
-    func updateCloudSyncSyncCategories(_ value: Bool) {
-        monitoringPreferences.cloudSyncSettings.syncCategoriesAndRules = value
-        persistMonitoringPreferences()
-    }
-
-    func syncCloudBackupNow() {
-        guard !isSyncingCloud else { return }
-        cloudSyncTask?.cancel()
-        cloudSyncTask = Task { [weak self] in
-            await self?.runCloudSync()
-        }
-    }
-
-    func restoreCloudBackup() {
-        guard !isSyncingCloud else { return }
-        cloudSyncTask?.cancel()
-        cloudSyncTask = Task { [weak self] in
-            await self?.runCloudRestore()
-        }
     }
 
     func category(for id: String) -> ActivityCategory? {
@@ -3003,905 +2273,6 @@ final class ActivityStore {
         }
     }
 
-    private func runNotionConnect() async {
-        guard canUse(.advancedIntegrations) else {
-            notionCalendarStatusMessage = lockMessage(for: .advancedIntegrations)
-            return
-        }
-        guard let verified = try? await authCoordinator.verifiedAuthSessionForProtectedRequest() else {
-            notionCalendarStatusMessage = "Entre na sua conta Luum antes de conectar o Notion."
-            return
-        }
-        notionCalendarStatusMessage = "Carregando autorização do Notion..."
-
-        let backendURL = FirebaseAuthService.defaultBaseURL
-        guard let url = URL(string: "\(backendURL)/api/integrations?action=notion-auth") else {
-            notionCalendarStatusMessage = "Erro ao montar URL de autenticação do Notion."
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(verified.idToken)", forHTTPHeaderField: "Authorization")
-
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
-            guard (200 ..< 300).contains(statusCode) else {
-                struct ErrorBody: Decodable { let error: String }
-                let msg = (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error ?? "Noção não configurada no servidor."
-                notionCalendarStatusMessage = msg
-                return
-            }
-            struct AuthResponse: Decodable { let url: String }
-            let authResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
-            guard let authURL = URL(string: authResponse.url) else {
-                notionCalendarStatusMessage = "URL OAuth do Notion inválida."
-                return
-            }
-            NSWorkspace.shared.open(authURL)
-            notionCalendarStatusMessage = "Autorizando no Notion... Conclua no navegador e volte ao Luum."
-        } catch {
-            notionCalendarStatusMessage = "Erro ao iniciar conexão com Notion."
-        }
-    }
-
-    private func handleNotionOAuthCallback(_ url: URL) {
-        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
-
-        if let error = items.first(where: { $0.name == "error" })?.value {
-            notionCalendarStatusMessage = humanReadableOAuthError(error, integration: "Notion")
-            return
-        }
-
-        guard let accessToken = items.first(where: { $0.name == "access_token" })?.value,
-              !accessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            notionCalendarStatusMessage = "Token do Notion não recebido. Tente reconectar."
-            return
-        }
-
-        let rawName = items.first(where: { $0.name == "workspace_name" })?.value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let workspaceName = rawName.isEmpty ? "Notion" : rawName
-
-        do {
-            try keychainService.setString(accessToken, for: Self.notionCalendarTokenKey)
-            monitoringPreferences.notionCalendarSettings.isEnabled = true
-            if monitoringPreferences.notionCalendarSettings.workspaceLabel == NotionCalendarSettings.default.workspaceLabel {
-                monitoringPreferences.notionCalendarSettings.workspaceLabel = workspaceName
-            }
-            notionCalendarStatusMessage = "Notion conectado: \(workspaceName). Configure as fontes de data abaixo."
-            persistMonitoringPreferences()
-        } catch {
-            notionCalendarStatusMessage = "Erro ao salvar token do Notion no Keychain."
-        }
-    }
-
-    private func runNotionCalendarSync(for day: Date, force: Bool) async {
-        guard canUse(.advancedIntegrations) else {
-            if force {
-                notionCalendarStatusMessage = lockMessage(for: .advancedIntegrations)
-            }
-            return
-        }
-
-        let settings = notionCalendarSettings.normalized()
-
-        guard settings.isEnabled else {
-            if force {
-                notionCalendarStatusMessage = "Ative a integração do Notion para sincronizar esta fonte."
-            }
-            return
-        }
-
-        guard notionCalendarConfigured else {
-            if force {
-                notionCalendarStatusMessage = Self.notionPendingConnectionMessage
-            }
-            return
-        }
-
-        guard let token = keychainService.string(for: Self.notionCalendarTokenKey),
-              !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else {
-            notionCalendarStatusMessage = NotionCalendarIssue.missingToken.errorDescription
-            return
-        }
-
-        let normalizedDay = Calendar.autoupdatingCurrent.startOfDay(for: day)
-        let lastSyncAge = settings.lastSyncAt.map { Date().timeIntervalSince($0) } ?? .infinity
-        let shouldReuseCurrentAgenda = !force &&
-            notionAgendaDay == normalizedDay &&
-            !notionAgendaItems.isEmpty &&
-            lastSyncAge < calendarRefreshInterval
-
-        guard !shouldReuseCurrentAgenda else { return }
-
-        isSyncingNotionCalendar = true
-        defer { isSyncingNotionCalendar = false }
-
-        do {
-            let result = try await notionCalendarService.refresh(
-                day: normalizedDay,
-                settings: settings,
-                token: token
-            )
-
-            notionAgendaItems = result.events
-            notionAgendaDay = normalizedDay
-            monitoringPreferences.notionCalendarSettings.lastSyncAt = result.syncedAt
-            notionCalendarStatusMessage = result.events.isEmpty
-                ? "Notion sincronizado sem eventos na janela atual."
-                : "Notion sincronizado em \(result.dataSourceIDs.count) fonte(s)."
-            persistMonitoringPreferences()
-            await sendZapierCalendarSyncEventIfNeeded(source: "notion", itemCount: result.events.count)
-        } catch {
-            notionCalendarStatusMessage = error.localizedDescription
-        }
-    }
-
-    private func runOutlookConnect() async {
-        guard canUse(.agendaIntegrations) else {
-            outlookCalendarStatusMessage = lockMessage(for: .agendaIntegrations)
-            return
-        }
-        guard let verified = try? await authCoordinator.verifiedAuthSessionForProtectedRequest() else {
-            outlookCalendarStatusMessage = "Entre na sua conta Luum antes de conectar o Outlook."
-            return
-        }
-        outlookCalendarStatusMessage = "Carregando autorização do Outlook..."
-
-        let backendURL = FirebaseAuthService.defaultBaseURL
-        guard let url = URL(string: "\(backendURL)/api/integrations?action=outlook-auth") else {
-            outlookCalendarStatusMessage = "Erro ao montar URL de autenticação do Outlook."
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(verified.idToken)", forHTTPHeaderField: "Authorization")
-
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
-            guard (200 ..< 300).contains(statusCode) else {
-                struct ErrorBody: Decodable { let error: String }
-                let msg = (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error ?? "Outlook não configurado no servidor."
-                outlookCalendarStatusMessage = msg
-                return
-            }
-            struct AuthResponse: Decodable { let url: String }
-            let authResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
-            guard let authURL = URL(string: authResponse.url) else {
-                outlookCalendarStatusMessage = "URL OAuth do Outlook inválida."
-                return
-            }
-            NSWorkspace.shared.open(authURL)
-            outlookCalendarStatusMessage = "Autorizando no Outlook... Conclua no navegador e volte ao Luum."
-        } catch {
-            outlookCalendarStatusMessage = "Erro ao iniciar conexão com Outlook."
-        }
-    }
-
-    private func handleOutlookOAuthCallback(_ url: URL) {
-        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
-
-        if let error = items.first(where: { $0.name == "error" })?.value {
-            outlookCalendarStatusMessage = humanReadableOAuthError(error, integration: "Outlook")
-            return
-        }
-
-        guard let accessToken = items.first(where: { $0.name == "access_token" })?.value,
-              !accessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            outlookCalendarStatusMessage = "Token do Outlook não recebido. Tente reconectar."
-            return
-        }
-
-        let refreshToken = items.first(where: { $0.name == "refresh_token" })?.value
-        let expiresIn = TimeInterval(items.first(where: { $0.name == "expires_in" })?.value ?? "3600") ?? 3600
-        let tokens = OutlookCalendarTokens.make(accessToken: accessToken, refreshToken: refreshToken, expiresIn: expiresIn)
-
-        do {
-            try keychainService.setCodable(tokens, for: Self.outlookCalendarSessionKey)
-            monitoringPreferences.outlookCalendarSettings.isEnabled = true
-            outlookCalendarStatusMessage = "Outlook conectado. Sincronizando calendários..."
-            persistMonitoringPreferences()
-            refreshOutlookCalendar()
-        } catch {
-            outlookCalendarStatusMessage = "Erro ao salvar token do Outlook no Keychain."
-        }
-    }
-
-    private func loadValidOutlookTokens() async -> OutlookCalendarTokens? {
-        guard var tokens = keychainService.codable(OutlookCalendarTokens.self, for: Self.outlookCalendarSessionKey) else {
-            return nil
-        }
-
-        guard tokens.isExpired else { return tokens }
-        guard let refreshToken = tokens.refreshToken else {
-            outlookCalendarStatusMessage = "Token Microsoft expirado. Reconecte o Outlook."
-            return nil
-        }
-
-        guard let verified = try? await authCoordinator.verifiedAuthSessionForProtectedRequest() else {
-            return nil
-        }
-
-        let backendURL = FirebaseAuthService.defaultBaseURL
-        guard let url = URL(string: "\(backendURL)/api/integrations?action=outlook-refresh") else { return nil }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(verified.idToken)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try? JSONEncoder().encode(["refresh_token": refreshToken])
-
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-                outlookCalendarStatusMessage = "Token Microsoft expirado. Reconecte o Outlook."
-                return nil
-            }
-            struct RefreshResponse: Decodable {
-                let access_token: String
-                let refresh_token: String?
-                let expires_in: TimeInterval
-            }
-            let refreshed = try JSONDecoder().decode(RefreshResponse.self, from: data)
-            tokens = OutlookCalendarTokens.make(
-                accessToken: refreshed.access_token,
-                refreshToken: refreshed.refresh_token ?? refreshToken,
-                expiresIn: refreshed.expires_in
-            )
-            try? keychainService.setCodable(tokens, for: Self.outlookCalendarSessionKey)
-            return tokens
-        } catch {
-            return nil
-        }
-    }
-
-    private func runOutlookCalendarSync(for day: Date, force: Bool) async {
-        guard canUse(.agendaIntegrations) else {
-            if force {
-                outlookCalendarStatusMessage = lockMessage(for: .agendaIntegrations)
-            }
-            return
-        }
-
-        let settings = outlookCalendarSettings.normalized()
-
-        guard settings.isEnabled else {
-            if force {
-                outlookCalendarStatusMessage = "Ative a integração do Outlook para sincronizar esta fonte."
-            }
-            return
-        }
-
-        guard outlookCalendarConfigured else {
-            if force {
-                outlookCalendarStatusMessage = Self.outlookPendingConnectionMessage
-            }
-            return
-        }
-
-        guard let tokens = await loadValidOutlookTokens() else {
-            if outlookCalendarStatusMessage == nil {
-                outlookCalendarStatusMessage = OutlookCalendarIssue.missingToken.errorDescription
-            }
-            return
-        }
-
-        let normalizedDay = Calendar.autoupdatingCurrent.startOfDay(for: day)
-        let lastSyncAge = settings.lastSyncAt.map { Date().timeIntervalSince($0) } ?? .infinity
-        let shouldReuseCurrentAgenda = !force &&
-            outlookAgendaDay == normalizedDay &&
-            !outlookAgendaItems.isEmpty &&
-            lastSyncAge < calendarRefreshInterval
-        guard !shouldReuseCurrentAgenda else { return }
-
-        isSyncingOutlookCalendar = true
-        defer { isSyncingOutlookCalendar = false }
-
-        do {
-            let result = try await outlookCalendarService.sync(
-                day: normalizedDay,
-                settings: settings,
-                accessToken: tokens.accessToken
-            )
-            outlookAgendaItems = result.events
-            outlookAgendaDay = normalizedDay
-            monitoringPreferences.outlookCalendarSettings.accountEmail = result.accountEmail
-            monitoringPreferences.outlookCalendarSettings.calendars = result.calendars
-            monitoringPreferences.outlookCalendarSettings.lastSyncAt = result.syncedAt
-            outlookCalendarStatusMessage = result.events.isEmpty
-                ? "Outlook sincronizado sem eventos na janela atual."
-                : "Outlook sincronizado em \(result.calendars.filter(\.isSelected).count) calendario(s)."
-            persistMonitoringPreferences()
-            await sendZapierCalendarSyncEventIfNeeded(source: "outlook", itemCount: result.events.count)
-        } catch {
-            outlookCalendarStatusMessage = error.localizedDescription
-        }
-    }
-
-    private func runClickUpConnect() async {
-        guard canUse(.agendaIntegrations) else {
-            clickUpStatusMessage = lockMessage(for: .agendaIntegrations)
-            return
-        }
-        guard let idToken = authSession?.idToken, !idToken.isEmpty else {
-            clickUpStatusMessage = "Faça login antes de conectar o ClickUp."
-            return
-        }
-        clickUpStatusMessage = "Abrindo autorização do ClickUp..."
-        do {
-            let baseURL = FirebaseAuthService.defaultBaseURL
-            var req = URLRequest(url: URL(string: "\(baseURL)/api/integrations?action=clickup-auth")!)
-            req.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
-            let (data, _) = try await URLSession.shared.data(for: req)
-            struct AuthResponse: Decodable { let url: String }
-            let authResp = try JSONDecoder().decode(AuthResponse.self, from: data)
-            guard let oauthURL = URL(string: authResp.url) else {
-                clickUpStatusMessage = "URL de autorização inválida."
-                return
-            }
-            NSWorkspace.shared.open(oauthURL)
-        } catch {
-            clickUpStatusMessage = "Erro ao iniciar conexão com ClickUp: \(error.localizedDescription)"
-        }
-    }
-
-    private func handleClickUpOAuthCallback(_ url: URL) {
-        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        let params = Dictionary(uniqueKeysWithValues: (components?.queryItems ?? []).compactMap {
-            guard let v = $0.value else { return nil as (String, String)? }
-            return ($0.name, v)
-        })
-        if let errMsg = params["error"] {
-            clickUpStatusMessage = humanReadableOAuthError(errMsg, integration: "ClickUp")
-            return
-        }
-        guard let accessToken = params["access_token"], !accessToken.isEmpty else {
-            clickUpStatusMessage = "Resposta inválida do ClickUp."
-            return
-        }
-        do {
-            try keychainService.setString(accessToken, for: Self.clickUpTokenKey)
-            clickUpStatusMessage = "ClickUp conectado com sucesso."
-        } catch {
-            clickUpStatusMessage = "Erro ao salvar token ClickUp: \(error.localizedDescription)"
-        }
-    }
-
-    private func runClickUpSync(for day: Date, force: Bool) async {
-        guard canUse(.agendaIntegrations) else {
-            if force {
-                clickUpStatusMessage = lockMessage(for: .agendaIntegrations)
-            }
-            return
-        }
-
-        let settings = clickUpSettings.normalized()
-
-        guard settings.isEnabled else {
-            if force {
-                clickUpStatusMessage = "Ative a integração do ClickUp para sincronizar esta fonte."
-            }
-            return
-        }
-
-        guard clickUpConfigured else {
-            if force {
-                clickUpStatusMessage = Self.clickUpPendingConnectionMessage
-            }
-            return
-        }
-
-        guard let token = keychainService.string(for: Self.clickUpTokenKey),
-              !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else {
-            clickUpStatusMessage = ClickUpIssue.missingToken.errorDescription
-            return
-        }
-
-        let normalizedDay = Calendar.autoupdatingCurrent.startOfDay(for: day)
-        let lastSyncAge = settings.lastSyncAt.map { Date().timeIntervalSince($0) } ?? .infinity
-        let shouldReuseCurrentAgenda = !force &&
-            clickUpAgendaDay == normalizedDay &&
-            !clickUpAgendaItems.isEmpty &&
-            lastSyncAge < calendarRefreshInterval
-        guard !shouldReuseCurrentAgenda else { return }
-
-        isSyncingClickUp = true
-        defer { isSyncingClickUp = false }
-
-        do {
-            let result = try await clickUpService.sync(
-                day: normalizedDay,
-                settings: settings,
-                apiToken: token
-            )
-            clickUpAgendaItems = result.events
-            clickUpAgendaDay = normalizedDay
-            monitoringPreferences.clickUpSettings.lastSyncAt = result.syncedAt
-            clickUpStatusMessage = result.events.isEmpty
-                ? "ClickUp sincronizado sem tarefas com prazo na janela atual."
-                : "ClickUp sincronizado em \(result.listIDs.count) lista(s)."
-            persistMonitoringPreferences()
-            await sendZapierCalendarSyncEventIfNeeded(source: "clickup", itemCount: result.events.count)
-        } catch {
-            clickUpStatusMessage = error.localizedDescription
-        }
-    }
-
-    private func runLinearSync(for day: Date, force: Bool) async {
-        guard canUse(.agendaIntegrations) else {
-            if force {
-                linearStatusMessage = lockMessage(for: .agendaIntegrations)
-            }
-            return
-        }
-
-        let settings = linearSettings.normalized()
-
-        guard settings.isEnabled else {
-            if force {
-                linearStatusMessage = "Ative a integração do Linear para sincronizar esta fonte."
-            }
-            return
-        }
-
-        guard linearConfigured else {
-            if force {
-                linearStatusMessage = Self.linearPendingConnectionMessage
-            }
-            return
-        }
-
-        guard let token = keychainService.string(for: Self.linearTokenKey),
-              !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else {
-            linearStatusMessage = LinearIssue.missingToken.errorDescription
-            return
-        }
-
-        let normalizedDay = Calendar.autoupdatingCurrent.startOfDay(for: day)
-        let lastSyncAge = settings.lastSyncAt.map { Date().timeIntervalSince($0) } ?? .infinity
-        let shouldReuseCurrentAgenda = !force &&
-            linearAgendaDay == normalizedDay &&
-            !linearAgendaItems.isEmpty &&
-            lastSyncAge < calendarRefreshInterval
-        guard !shouldReuseCurrentAgenda else { return }
-
-        isSyncingLinear = true
-        defer { isSyncingLinear = false }
-
-        do {
-            let result = try await linearService.sync(
-                day: normalizedDay,
-                settings: settings,
-                apiKey: token
-            )
-            linearAgendaItems = result.events
-            linearAgendaDay = normalizedDay
-            monitoringPreferences.linearSettings.lastSyncAt = result.syncedAt
-            linearStatusMessage = result.events.isEmpty
-                ? "Linear sincronizado sem issues com prazo na janela atual."
-                : "Linear sincronizado em \(result.teamIDs.count) time(s)."
-            persistMonitoringPreferences()
-            await sendZapierCalendarSyncEventIfNeeded(source: "linear", itemCount: result.events.count)
-        } catch {
-            linearStatusMessage = error.localizedDescription
-        }
-    }
-
-    private func runWorkspaceSync(for day: Date, force: Bool) async {
-        guard teamWorkspaceConfigured else {
-            if force {
-                workspaceSyncStatusMessage = "Preencha endpoint, Workspace ID e chave para liberar o ranking corporativo."
-            }
-            return
-        }
-
-        guard let secret = workspaceSecret,
-              !secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else {
-            workspaceSyncStatusMessage = WorkspaceSyncError.missingSecret.errorDescription
-            return
-        }
-
-        isSyncingWorkspace = true
-        defer { isSyncingWorkspace = false }
-
-        do {
-            let verified = try await verifiedAuthSessionForProtectedRequest()
-            guard verified.includes(.teamWorkspace) else {
-                workspaceSyncStatusMessage = lockMessage(for: .teamWorkspace)
-                return
-            }
-            let payload = makeWorkspaceMemberPayload(for: day)
-            let updatedAt = try await workspaceSyncService.push(
-                baseURL: FirebaseAuthService.defaultBaseURL,
-                workspaceID: teamSettings.workspaceID,
-                memberID: teamSettings.workspaceMemberID,
-                secret: secret,
-                firebaseToken: verified.idToken,
-                payload: payload
-            )
-            guard isCurrentVerifiedSession(verified) else { return }
-            let ranking = try await workspaceSyncService.fetchRanking(
-                baseURL: FirebaseAuthService.defaultBaseURL,
-                workspaceID: teamSettings.workspaceID,
-                memberID: teamSettings.workspaceMemberID,
-                secret: secret,
-                firebaseToken: verified.idToken
-            )
-            guard isCurrentVerifiedSession(verified) else { return }
-            workspaceRankingEntries = ranking.entries
-            isCurrentUserWorkspaceAdmin = ranking.isCurrentUserAdmin
-            workspaceSyncLastSyncAt = ranking.updatedAt ?? updatedAt
-            workspaceSyncStatusMessage = workspaceRankingEntries.isEmpty
-                ? "Workspace sincronizado sem membros suficientes para ranking."
-                : "Workspace sincronizado com \(workspaceRankingEntries.count) membro(s)."
-            await sendZapierWorkspaceEventIfNeeded(memberCount: workspaceRankingEntries.count)
-        } catch is CancellationError {
-            return
-        } catch {
-            workspaceSyncStatusMessage = error.localizedDescription
-        }
-    }
-
-    func fetchWorkspaceAdminList() {
-        Task { await runFetchAdminList() }
-    }
-
-    func promoteWorkspaceMember(uid: String) {
-        Task { await runAdminAction("promote", targetUID: uid) }
-    }
-
-    func demoteWorkspaceMember(uid: String) {
-        Task { await runAdminAction("demote", targetUID: uid) }
-    }
-
-    func removeWorkspaceMember(uid: String) {
-        Task { await runAdminAction("remove", targetUID: uid) }
-    }
-
-    private func runFetchAdminList() async {
-        guard isCurrentUserWorkspaceAdmin else { return }
-        guard let secret = keychainService.string(for: Self.teamWorkspaceSecretKey),
-              let verified = try? await authCoordinator.verifiedAuthSessionForProtectedRequest()
-        else { return }
-
-        isLoadingAdminList = true
-        defer { isLoadingAdminList = false }
-        do {
-            let response = try await WorkspaceSyncService().fetchAdminList(
-                baseURL: teamSettings.workspaceEndpointURL,
-                workspaceID: teamSettings.workspaceID,
-                secret: secret,
-                firebaseToken: verified.idToken
-            )
-            workspaceAdminEntries = response.members
-        } catch {
-            workspaceSyncStatusMessage = error.localizedDescription
-        }
-    }
-
-    private func runAdminAction(_ action: String, targetUID: String) async {
-        guard isCurrentUserWorkspaceAdmin else { return }
-        guard let secret = keychainService.string(for: Self.teamWorkspaceSecretKey),
-              let verified = try? await authCoordinator.verifiedAuthSessionForProtectedRequest()
-        else { return }
-
-        do {
-            try await WorkspaceSyncService().patchAdminAction(
-                baseURL: teamSettings.workspaceEndpointURL,
-                workspaceID: teamSettings.workspaceID,
-                action: action,
-                targetUID: targetUID,
-                secret: secret,
-                firebaseToken: verified.idToken
-            )
-            await runFetchAdminList()
-        } catch {
-            workspaceSyncStatusMessage = error.localizedDescription
-        }
-    }
-
-    private func runAIClassification(kind: AIClassificationRequest.TargetKind, item: UsageBreakdownItem) async {
-        guard !isClassifyingWithAI else { return }
-
-        guard canUse(.classification) else {
-            aiClassificationStatusMessage = lockMessage(for: .classification)
-            return
-        }
-
-        let settings = aiClassificationSettings
-        guard settings.isEnabled else {
-            aiClassificationStatusMessage = "Ative a IA de classificação nas preferências."
-            return
-        }
-
-        let usesLuumBackend = AIClassificationService.isLuumBackendEndpoint(settings.endpointURL)
-        let apiKey = keychainService.string(for: Self.aiClassificationAPIKeyKey)
-        let verifiedSession: LuumAuthSession?
-
-        if usesLuumBackend {
-            do {
-                let verified = try await verifiedAuthSessionForProtectedRequest()
-                guard verified.includes(.classification) else {
-                    aiClassificationStatusMessage = lockMessage(for: .classification)
-                    return
-                }
-                verifiedSession = verified
-            } catch {
-                aiClassificationStatusMessage = error.localizedDescription
-                return
-            }
-        } else {
-            guard !(apiKey?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) else {
-                aiClassificationStatusMessage = "Use a IA segura do Luum para classificar sem configurar chave no app."
-                return
-            }
-            verifiedSession = nil
-        }
-
-        isClassifyingWithAI = true
-        aiClassificationStatusMessage = "IA analisando \(item.label)..."
-        defer { isClassifyingWithAI = false }
-
-        do {
-            let result = try await aiClassificationService.classify(
-                request: AIClassificationRequest(
-                    kind: kind,
-                    label: item.label,
-                    secondaryLabel: item.secondaryLabel,
-                    currentCategory: item.category,
-                    categories: categories
-                ),
-                settings: settings,
-                apiKey: apiKey,
-                firebaseToken: verifiedSession?.idToken
-            )
-
-            if let verifiedSession, !isCurrentVerifiedSession(verifiedSession) {
-                return
-            }
-
-            guard let category = category(for: result.categoryID) else {
-                throw AIClassificationServiceError.unknownCategory(result.categoryID)
-            }
-
-            switch kind {
-            case .application:
-                assignCategory(toApplication: item.label, categoryID: category.id)
-            case .domain:
-                assignCategory(toDomain: item.label, categoryID: category.id)
-            }
-
-            let confidence = Int((result.confidence * 100).rounded())
-            let reason = result.reason.trimmingCharacters(in: .whitespacesAndNewlines)
-            aiClassificationStatusMessage = reason.isEmpty
-                ? "IA classificou \(item.label) como \(category.title) (\(confidence)%)."
-                : "IA classificou \(item.label) como \(category.title) (\(confidence)%): \(reason)"
-        } catch is CancellationError {
-            return
-        } catch {
-            aiClassificationStatusMessage = error.localizedDescription
-        }
-    }
-
-    private func runAIQuery(_ question: String) async {
-        defer { isQueryingAI = false }
-
-        let todaySummary = summary(for: Date())
-        let context = AIQueryContext(
-            date: Date().formatted(.dateTime.year().month(.abbreviated).day()),
-            totalTrackedTime: todaySummary.totalTrackedTime,
-            categoryBreakdown: todaySummary.categoryBreakdown.prefix(8).map {
-                AIQueryBreakdownItem(label: $0.category.title, duration: $0.duration)
-            },
-            topApps: todaySummary.appBreakdown.prefix(6).map {
-                AIQueryBreakdownItem(label: $0.label, duration: $0.duration)
-            },
-            currentActivity: currentSnapshot != nil ? currentActivityTitle : nil
-        )
-
-        do {
-            let verified = try await verifiedAuthSessionForProtectedRequest()
-            guard !Task.isCancelled else { return }
-            guard verified.includes(.classification) else {
-                aiQueryError = lockMessage(for: .classification)
-                return
-            }
-
-            let answer = try await aiQueryService.query(
-                question,
-                context: context,
-                baseURL: FirebaseAuthService.defaultBaseURL,
-                firebaseToken: verified.idToken
-            )
-            guard !Task.isCancelled else { return }
-            aiQueryResponse = AIQueryResponse(query: question, answer: answer)
-        } catch is CancellationError {
-            return
-        } catch let err as AIQueryServiceError {
-            switch err {
-            case .rejected:
-                aiQueryError = "O assistente está temporariamente indisponível."
-            default:
-                aiQueryError = err.localizedDescription
-            }
-        } catch {
-            aiQueryError = "O assistente está temporariamente indisponível."
-        }
-    }
-
-    private func runCloudSync() async {
-        guard monitoringPreferences.cloudSyncSettings.isEnabled else { return }
-        guard !isSyncingCloud else {
-            cloudSyncPendingAfterCurrent = true
-            return
-        }
-
-        isSyncingCloud = true
-        defer {
-            let shouldSchedulePendingSync = cloudSyncPendingAfterCurrent
-            cloudSyncPendingAfterCurrent = false
-            isSyncingCloud = false
-            if shouldSchedulePendingSync {
-                scheduleCloudSyncIfNeeded(reason: "pending-changes")
-            }
-        }
-
-        do {
-            let verified = try await verifiedAuthSessionForProtectedRequest()
-            guard verified.includes(.cloudBackup) else {
-                cloudSyncStatusMessage = lockMessage(for: .cloudBackup)
-                return
-            }
-            guard cloudSyncConfigured else {
-                cloudSyncStatusMessage = "Entre na conta Luum e valide o plano para ativar o backup Firebase."
-                return
-            }
-            let updatedAt = try await cloudSyncService.push(
-                baseURL: FirebaseAuthService.defaultBaseURL,
-                backupID: verified.uid,
-                firebaseToken: verified.idToken,
-                payload: makeCloudBackupPayload()
-            )
-            guard isCurrentVerifiedSession(verified) else { return }
-            cloudSyncLastSyncAt = updatedAt
-            cloudSyncStatusMessage = "Backup sincronizado com sucesso."
-        } catch is CancellationError {
-            return
-        } catch {
-            cloudSyncStatusMessage = error.localizedDescription
-        }
-    }
-
-    private func runCloudRestore() async {
-        isSyncingCloud = true
-        defer { isSyncingCloud = false }
-
-        do {
-            let verified = try await verifiedAuthSessionForProtectedRequest()
-            guard verified.includes(.cloudBackup) else {
-                cloudSyncStatusMessage = lockMessage(for: .cloudBackup)
-                return
-            }
-            guard cloudSyncConfigured else {
-                cloudSyncStatusMessage = "Entre na conta Luum e valide o plano antes de restaurar."
-                return
-            }
-            guard let payload = try await cloudSyncService.pull(
-                baseURL: FirebaseAuthService.defaultBaseURL,
-                backupID: verified.uid,
-                firebaseToken: verified.idToken
-            ) else {
-                cloudSyncStatusMessage = "Nenhum backup encontrado para esse identificador."
-                return
-            }
-            guard isCurrentVerifiedSession(verified) else { return }
-
-            monitoringPreferences = mergeRestoredMonitoringPreferences(payload.monitoringPreferences)
-            googleCalendarClientID = payload.googleCalendarSnapshot.clientID
-            googleCalendarConnections = payload.googleCalendarSnapshot.connections
-            if canUse(.rawActivityBackup), let rawActivities = payload.rawActivities {
-                samples = rawActivities
-                sortSamples()
-            }
-
-            if !googleCalendarConnections.isEmpty {
-                googleCalendarStatusMessage = "Estrutura da agenda restaurada. Se este Mac ainda não tiver os tokens locais, reconecte as contas Google."
-            }
-
-            persistMonitoringPreferences()
-            persistGoogleCalendar()
-            schedulePersistence()
-            invalidateSummaries()
-            cloudSyncStatusMessage = "Backup restaurado com sucesso."
-        } catch is CancellationError {
-            return
-        } catch {
-            cloudSyncStatusMessage = error.localizedDescription
-        }
-    }
-
-    private func makeCloudBackupPayload() -> CloudBackupPayload {
-        let retentionDays = monitoringPreferences.privacySettings.retentionDays
-        let summaries: [CloudDailySummarySnapshot]
-
-        if monitoringPreferences.cloudSyncSettings.syncDailySummaries {
-            let calendar = Calendar.autoupdatingCurrent
-            summaries = (0 ..< retentionDays).compactMap { offset in
-                guard let day = calendar.date(byAdding: .day, value: -offset, to: Date()) else { return nil }
-                let summary = summary(for: day)
-                guard summary.totalTrackedTime > 0 else { return nil }
-
-                return CloudDailySummarySnapshot(
-                    day: calendar.startOfDay(for: day),
-                    totalTrackedTime: summary.totalTrackedTime,
-                    categoryDurations: Dictionary(uniqueKeysWithValues: summary.categoryBreakdown.map { ($0.category.id, $0.duration) })
-                )
-            }
-        } else {
-            summaries = []
-        }
-
-        let rawActivities: [ActivitySample]?
-        if monitoringPreferences.cloudSyncSettings.syncRawActivities && canUse(.rawActivityBackup) {
-            rawActivities = samples.map(makeCloudSafeSample)
-        } else {
-            rawActivities = nil
-        }
-
-        return CloudBackupPayload(
-            schemaVersion: 1,
-            exportedAt: Date(),
-            deviceName: Host.current().localizedName ?? "Mac",
-            account: authSession.map {
-                CloudAccountSnapshot(
-                    uid: $0.uid,
-                    email: $0.email,
-                    displayName: $0.displayName,
-                    plan: $0.plan,
-                    subscriptionStatus: $0.subscriptionStatus
-                )
-            },
-            monitoringPreferences: CloudSyncService.cloudSafePreferences(monitoringPreferences),
-            googleCalendarSnapshot: CloudSyncService.cloudSafeGoogleCalendarSnapshot(
-                clientID: googleCalendarClientID,
-                connections: googleCalendarConnections
-            ),
-            dailySummaries: summaries,
-            rawActivities: rawActivities
-        )
-    }
-
-    private func makeCloudSafeSample(_ sample: ActivitySample) -> ActivitySample {
-        guard monitoringPreferences.privacySettings.syncOnlyDomains else {
-            return sample
-        }
-
-        var sanitized = sample
-        sanitized.webURL = sample.webDomain.map { "https://\($0)" }
-        sanitized.pageTitle = nil
-        return sanitized
-    }
-
-    private func mergeRestoredMonitoringPreferences(_ restored: MonitoringPreferencesSnapshot) -> MonitoringPreferencesSnapshot {
-        var merged = restored
-
-        if !monitoringPreferences.cloudSyncSettings.syncCategoriesAndRules {
-            merged.categories = monitoringPreferences.categories
-            merged.categoryRules = monitoringPreferences.categoryRules
-            merged.ignoredApplications = monitoringPreferences.ignoredApplications
-            merged.ignoredDomains = monitoringPreferences.ignoredDomains
-            merged.reminderProfiles = monitoringPreferences.reminderProfiles
-        }
-
-        merged.privacySettings = monitoringPreferences.privacySettings
-        merged.cloudSyncSettings = monitoringPreferences.cloudSyncSettings
-        return merged.normalized()
-    }
 
     func persistGoogleCalendar() {
         do {
@@ -4043,7 +2414,7 @@ final class ActivityStore {
         schedulePersistence()
     }
 
-    private func schedulePersistence() {
+    func schedulePersistence() {
         persistTask?.cancel()
         persistTask = Task { [weak self] in
             try? await Task.sleep(for: self?.activityPersistenceDebounce ?? .seconds(5))
@@ -4406,7 +2777,7 @@ final class ActivityStore {
         return nil
     }
 
-    private func invalidateSummaries() {
+    func invalidateSummaries() {
         summaryCache.removeAll()
         summaryRevision &+= 1
     }
@@ -4497,7 +2868,7 @@ final class ActivityStore {
         persistMonitoringPreferences()
     }
 
-    private func humanReadableOAuthError(_ rawError: String, integration: String) -> String {
+    func humanReadableOAuthError(_ rawError: String, integration: String) -> String {
         switch rawError {
         case "invalid_state", "missing_state":
             return "Sessão expirada. Tente conectar novamente."
@@ -4581,7 +2952,7 @@ final class ActivityStore {
     }
 
 
-    private func sortSamples() {
+    func sortSamples() {
         samples.sort(by: Self.sampleSortOrder)
     }
 
@@ -4608,137 +2979,18 @@ final class ActivityStore {
             gap <= sessionGapTolerance
     }
 
-    private func makeTeamScore(
-        trackedTime: TimeInterval,
-        focusTime: TimeInterval,
-        plannedTime: TimeInterval,
-        contextSwitches: Int
-    ) -> Int {
-        let utilization = plannedTime > 0 ? min(trackedTime / plannedTime, 1.25) : 1
-        let focusRatio = trackedTime > 0 ? min(focusTime / trackedTime, 1) : 0
-        let switchPenalty = min(Double(contextSwitches) / 120, 0.2)
-        let rawScore = (utilization * 52) + (focusRatio * 38) + ((1 - switchPenalty) * 10)
-        return max(0, min(100, Int(rawScore.rounded())))
-    }
-
-    private func makeWorkspaceMemberPayload(for day: Date) -> WorkspaceMemberSnapshotPayload {
-        let report = weeklyReport(containing: day)
-        let plannedTime = max(report.totalTrackedTime * 0.92, report.averageDailyTrackedTime * 5)
-        let score = makeTeamScore(
-            trackedTime: report.totalTrackedTime,
-            focusTime: report.focusTime,
-            plannedTime: plannedTime,
-            contextSwitches: report.contextSwitches
-        )
-
-        return WorkspaceMemberSnapshotPayload(
-            organizationName: teamSettings.organizationName,
-            memberDisplayName: teamSettings.memberDisplayName,
-            roleLabel: teamSettings.roleLabel,
-            trackedTime: report.totalTrackedTime,
-            focusTime: report.focusTime,
-            plannedTime: plannedTime,
-            contextSwitches: report.contextSwitches,
-            score: score,
-            snapshotDay: Calendar.autoupdatingCurrent.startOfDay(for: day),
-            weekStart: report.startDate,
-            weekEnd: report.endDate
-        )
-    }
-
-    private func sendZapierFocusEventIfNeeded(type: String, profileTitle: String, details: [String: String]) async {
-        guard zapierSettings.isEnabled,
-              zapierSettings.sendsFocusEvents,
-              zapierConfigured
-        else { return }
-
-        var payloadDetails = details
-        payloadDetails["profile"] = profileTitle
-        await sendZapierEvent(type: type, details: payloadDetails)
-    }
-
-    func sendZapierCalendarSyncEventIfNeeded(source: String, itemCount: Int) async {
-        guard zapierSettings.isEnabled,
-              zapierSettings.sendsCalendarSyncEvents,
-              zapierConfigured
-        else { return }
-
-        await sendZapierEvent(
-            type: "calendar_sync",
-            details: [
-                "source": source,
-                "items": String(itemCount),
-            ]
-        )
-    }
-
-    private func sendZapierWorkspaceEventIfNeeded(memberCount: Int) async {
-        guard zapierSettings.isEnabled,
-              zapierSettings.sendsWorkspaceRankingEvents,
-              zapierConfigured
-        else { return }
-
-        await sendZapierEvent(
-            type: "workspace_ranking_sync",
-            details: [
-                "workspace": teamSettings.workspaceID,
-                "members": String(memberCount),
-            ]
-        )
-    }
-
-    private func sendZapierEvent(type: String, details: [String: String]) async {
-        guard canUse(.advancedIntegrations) else {
-            zapierStatusMessage = lockMessage(for: .advancedIntegrations)
-            return
-        }
-
-        let webhooks = zapierSettings.webhooks.filter { w in
-            w.events.isEmpty || w.events.contains(type)
-        }
-        guard !webhooks.isEmpty else { return }
-
-        let payload = ZapierWebhookPayload(
-            eventType: type,
-            sentAt: Date(),
-            appName: "luum",
-            organizationName: teamSettings.organizationName,
-            memberName: teamSettings.memberDisplayName,
-            details: details
-        )
-
-        var succeeded = 0
-        var lastError: String?
-        for wh in webhooks {
-            do {
-                try await zapierService.send(webhookURL: wh.url, payload: payload)
-                succeeded += 1
-            } catch {
-                lastError = error.localizedDescription
-            }
-        }
-
-        if succeeded > 0 {
-            monitoringPreferences.zapierSettings.lastDeliveryAt = Date()
-            persistMonitoringPreferences()
-        }
-        zapierStatusMessage = succeeded == webhooks.count
-            ? "Webhook do Zapier entregue com sucesso."
-            : lastError ?? "Erro ao entregar webhook do Zapier."
-    }
-
-    private var workspaceSecret: String? {
+    var workspaceSecret: String? {
         keychainService.string(for: Self.teamWorkspaceSecretKey)
     }
 
-    private static let googleCalendarClientSecretKey = "google-calendar-client-secret"
-    private static let notionCalendarTokenKey = "notion-calendar-token"
-    private static let outlookCalendarTokenKey = "outlook-calendar-token"
-    private static let outlookCalendarSessionKey = "outlook-calendar-session"
-    private static let clickUpTokenKey = "clickup-api-token"
-    private static let linearTokenKey = "linear-api-key"
-    private static let aiClassificationAPIKeyKey = "ai-classification-api-key"
-    private static let teamWorkspaceSecretKey = "team-workspace-secret"
+    static let googleCalendarClientSecretKey = "google-calendar-client-secret"
+    static let notionCalendarTokenKey = "notion-calendar-token"
+    static let outlookCalendarTokenKey = "outlook-calendar-token"
+    static let outlookCalendarSessionKey = "outlook-calendar-session"
+    static let clickUpTokenKey = "clickup-api-token"
+    static let linearTokenKey = "linear-api-key"
+    static let aiClassificationAPIKeyKey = "ai-classification-api-key"
+    static let teamWorkspaceSecretKey = "team-workspace-secret"
 
     static func googleCalendarTokenKey(_ connectionID: String) -> String {
         "google-calendar-token-\(connectionID)"

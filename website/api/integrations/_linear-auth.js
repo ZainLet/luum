@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const { admin } = require('../_firebaseAdmin');
+const { oauthLog } = require('./_oauthLogger');
 
 module.exports = async (req, res) => {
     if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
@@ -28,5 +29,6 @@ module.exports = async (req, res) => {
 
     const redirectURI = `https://${req.headers.host}/api/integrations?action=linear-callback`;
     const url = `https://linear.app/oauth/authorize?client_id=${clientID}&redirect_uri=${encodeURIComponent(redirectURI)}&response_type=code&scope=read&state=${encodeURIComponent(state)}`;
+    oauthLog('linear', 'auth_start');
     return res.status(200).json({ url });
 };

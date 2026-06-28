@@ -25,19 +25,19 @@ enum GoogleCalendarIssue: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingClientID:
-            "Nao foi possivel carregar a configuracao da Google Agenda. Tente novamente mais tarde."
+            "Não foi possível carregar a configuração da Google Agenda. Tente novamente mais tarde."
         case .localCallbackFailed:
-            "Nao foi possivel iniciar o retorno local do OAuth no macOS."
+            "Não foi possível iniciar o retorno local do OAuth no macOS."
         case .browserOpenFailed:
-            "O luum nao conseguiu abrir o navegador para iniciar o login do Google."
+            "O luum não conseguiu abrir o navegador para iniciar o login do Google."
         case .consentDenied:
-            "A conexao com a Google Agenda foi cancelada ou negada."
+            "A conexão com a Google Agenda foi cancelada ou negada."
         case .invalidCallback:
-            "O Google devolveu um retorno invalido para a autenticacao."
+            "O Google devolveu um retorno inválido para a autenticação."
         case .invalidState:
-            "O estado do OAuth nao confere. A conexao foi interrompida para proteger a sua sessao."
+            "O estado do OAuth não confere. A conexão foi interrompida para proteger a sua sessão."
         case .invalidTokenResponse:
-            "O Google nao devolveu um token valido para a Google Agenda."
+            "O Google não devolveu um token válido para a Google Agenda."
         case .invalidEventPayload:
             "A Google Agenda respondeu sem dados de eventos utilizaveis."
         case let .apiError(message):
@@ -373,7 +373,7 @@ struct GoogleCalendarService: Sendable {
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
-            throw GoogleCalendarIssue.apiError("Nao foi possivel interpretar a resposta da Google Agenda.")
+            throw GoogleCalendarIssue.apiError("Não foi possível interpretar a resposta da Google Agenda.")
         }
     }
 
@@ -704,14 +704,14 @@ private final class OAuthLoopbackReceiver: @unchecked Sendable {
             body = """
             <html><body style="font-family:-apple-system;background:#09060f;color:#f6f2ff;padding:32px;">
             <h1 style="margin-bottom:12px;">Google Agenda conectada ao luum</h1>
-            <p>Voce pode fechar esta aba e voltar para o app.</p>
+            <p>Você pode fechar esta aba e voltar para o app.</p>
             </body></html>
             """
         case .failure:
             statusLine = "HTTP/1.1 400 Bad Request"
             body = """
             <html><body style="font-family:-apple-system;background:#09060f;color:#f6f2ff;padding:32px;">
-            <h1 style="margin-bottom:12px;">Nao foi possivel concluir a conexao</h1>
+            <h1 style="margin-bottom:12px;">Não foi possível concluir a conexão</h1>
             <p>Volte para o luum e tente novamente.</p>
             </body></html>
             """
@@ -757,7 +757,7 @@ private final class OAuthLoopbackReceiver: @unchecked Sendable {
                 return .failure(GoogleCalendarIssue.consentDenied)
             }
 
-            return .failure(GoogleCalendarIssue.apiError("O Google devolveu um erro durante a autorizacao: \(error)."))
+            return .failure(GoogleCalendarIssue.apiError("O Google devolveu um erro durante a autorização: \(error)."))
         }
 
         guard

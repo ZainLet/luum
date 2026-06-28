@@ -25,17 +25,17 @@ enum FirebaseAuthServiceError: LocalizedError {
         case .invalidCallback:
             "O retorno de login do Luum veio incompleto. Tente entrar novamente pelo site."
         case .missingState:
-            "Este login nao foi iniciado pelo app. Volte ao Luum e clique em Entrar novamente."
+            "Este login não foi iniciado pelo app. Volte ao Luum e clique em Entrar novamente."
         case .stateMismatch:
-            "O retorno de login nao corresponde a esta solicitacao. Volte ao Luum e tente novamente."
+            "O retorno de login não corresponde a esta solicitação. Volte ao Luum e tente novamente."
         case .missingToken:
-            "O site nao enviou o token Firebase para o app."
+            "O site não enviou o token Firebase para o app."
         case .invalidToken:
-            "Nao foi possivel ler o token Firebase recebido."
+            "Não foi possível ler o token Firebase recebido."
         case .invalidStatusEndpoint:
-            "A URL da API de assinatura nao e valida."
+            "A URL da API de assinatura não é válida."
         case let .statusRejected(reason):
-            "A assinatura nao esta liberada: \(reason)."
+            "A assinatura não está liberada: \(reason)."
         }
     }
 

@@ -8,9 +8,9 @@ enum WeeklyReportEmailServiceError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidEndpoint:
-            "A API de relatorio por email nao e valida."
+            "A API de relatório por email não é válida."
         case .invalidResponse:
-            "A API de relatorio por email retornou uma resposta invalida."
+            "A API de relatório por email retornou uma resposta inválida."
         case let .apiError(message):
             message
         }
@@ -84,13 +84,13 @@ struct WeeklyReportEmailService {
         guard (200 ..< 300).contains(statusCode) else {
             if statusCode == 404 {
                 throw WeeklyReportEmailServiceError.apiError(
-                    "A rota de PDF por email nao foi encontrada na Vercel. Atualize o deploy e confira /api/reports/weekly-email."
+                    "A rota de PDF por email não foi encontrada na Vercel. Atualize o deploy e confira /api/reports/weekly-email."
                 )
             }
             if let envelope = try? JSONDecoder().decode(WeeklyReportEmailAPIError.self, from: data) {
                 throw WeeklyReportEmailServiceError.apiError(envelope.error)
             }
-            throw WeeklyReportEmailServiceError.apiError("A API de relatorio por email respondeu com status \(statusCode).")
+            throw WeeklyReportEmailServiceError.apiError("A API de relatório por email respondeu com status \(statusCode).")
         }
 
         do {
@@ -124,13 +124,13 @@ struct WeeklyReportEmailService {
         guard (200 ..< 300).contains(statusCode) else {
             if statusCode == 404 {
                 throw WeeklyReportEmailServiceError.apiError(
-                    "A rota de PDF por email nao foi encontrada na Vercel. Atualize o app/site e confira se o deploy inclui /api/reports/weekly-email."
+                    "A rota de PDF por email não foi encontrada na Vercel. Atualize o app/site e confira se o deploy inclui /api/reports/weekly-email."
                 )
             }
             if let envelope = try? JSONDecoder().decode(WeeklyReportEmailAPIError.self, from: data) {
                 throw WeeklyReportEmailServiceError.apiError(envelope.error)
             }
-            throw WeeklyReportEmailServiceError.apiError("A API de relatorio por email respondeu com status \(statusCode).")
+            throw WeeklyReportEmailServiceError.apiError("A API de relatório por email respondeu com status \(statusCode).")
         }
 
         do {
