@@ -243,7 +243,7 @@ struct SettingsView: View {
             HStack(spacing: 10) {
                 Button("Conectar") { store.connectGoogleCalendar() }
                     .buttonStyle(.glassProminent)
-                    .disabled(store.isConnectingGoogleCalendar)
+                    .disabled(!store.isGoogleCalendarServerConfigured || store.isConnectingGoogleCalendar)
 
                 Button("Sincronizar") { store.refreshGoogleCalendar() }
                     .buttonStyle(.borderedProminent)
@@ -258,6 +258,12 @@ struct SettingsView: View {
                 Text("Nenhuma conta conectada ainda.")
                     .foregroundStyle(LuumTheme.textSecondary)
                     .font(.subheadline)
+
+                if !store.isGoogleCalendarServerConfigured {
+                    Text("OAuth do Google Calendar ainda não foi publicado no servidor.")
+                        .foregroundStyle(LuumTheme.textMuted)
+                        .font(.caption)
+                }
             } else {
                 VStack(spacing: 10) {
                     ForEach(store.googleCalendarConnections) { connection in
@@ -275,13 +281,20 @@ struct SettingsView: View {
                     .font(.headline)
                     .foregroundStyle(.white)
                 Spacer()
-                if store.hasNotionToken {
+                if store.hasNotionToken && store.notionManagedOAuthAvailable {
                     Text("Conectado")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(LuumTheme.secondaryAccent)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
                         .background(Capsule().fill(LuumTheme.secondaryAccent.opacity(0.12)))
+                } else if store.hasNotionToken {
+                    Text("Credencial local")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LuumTheme.textMuted)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(LuumTheme.textMuted.opacity(0.12)))
                 } else if store.notionManagedOAuthAvailable {
                     Text("Pronto para conectar")
                         .font(.caption)
@@ -364,13 +377,20 @@ struct SettingsView: View {
                     .font(.headline)
                     .foregroundStyle(.white)
                 Spacer()
-                if store.hasOutlookToken {
+                if store.hasOutlookToken && store.outlookManagedOAuthAvailable {
                     Text("Conectado")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(LuumTheme.electricBlue)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
                         .background(Capsule().fill(LuumTheme.electricBlue.opacity(0.12)))
+                } else if store.hasOutlookToken {
+                    Text("Credencial local")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LuumTheme.textMuted)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(LuumTheme.textMuted.opacity(0.12)))
                 } else if store.outlookManagedOAuthAvailable {
                     Text("Pronto para conectar")
                         .font(.caption)
@@ -469,13 +489,20 @@ struct SettingsView: View {
                     .font(.headline)
                     .foregroundStyle(.white)
                 Spacer()
-                if store.hasClickUpToken {
+                if store.hasClickUpToken && store.clickUpManagedOAuthAvailable {
                     Text("Conectado")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(LuumTheme.hotPink)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
                         .background(Capsule().fill(LuumTheme.hotPink.opacity(0.12)))
+                } else if store.hasClickUpToken {
+                    Text("Credencial local")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LuumTheme.textMuted)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(LuumTheme.textMuted.opacity(0.12)))
                 } else if store.clickUpManagedOAuthAvailable {
                     Text("Pronto para conectar")
                         .font(.caption)
@@ -558,13 +585,20 @@ struct SettingsView: View {
                     .font(.headline)
                     .foregroundStyle(.white)
                 Spacer()
-                if store.hasLinearToken {
+                if store.hasLinearToken && store.linearManagedOAuthAvailable {
                     Text("Conectado")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(LuumTheme.secondaryAccent)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
                         .background(Capsule().fill(LuumTheme.secondaryAccent.opacity(0.12)))
+                } else if store.hasLinearToken {
+                    Text("Credencial local")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LuumTheme.textMuted)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(LuumTheme.textMuted.opacity(0.12)))
                 } else if store.linearManagedOAuthAvailable {
                     Text("Pronto para conectar")
                         .font(.caption)
@@ -1027,8 +1061,11 @@ struct SettingsView: View {
                     detail: "\(store.googleCalendarConnections.count) conta(s) conectada(s)",
                     tint: LuumTheme.electricBlue)
             }
-            if store.isGoogleCalendarConfigured {
+            if store.isGoogleCalendarServerConfigured {
                 return .init(kind: kind, status: "Pronto", detail: "Login disponível", tint: LuumTheme.secondaryAccent)
+            }
+            if store.publicIntegrationConfig != nil {
+                return .init(kind: kind, status: "Pendente", detail: "Aguardando configuração do servidor", tint: LuumTheme.textMuted)
             }
             return .init(kind: kind, status: "Pendente", detail: "Conexão pendente", tint: LuumTheme.textMuted)
 
@@ -1040,6 +1077,9 @@ struct SettingsView: View {
             }
             if store.notionManagedOAuthAvailable {
                 return .init(kind: kind, status: "Pronto", detail: "Conexão guiada preparada", tint: LuumTheme.secondaryAccent)
+            }
+            if store.publicIntegrationConfig != nil {
+                return .init(kind: kind, status: "Pendente", detail: "Aguardando configuração do servidor", tint: LuumTheme.textMuted)
             }
             if store.notionCalendarSettings.isEnabled {
                 return .init(kind: kind, status: "Parcial", detail: "Conexão pendente", tint: LuumTheme.hotPink)
@@ -1055,6 +1095,9 @@ struct SettingsView: View {
             if store.outlookManagedOAuthAvailable {
                 return .init(kind: kind, status: "Pronto", detail: "Conexão guiada preparada", tint: LuumTheme.electricBlue)
             }
+            if store.publicIntegrationConfig != nil {
+                return .init(kind: kind, status: "Pendente", detail: "Aguardando configuração do servidor", tint: LuumTheme.textMuted)
+            }
             if store.outlookCalendarSettings.isEnabled {
                 return .init(kind: kind, status: "Parcial", detail: "Conexão pendente", tint: LuumTheme.hotPink)
             }
@@ -1068,6 +1111,9 @@ struct SettingsView: View {
             }
             if store.clickUpManagedOAuthAvailable {
                 return .init(kind: kind, status: "Pronto", detail: "Conexão guiada preparada", tint: LuumTheme.secondaryAccent)
+            }
+            if store.publicIntegrationConfig != nil {
+                return .init(kind: kind, status: "Pendente", detail: "Aguardando configuração do servidor", tint: LuumTheme.textMuted)
             }
             if store.clickUpSettings.isEnabled {
                 return .init(kind: kind, status: "Parcial", detail: "Conexão pendente", tint: LuumTheme.secondaryAccent)
@@ -1083,6 +1129,9 @@ struct SettingsView: View {
             if store.linearManagedOAuthAvailable {
                 return .init(kind: kind, status: "Pronto", detail: "Conexão guiada preparada", tint: LuumTheme.secondaryAccent)
             }
+            if store.publicIntegrationConfig != nil {
+                return .init(kind: kind, status: "Pendente", detail: "Aguardando configuração do servidor", tint: LuumTheme.textMuted)
+            }
             if store.linearSettings.isEnabled {
                 return .init(kind: kind, status: "Parcial", detail: "Conexão pendente", tint: LuumTheme.hotPink)
             }
@@ -1094,6 +1143,9 @@ struct SettingsView: View {
             }
             if store.zapierManagedConnectionAvailable {
                 return .init(kind: kind, status: "Pronto", detail: "Conexão guiada preparada", tint: ActivityCategory.work.tint)
+            }
+            if store.publicIntegrationConfig != nil {
+                return .init(kind: kind, status: "Pendente", detail: "Aguardando configuração do servidor", tint: LuumTheme.textMuted)
             }
             if store.zapierSettings.isEnabled {
                 return .init(kind: kind, status: "Parcial", detail: "Conexão pendente", tint: LuumTheme.hotPink)
@@ -1441,7 +1493,7 @@ private extension SettingsView {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.6))
 
-                HStack(spacing: 6) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 6)], spacing: 6) {
                     ForEach(ZapierEvent.allCases, id: \.self) { event in
                         Button(event.displayName) {
                             if newZapierEvents.contains(event.rawValue) {
@@ -1454,6 +1506,7 @@ private extension SettingsView {
                         .tint(newZapierEvents.contains(event.rawValue) ? .blue : .gray.opacity(0.3))
                         .font(.caption)
                         .controlSize(.small)
+                        .frame(maxWidth: .infinity)
                     }
                 }
                 .padding(.top, 2)
