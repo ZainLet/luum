@@ -317,10 +317,11 @@ struct SettingsView: View {
 
             HStack(spacing: 10) {
                 if store.notionManagedOAuthAvailable {
-                    Button(store.hasNotionToken ? "Reconectar" : "Conectar Notion") {
+                    Button(store.isConnectingNotionCalendar ? "Conectando..." : (store.hasNotionToken ? "Reconectar" : "Conectar Notion")) {
                         store.connectNotionCalendar()
                     }
                     .buttonStyle(.glassProminent)
+                    .disabled(store.isConnectingNotionCalendar)
                 }
 
                 Button("Sincronizar") { store.refreshNotionCalendar() }
@@ -330,6 +331,7 @@ struct SettingsView: View {
                 if store.hasNotionToken {
                     Button("Desconectar") { store.disconnectNotionCalendar() }
                         .buttonStyle(.bordered)
+                        .disabled(store.isConnectingNotionCalendar)
                 }
             }
 
@@ -413,10 +415,11 @@ struct SettingsView: View {
 
             HStack(spacing: 10) {
                 if store.outlookManagedOAuthAvailable {
-                    Button(store.hasOutlookToken ? "Reconectar" : "Conectar Outlook") {
+                    Button(store.isConnectingOutlookCalendar ? "Conectando..." : (store.hasOutlookToken ? "Reconectar" : "Conectar Outlook")) {
                         store.connectOutlookCalendar()
                     }
                     .buttonStyle(.glassProminent)
+                    .disabled(store.isConnectingOutlookCalendar)
                 }
 
                 Button("Sincronizar") { store.refreshOutlookCalendar() }
@@ -426,6 +429,7 @@ struct SettingsView: View {
                 if store.hasOutlookToken {
                     Button("Desconectar") { store.disconnectOutlookCalendar() }
                         .buttonStyle(.bordered)
+                        .disabled(store.isConnectingOutlookCalendar)
                 }
             }
 
@@ -525,10 +529,11 @@ struct SettingsView: View {
 
             HStack(spacing: 10) {
                 if store.clickUpManagedOAuthAvailable {
-                    Button(store.hasClickUpToken ? "Reconectar" : "Conectar ClickUp") {
+                    Button(store.isConnectingClickUp ? "Conectando..." : (store.hasClickUpToken ? "Reconectar" : "Conectar ClickUp")) {
                         store.connectClickUp()
                     }
                     .buttonStyle(.glassProminent)
+                    .disabled(store.isConnectingClickUp)
                 }
 
                 Button("Sincronizar") { store.refreshClickUp() }
@@ -538,6 +543,7 @@ struct SettingsView: View {
                 if store.hasClickUpToken {
                     Button("Desconectar") { store.disconnectClickUp() }
                         .buttonStyle(.bordered)
+                        .disabled(store.isConnectingClickUp)
                 }
             }
 
@@ -621,10 +627,11 @@ struct SettingsView: View {
 
             HStack(spacing: 10) {
                 if store.linearManagedOAuthAvailable {
-                    Button(store.hasLinearToken ? "Reconectar" : "Conectar Linear") {
+                    Button(store.isConnectingLinear ? "Conectando..." : (store.hasLinearToken ? "Reconectar" : "Conectar Linear")) {
                         store.connectLinear()
                     }
                     .buttonStyle(.glassProminent)
+                    .disabled(store.isConnectingLinear)
                 }
 
                 Button("Sincronizar") { store.refreshLinear() }
@@ -634,6 +641,7 @@ struct SettingsView: View {
                 if store.hasLinearToken {
                     Button("Desconectar") { store.disconnectLinear() }
                         .buttonStyle(.bordered)
+                        .disabled(store.isConnectingLinear)
                 }
             }
 

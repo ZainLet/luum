@@ -89,7 +89,7 @@ extension ActivityStore {
         }
     }
 
-    func connectClickUp() { Task { await runClickUpConnect() } }
+    func connectClickUp() { isConnectingClickUp = true; Task { await runClickUpConnect() } }
 
     func disconnectClickUp() {
         keychainService.removeValue(for: Self.clickUpTokenKey)
@@ -103,10 +103,12 @@ extension ActivityStore {
     func runClickUpConnect() async {
         guard canUse(.agendaIntegrations) else {
             clickUpStatusMessage = lockMessage(for: .agendaIntegrations)
+            isConnectingClickUp = false
             return
         }
         guard let idToken = authSession?.idToken, !idToken.isEmpty else {
             clickUpStatusMessage = "Faça login antes de conectar o ClickUp."
+            isConnectingClickUp = false
             return
         }
         clickUpStatusMessage = "Abrindo autorização do ClickUp..."
@@ -119,15 +121,19 @@ extension ActivityStore {
             let authResp = try JSONDecoder().decode(AuthResponse.self, from: data)
             guard let oauthURL = URL(string: authResp.url) else {
                 clickUpStatusMessage = "URL de autorização inválida."
+                isConnectingClickUp = false
                 return
             }
             NSWorkspace.shared.open(oauthURL)
+            // isConnectingClickUp stays true until handleClickUpOAuthCallback clears it
         } catch {
             clickUpStatusMessage = "Erro ao iniciar conexão com ClickUp: \(error.localizedDescription)"
+            isConnectingClickUp = false
         }
     }
 
     func handleClickUpOAuthCallback(_ url: URL) {
+        defer { isConnectingClickUp = false }
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         let params = Dictionary(uniqueKeysWithValues: (components?.queryItems ?? []).compactMap {
             guard let v = $0.value else { return nil as (String, String)? }

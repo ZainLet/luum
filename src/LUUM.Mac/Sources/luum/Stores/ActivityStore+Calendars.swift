@@ -82,6 +82,7 @@ extension ActivityStore {
     }
 
     func connectNotionCalendar() {
+        isConnectingNotionCalendar = true
         Task { await runNotionConnect() }
     }
 
@@ -104,10 +105,12 @@ extension ActivityStore {
     func runNotionConnect() async {
         guard canUse(.advancedIntegrations) else {
             notionCalendarStatusMessage = lockMessage(for: .advancedIntegrations)
+            isConnectingNotionCalendar = false
             return
         }
         guard let verified = try? await authCoordinator.verifiedAuthSessionForProtectedRequest() else {
             notionCalendarStatusMessage = "Entre na sua conta Luum antes de conectar o Notion."
+            isConnectingNotionCalendar = false
             return
         }
         notionCalendarStatusMessage = "Carregando autorização do Notion..."
@@ -115,6 +118,7 @@ extension ActivityStore {
         let backendURL = FirebaseAuthService.defaultBaseURL
         guard let url = URL(string: "\(backendURL)/api/integrations?action=notion-auth") else {
             notionCalendarStatusMessage = "Erro ao montar URL de autenticação do Notion."
+            isConnectingNotionCalendar = false
             return
         }
 
@@ -128,22 +132,27 @@ extension ActivityStore {
                 struct ErrorBody: Decodable { let error: String }
                 let msg = (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error ?? "Noção não configurada no servidor."
                 notionCalendarStatusMessage = msg
+                isConnectingNotionCalendar = false
                 return
             }
             struct AuthResponse: Decodable { let url: String }
             let authResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
             guard let authURL = URL(string: authResponse.url) else {
                 notionCalendarStatusMessage = "URL OAuth do Notion inválida."
+                isConnectingNotionCalendar = false
                 return
             }
             NSWorkspace.shared.open(authURL)
             notionCalendarStatusMessage = "Autorizando no Notion... Conclua no navegador e volte ao Luum."
+            // isConnectingNotionCalendar stays true until handleNotionOAuthCallback clears it
         } catch {
             notionCalendarStatusMessage = "Erro ao iniciar conexão com Notion."
+            isConnectingNotionCalendar = false
         }
     }
 
     func handleNotionOAuthCallback(_ url: URL) {
+        defer { isConnectingNotionCalendar = false }
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
 
         if let error = items.first(where: { $0.name == "error" })?.value {
@@ -286,6 +295,7 @@ extension ActivityStore {
     }
 
     func connectOutlookCalendar() {
+        isConnectingOutlookCalendar = true
         Task { await runOutlookConnect() }
     }
 
@@ -317,10 +327,12 @@ extension ActivityStore {
     func runOutlookConnect() async {
         guard canUse(.agendaIntegrations) else {
             outlookCalendarStatusMessage = lockMessage(for: .agendaIntegrations)
+            isConnectingOutlookCalendar = false
             return
         }
         guard let verified = try? await authCoordinator.verifiedAuthSessionForProtectedRequest() else {
             outlookCalendarStatusMessage = "Entre na sua conta Luum antes de conectar o Outlook."
+            isConnectingOutlookCalendar = false
             return
         }
         outlookCalendarStatusMessage = "Carregando autorização do Outlook..."
@@ -328,6 +340,7 @@ extension ActivityStore {
         let backendURL = FirebaseAuthService.defaultBaseURL
         guard let url = URL(string: "\(backendURL)/api/integrations?action=outlook-auth") else {
             outlookCalendarStatusMessage = "Erro ao montar URL de autenticação do Outlook."
+            isConnectingOutlookCalendar = false
             return
         }
 
@@ -341,22 +354,27 @@ extension ActivityStore {
                 struct ErrorBody: Decodable { let error: String }
                 let msg = (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error ?? "Outlook não configurado no servidor."
                 outlookCalendarStatusMessage = msg
+                isConnectingOutlookCalendar = false
                 return
             }
             struct AuthResponse: Decodable { let url: String }
             let authResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
             guard let authURL = URL(string: authResponse.url) else {
                 outlookCalendarStatusMessage = "URL OAuth do Outlook inválida."
+                isConnectingOutlookCalendar = false
                 return
             }
             NSWorkspace.shared.open(authURL)
             outlookCalendarStatusMessage = "Autorizando no Outlook... Conclua no navegador e volte ao Luum."
+            // isConnectingOutlookCalendar stays true until handleOutlookOAuthCallback clears it
         } catch {
             outlookCalendarStatusMessage = "Erro ao iniciar conexão com Outlook."
+            isConnectingOutlookCalendar = false
         }
     }
 
     func handleOutlookOAuthCallback(_ url: URL) {
+        defer { isConnectingOutlookCalendar = false }
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
 
         if let error = items.first(where: { $0.name == "error" })?.value {

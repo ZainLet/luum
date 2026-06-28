@@ -89,7 +89,7 @@ extension ActivityStore {
         }
     }
 
-    func connectLinear() { Task { await runLinearConnect() } }
+    func connectLinear() { isConnectingLinear = true; Task { await runLinearConnect() } }
 
     func disconnectLinear() {
         keychainService.removeValue(for: Self.linearTokenKey)
@@ -102,10 +102,12 @@ extension ActivityStore {
     func runLinearConnect() async {
         guard canUse(.agendaIntegrations) else {
             linearStatusMessage = lockMessage(for: .agendaIntegrations)
+            isConnectingLinear = false
             return
         }
         guard let idToken = authSession?.idToken, !idToken.isEmpty else {
             linearStatusMessage = "Faça login antes de conectar o Linear."
+            isConnectingLinear = false
             return
         }
         linearStatusMessage = "Abrindo autorização do Linear..."
@@ -118,15 +120,19 @@ extension ActivityStore {
             let authResp = try JSONDecoder().decode(AuthResponse.self, from: data)
             guard let oauthURL = URL(string: authResp.url) else {
                 linearStatusMessage = "URL de autorização inválida."
+                isConnectingLinear = false
                 return
             }
             NSWorkspace.shared.open(oauthURL)
+            // isConnectingLinear stays true until handleLinearOAuthCallback clears it
         } catch {
             linearStatusMessage = "Erro ao iniciar conexão com Linear: \(error.localizedDescription)"
+            isConnectingLinear = false
         }
     }
 
     func handleLinearOAuthCallback(_ url: URL) {
+        defer { isConnectingLinear = false }
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         let params = Dictionary(uniqueKeysWithValues: (components?.queryItems ?? []).compactMap {
             guard let v = $0.value else { return nil as (String, String)? }
