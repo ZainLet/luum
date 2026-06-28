@@ -193,14 +193,22 @@ extension ActivityStore {
         } catch is CancellationError {
             return
         } catch let err as AIQueryServiceError {
-            switch err {
-            case .rejected:
-                aiQueryError = "O assistente está temporariamente indisponível."
-            default:
-                aiQueryError = err.localizedDescription
-            }
+            aiQueryError = Self.aiQueryErrorMessage(for: err)
         } catch {
-            aiQueryError = "O assistente está temporariamente indisponível."
+            aiQueryError = Self.aiQueryErrorMessage(for: error)
         }
+    }
+
+    static func aiQueryErrorMessage(for error: Error) -> String {
+        if let queryError = error as? AIQueryServiceError {
+            switch queryError {
+            case .rejected:
+                return "O assistente está temporariamente indisponível."
+            default:
+                return queryError.localizedDescription
+            }
+        }
+
+        return "O assistente está temporariamente indisponível."
     }
 }

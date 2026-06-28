@@ -9,6 +9,7 @@ final class ReminderEngine {
     private let notificationCenter: UNUserNotificationCenter
     private let streakGapTolerance: TimeInterval
     private var lastDeliveredAt: [UUID: Date] = [:]
+    var notificationsAllowedOverride: Bool? = nil
 
     init(
         notificationCenter: UNUserNotificationCenter = .current(),
@@ -87,6 +88,7 @@ final class ReminderEngine {
     }
 
     private func notificationsAllowed() async -> Bool {
+        if let override = notificationsAllowedOverride { return override }
         let settings = await notificationCenter.notificationSettings()
         return settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
     }
