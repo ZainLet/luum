@@ -35,6 +35,11 @@ final class LUUMAppDelegate: NSObject, NSApplicationDelegate, UNUserNotification
                 NSApp.windows.forEach { Self.configureWindow($0) }
             }
         }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            Task { @MainActor in
+                Self.normalizeInitialWindows()
+            }
+        }
     }
 
     func userNotificationCenter(
@@ -77,6 +82,18 @@ final class LUUMAppDelegate: NSObject, NSApplicationDelegate, UNUserNotification
             alpha: 1
         )
     }
+
+    @MainActor
+    private static func normalizeInitialWindows() {
+        let mainWindow = NSApp.windows.first { $0.title == "Luum" }
+        let feedbackWindows = NSApp.windows.filter { $0.title == "Reportar Problema" }
+
+        guard let mainWindow, !feedbackWindows.isEmpty else { return }
+
+        feedbackWindows.forEach { $0.close() }
+        mainWindow.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
 }
 
 @main
@@ -87,14 +104,7 @@ struct LUUMApp: App {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
-        WindowGroup("Reportar Problema", id: "feedback") {
-            FeedbackView(store: store)
-                .fixedSize()
-        }
-        .windowResizability(.contentSize)
-        .defaultPosition(.center)
-
-        WindowGroup(id: "main") {
+        Window("Luum", id: "main") {
             Group {
                 if hasCompletedOnboarding {
                     ContentView(store: store)
@@ -135,6 +145,14 @@ struct LUUMApp: App {
                 }
             }
         }
+
+        Window("Reportar Problema", id: "feedback") {
+            FeedbackView(store: store)
+                .fixedSize()
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
+        .restorationBehavior(.disabled)
 
         Settings {
             SettingsView(store: store)
