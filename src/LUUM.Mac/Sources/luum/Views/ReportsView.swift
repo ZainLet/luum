@@ -3,9 +3,11 @@ import SwiftUI
 struct ReportsView: View {
     @Bindable var store: ActivityStore
     let selectedDay: Date
+    @State private var exportPeriod: ExportPeriod = .last7Days
 
     var body: some View {
         let report = store.weeklyReport(containing: selectedDay)
+        let hasExportableData = report.totalTrackedTime > 0
 
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
@@ -28,7 +30,7 @@ struct ReportsView: View {
                 )
                 breakdownCard(title: "Top apps", items: report.topApps.prefix(12).map { ($0.label, LuumFormatters.duration($0.duration), $0.category?.tint ?? LuumTheme.accent) })
                 breakdownCard(title: "Top sites", items: report.topSites.prefix(12).map { ($0.label, LuumFormatters.duration($0.duration), $0.category?.tint ?? LuumTheme.electricBlue) })
-                exportCard
+                exportCard(hasExportableData: hasExportableData)
             }
             .padding(28)
         }
@@ -170,24 +172,35 @@ struct ReportsView: View {
         .luumGlassCard(tint: LuumTheme.secondaryAccent.opacity(0.1), cornerRadius: 30)
     }
 
-    private var exportCard: some View {
+    private func exportCard(hasExportableData: Bool) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Exportação")
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.white)
 
-            Text("Os arquivos saem em `Downloads/luum-exports` para você usar em backup, análise externa ou IA.")
+            Text("Exporte as atividades brutas em CSV ou JSON para análise externa. O período define quantos dias entram no arquivo.")
                 .foregroundStyle(LuumTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 10) {
+                Picker("Período", selection: $exportPeriod) {
+                    ForEach(ExportPeriod.allCases, id: \.self) { period in
+                        Text(period.displayName).tag(period)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .fixedSize()
+                .disabled(store.isSendingWeeklyReportEmail)
+            }
+
+            HStack(spacing: 10) {
                 Button("Exportar JSON") {
-                    store.exportWeeklyReport(containing: selectedDay, format: .json)
+                    store.exportActivities(exportPeriod, format: .json)
                 }
                 .buttonStyle(.glassProminent)
 
                 Button("Exportar CSV") {
-                    store.exportWeeklyReport(containing: selectedDay, format: .csv)
+                    store.exportActivities(exportPeriod, format: .csv)
                 }
                 .buttonStyle(.borderedProminent)
 
@@ -195,7 +208,7 @@ struct ReportsView: View {
                     store.emailWeeklyReport(containing: selectedDay)
                 }
                 .buttonStyle(.bordered)
-                .disabled(store.isSendingWeeklyReportEmail || !store.canUse(.weeklyReportEmail))
+                .disabled(!hasExportableData || store.isSendingWeeklyReportEmail || !store.canUse(.weeklyReportEmail))
 
                 Button(store.isCheckingWeeklyReportEmailHealth ? "Verificando..." : "Verificar email/PDF") {
                     store.checkWeeklyReportEmailHealth()
@@ -215,6 +228,13 @@ struct ReportsView: View {
                 Text(exportStatusMessage)
                     .font(.caption)
                     .foregroundStyle(LuumTheme.textSecondary)
+            }
+
+            if !hasExportableData {
+                Text("Os exports ficam disponíveis quando a semana tiver ao menos alguma atividade capturada.")
+                    .font(.caption)
+                    .foregroundStyle(LuumTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(22)

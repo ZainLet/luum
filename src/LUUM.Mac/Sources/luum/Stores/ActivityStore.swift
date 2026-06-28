@@ -542,17 +542,29 @@ final class ActivityStore {
             ),
             OnboardingChecklistItem(
                 id: "google-client",
-                title: "Google Calendar pronto",
-                detail: isGoogleCalendarConnected ? "Pelo menos uma conta Google já está conectada." : "Clique para conectar a agenda com OAuth. O Luum busca a configuração pública no backend.",
+                title: isGoogleCalendarServerConfigured ? "Google Calendar pronto" : "Google Calendar",
+                detail: isGoogleCalendarConnected
+                    ? "Pelo menos uma conta Google já está conectada."
+                    : (
+                        isGoogleCalendarServerConfigured
+                            ? "Clique para conectar a agenda com OAuth. O Luum busca a configuração pública no backend."
+                            : "Aguardando configuração do servidor para liberar a conexão com um clique."
+                    ),
                 isDone: isGoogleCalendarConnected,
-                actionTitle: isGoogleCalendarConnected ? nil : "Conectar agenda"
+                actionTitle: isGoogleCalendarConnected ? nil : (isGoogleCalendarServerConfigured ? "Conectar agenda" : nil)
             ),
             OnboardingChecklistItem(
                 id: "google-account",
                 title: "Conta conectada",
-                detail: isGoogleCalendarConnected ? "Pelo menos uma conta Google já está conectada." : "Conecte uma conta para comparar o planejado com o tempo real.",
+                detail: isGoogleCalendarConnected
+                    ? "Pelo menos uma conta Google já está conectada."
+                    : (
+                        isGoogleCalendarServerConfigured
+                            ? "Conecte uma conta para comparar o planejado com o tempo real."
+                            : "A conexão vai aparecer aqui quando o OAuth do Google Calendar estiver publicado no servidor."
+                    ),
                 isDone: isGoogleCalendarConnected,
-                actionTitle: isGoogleCalendarConnected ? nil : "Conectar conta"
+                actionTitle: isGoogleCalendarConnected ? nil : (isGoogleCalendarServerConfigured ? "Conectar conta" : nil)
             ),
             OnboardingChecklistItem(
                 id: "notifications",
@@ -626,6 +638,14 @@ final class ActivityStore {
     var isGoogleCalendarConfigured: Bool {
         !googleCalendarClientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
             (publicIntegrationConfig?.googleCalendar.configured ?? false)
+    }
+
+    var isGoogleCalendarServerConfigured: Bool {
+        if let publicIntegrationConfig {
+            return publicIntegrationConfig.googleCalendar.configured ||
+                publicIntegrationConfig.managedOAuth.googleCalendar
+        }
+        return isGoogleCalendarConfigured
     }
 
     var isConnectingGoogleCalendar: Bool {
@@ -747,6 +767,7 @@ final class ActivityStore {
         keychainService.removeLegacySystemKeychainItems()
         startMaintenanceLoop()
         startSleepWakeObservers()
+        refreshPublicIntegrationConfig()
 
         if authSession != nil {
             refreshAccountStatus()
@@ -763,21 +784,27 @@ final class ActivityStore {
         sleepObserverTask = Task { @MainActor [weak self] in
             for await _ in workspaceNC.notifications(named: NSWorkspace.willSleepNotification) {
                 guard let self else { return }
-                if self.isMonitoring {
-                    self.monitoringPausedForSleep = true
-                    self.stopMonitoring()
-                }
+                self.handleSystemWillSleep()
             }
         }
         wakeObserverTask = Task { @MainActor [weak self] in
             for await _ in workspaceNC.notifications(named: NSWorkspace.didWakeNotification) {
                 guard let self else { return }
-                if self.monitoringPausedForSleep {
-                    self.monitoringPausedForSleep = false
-                    self.startMonitoring()
-                }
+                self.handleSystemDidWake()
             }
         }
+    }
+
+    func handleSystemWillSleep() {
+        guard isMonitoring else { return }
+        monitoringPausedForSleep = true
+        stopMonitoring()
+    }
+
+    func handleSystemDidWake() {
+        guard monitoringPausedForSleep else { return }
+        monitoringPausedForSleep = false
+        startMonitoring()
     }
 
     func startMonitoring() {
@@ -2048,9 +2075,7 @@ final class ActivityStore {
     func exportWeeklyReport(containing day: Date, format: ExportFormat) {
         let report = weeklyReport(containing: day)
         let fileManager = FileManager.default
-        let downloadsURL = fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent("Downloads", isDirectory: true)
-            .appendingPathComponent("luum-exports", isDirectory: true)
+        let downloadsURL = exportDirectory(fileManager: fileManager)
 
         do {
             try fileManager.createDirectory(at: downloadsURL, withIntermediateDirectories: true)
@@ -2058,42 +2083,167 @@ final class ActivityStore {
                 .replacingOccurrences(of: "/", with: "-")
                 .replacingOccurrences(of: " ", with: "-")
             let fileURL = downloadsURL.appendingPathComponent("luum-weekly-report-\(dateToken).\(format.fileExtension)")
-
-            switch format {
-            case .json:
-                let payload = WeeklyReportExportPayload(
-                    startDate: report.startDate,
-                    endDate: report.endDate,
-                    totalTrackedTime: report.totalTrackedTime,
-                    averageDailyTrackedTime: report.averageDailyTrackedTime,
-                    contextSwitches: report.contextSwitches,
-                    focusTime: report.focusTime,
-                    distractionTime: report.distractionTime,
-                    topCategories: report.topCategories.map { WeeklyExportBreakdown(label: $0.category.title, duration: $0.duration) },
-                    topApps: report.topApps.map { WeeklyExportBreakdown(label: $0.label, duration: $0.duration) },
-                    topSites: report.topSites.map { WeeklyExportBreakdown(label: $0.label, duration: $0.duration) },
-                    highlights: report.highlights
-                )
-                let encoder = JSONEncoder()
-                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                encoder.dateEncodingStrategy = .iso8601
-                let data = try encoder.encode(payload)
-                try data.write(to: fileURL, options: .atomic)
-            case .csv:
-                let header = "type,label,duration_minutes\n"
-                let categoryLines = report.topCategories.map { "category,\($0.category.title),\(Int(($0.duration / 60).rounded()))" }
-                let appLines = report.topApps.map { "app,\($0.label),\(Int(($0.duration / 60).rounded()))" }
-                let siteLines = report.topSites.map { "site,\($0.label),\(Int(($0.duration / 60).rounded()))" }
-                let csv = header + (categoryLines + appLines + siteLines).joined(separator: "\n")
-                guard let data = csv.data(using: .utf8) else {
-                    throw CocoaError(.fileWriteUnknown)
-                }
-                try data.write(to: fileURL, options: .atomic)
-            }
+            let data = try weeklyReportExportData(for: report, format: format)
+            try data.write(to: fileURL, options: .atomic)
 
             exportStatusMessage = "Exportado para \(fileURL.path)."
         } catch {
             exportStatusMessage = error.localizedDescription
+        }
+    }
+
+    func exportActivities(_ period: ExportPeriod, format: ExportFormat) {
+        guard canUse(.reports) else {
+            exportStatusMessage = lockMessage(for: .reports)
+            return
+        }
+
+        guard period != .allTime || canUse(.classification) else {
+            exportStatusMessage = lockMessage(for: .classification)
+            return
+        }
+
+        let calendar = Calendar.autoupdatingCurrent
+        let now = Date()
+        let fromDate: Date?
+        switch period {
+        case .today:
+            fromDate = calendar.startOfDay(for: now)
+        case .last7Days:
+            fromDate = calendar.date(byAdding: .day, value: -7, to: calendar.startOfDay(for: now))
+        case .allTime:
+            fromDate = nil
+        }
+
+        let filtered: [ActivitySample]
+        if let fromDate {
+            filtered = samples.filter { $0.startDate >= fromDate }
+        } else {
+            filtered = samples
+        }
+
+        guard !filtered.isEmpty else {
+            exportStatusMessage = "Nenhuma atividade no período selecionado."
+            return
+        }
+
+        let panel = NSSavePanel()
+        let dateToken = now.formatted(.dateTime.year().month().day()).replacingOccurrences(of: "/", with: "-")
+        panel.nameFieldStringValue = "atividade-luum-\(dateToken).\(format.fileExtension)"
+        panel.allowedContentTypes = format == .csv ? [.commaSeparatedText] : [.json]
+        panel.canCreateDirectories = true
+
+        guard panel.runModal() == .OK, let targetURL = panel.url else {
+            exportStatusMessage = "Exportação cancelada."
+            return
+        }
+
+        do {
+            let data = try activityExportData(samples: filtered, format: format)
+            try data.write(to: targetURL, options: .atomic)
+            exportStatusMessage = "Exportado para \(targetURL.path)."
+        } catch {
+            exportStatusMessage = error.localizedDescription
+        }
+    }
+
+    func exportDirectory(fileManager: FileManager = .default) -> URL {
+        fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent("Downloads", isDirectory: true)
+            .appendingPathComponent("luum-exports", isDirectory: true)
+    }
+
+    private func activityExportData(samples: [ActivitySample], format: ExportFormat) throws -> Data {
+        switch format {
+        case .json:
+            let payload = ActivityExportPayload(
+                exportedAt: Date(),
+                samples: samples.map { sample in
+                    let durationMinutes = sample.endDate.timeIntervalSince(sample.startDate) / 60
+                    return ActivityExportSample(
+                        startDate: sample.startDate,
+                        endDate: sample.endDate,
+                        applicationName: sample.applicationName,
+                        webDomain: sample.webDomain,
+                        categoryID: sample.manualCategoryID,
+                        durationMinutes: durationMinutes
+                    )
+                }
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            return try encoder.encode(payload)
+        case .csv:
+            let header = "data,hora_inicio,hora_fim,app,url,titulo,categoria,duracao_min\n"
+            let df = DateFormatter()
+            df.calendar = Calendar(identifier: .gregorian)
+            df.locale = Locale(identifier: "en_US_POSIX")
+            df.timeZone = .autoupdatingCurrent
+            df.dateFormat = "yyyy-MM-dd"
+            let tf = DateFormatter()
+            tf.calendar = Calendar(identifier: .gregorian)
+            tf.locale = Locale(identifier: "en_US_POSIX")
+            tf.timeZone = .autoupdatingCurrent
+            tf.dateFormat = "HH:mm"
+
+            let lines = samples.map { sample -> String in
+                let date = df.string(from: sample.startDate)
+                let start = tf.string(from: sample.startDate)
+                let end = tf.string(from: sample.endDate)
+                let app = csvEscape(sample.applicationName)
+                let url = csvEscape(sample.webDomain ?? sample.webURL ?? "")
+                let title = csvEscape(sample.pageTitle ?? "")
+                let cat = csvEscape(sample.manualCategoryID ?? "")
+                let duration = Int(sample.endDate.timeIntervalSince(sample.startDate) / 60)
+                return "\(date),\(start),\(end),\(app),\(url),\(title),\(cat),\(duration)"
+            }
+            let csv = header + lines.joined(separator: "\n")
+            guard let data = csv.data(using: .utf8) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            return data
+        }
+    }
+
+    private func csvEscape(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.contains(",") || trimmed.contains("\"") || trimmed.contains("\n") {
+            return "\"\(trimmed.replacingOccurrences(of: "\"", with: "\"\""))\""
+        }
+        return trimmed
+    }
+
+    func weeklyReportExportData(for report: WeeklyReport, format: ExportFormat) throws -> Data {
+        switch format {
+        case .json:
+            let payload = WeeklyReportExportPayload(
+                startDate: report.startDate,
+                endDate: report.endDate,
+                totalTrackedTime: report.totalTrackedTime,
+                averageDailyTrackedTime: report.averageDailyTrackedTime,
+                contextSwitches: report.contextSwitches,
+                focusTime: report.focusTime,
+                distractionTime: report.distractionTime,
+                topCategories: report.topCategories.map { WeeklyExportBreakdown(label: $0.category.title, duration: $0.duration) },
+                topApps: report.topApps.map { WeeklyExportBreakdown(label: $0.label, duration: $0.duration) },
+                topSites: report.topSites.map { WeeklyExportBreakdown(label: $0.label, duration: $0.duration) },
+                highlights: report.highlights
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            return try encoder.encode(payload)
+        case .csv:
+            let header = "type,label,duration_minutes\n"
+            let categoryLines = report.topCategories.map { "category,\($0.category.title),\(Int(($0.duration / 60).rounded()))" }
+            let appLines = report.topApps.map { "app,\($0.label),\(Int(($0.duration / 60).rounded()))" }
+            let siteLines = report.topSites.map { "site,\($0.label),\(Int(($0.duration / 60).rounded()))" }
+            let csv = header + (categoryLines + appLines + siteLines).joined(separator: "\n")
+            guard let data = csv.data(using: .utf8) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            return data
         }
     }
 
@@ -2997,6 +3147,19 @@ final class ActivityStore {
     }
 }
 
+#if DEBUG
+extension ActivityStore {
+    func setSleepWakeStateForTesting(isMonitoring: Bool, monitoringPausedForSleep: Bool) {
+        self.isMonitoring = isMonitoring
+        self.monitoringPausedForSleep = monitoringPausedForSleep
+    }
+
+    var monitoringPausedForSleepForTesting: Bool {
+        monitoringPausedForSleep
+    }
+}
+#endif
+
 private struct AggregateBucket {
     let label: String
     let secondaryLabel: String?
@@ -3033,6 +3196,20 @@ private struct WeeklyReportExportPayload: Codable {
     let topApps: [WeeklyExportBreakdown]
     let topSites: [WeeklyExportBreakdown]
     let highlights: [String]
+}
+
+private struct ActivityExportSample: Codable, Sendable {
+    let startDate: Date
+    let endDate: Date
+    let applicationName: String
+    let webDomain: String?
+    let categoryID: String?
+    let durationMinutes: TimeInterval
+}
+
+private struct ActivityExportPayload: Codable, Sendable {
+    let exportedAt: Date
+    let samples: [ActivityExportSample]
 }
 
 private extension String {

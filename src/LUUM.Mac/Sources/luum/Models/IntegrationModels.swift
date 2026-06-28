@@ -275,6 +275,16 @@ struct ZapierSettings: Codable, Hashable, Sendable {
     var sendsWorkspaceRankingEvents: Bool
     var lastDeliveryAt: Date?
 
+    private enum CodingKeys: String, CodingKey {
+        case isEnabled
+        case webhooks
+        case webhookURL
+        case sendsFocusEvents
+        case sendsCalendarSyncEvents
+        case sendsWorkspaceRankingEvents
+        case lastDeliveryAt
+    }
+
     var webhookURL: String {
         webhooks.first?.url ?? ""
     }
@@ -291,6 +301,49 @@ struct ZapierSettings: Codable, Hashable, Sendable {
         sendsWorkspaceRankingEvents: true,
         lastDeliveryAt: nil
     )
+
+    init(
+        isEnabled: Bool,
+        webhooks: [ZapierWebhook],
+        sendsFocusEvents: Bool,
+        sendsCalendarSyncEvents: Bool,
+        sendsWorkspaceRankingEvents: Bool,
+        lastDeliveryAt: Date?
+    ) {
+        self.isEnabled = isEnabled
+        self.webhooks = webhooks
+        self.sendsFocusEvents = sendsFocusEvents
+        self.sendsCalendarSyncEvents = sendsCalendarSyncEvents
+        self.sendsWorkspaceRankingEvents = sendsWorkspaceRankingEvents
+        self.lastDeliveryAt = lastDeliveryAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let legacyWebhookURL = try container.decodeIfPresent(String.self, forKey: .webhookURL)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        self.init(
+            isEnabled: try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? false,
+            webhooks: try container.decodeIfPresent([ZapierWebhook].self, forKey: .webhooks)
+                ?? legacyWebhookURL.flatMap { $0.isEmpty ? nil : [ZapierWebhook(url: $0)] }
+                ?? [],
+            sendsFocusEvents: try container.decodeIfPresent(Bool.self, forKey: .sendsFocusEvents) ?? true,
+            sendsCalendarSyncEvents: try container.decodeIfPresent(Bool.self, forKey: .sendsCalendarSyncEvents) ?? true,
+            sendsWorkspaceRankingEvents: try container.decodeIfPresent(Bool.self, forKey: .sendsWorkspaceRankingEvents) ?? true,
+            lastDeliveryAt: try container.decodeIfPresent(Date.self, forKey: .lastDeliveryAt)
+        )
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(isEnabled, forKey: .isEnabled)
+        try container.encode(webhooks, forKey: .webhooks)
+        try container.encode(sendsFocusEvents, forKey: .sendsFocusEvents)
+        try container.encode(sendsCalendarSyncEvents, forKey: .sendsCalendarSyncEvents)
+        try container.encode(sendsWorkspaceRankingEvents, forKey: .sendsWorkspaceRankingEvents)
+        try container.encodeIfPresent(lastDeliveryAt, forKey: .lastDeliveryAt)
+    }
 
     func normalized() -> ZapierSettings {
         ZapierSettings(
